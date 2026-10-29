@@ -5,6 +5,7 @@ import { SAMPLE_ADS_TEMPLATE, SAMPLE_COST_TEMPLATE, parseCostTemplate } from '..
 import { formatMoney, formatPct } from '../lib/format'
 import { proUnlockPaywallCopy } from '../lib/pricing'
 import { cn } from '../lib/cn'
+import { ClearSampleDataButton } from './ConfirmActions'
 import { PlatformImport } from './PlatformImport'
 import { SliderField } from './SliderField'
 import { Badge, Button, Card, SectionHeading } from './ui'
@@ -37,9 +38,14 @@ export function ProductWorkspace() {
     setAuthOpen,
     warnings,
     usingSampleData,
+    isEmptyShop,
+    sampleClearedNotice,
+    dismissSampleClearedNotice,
+    lines,
   } = useApp()
   const fileRef = useRef<HTMLInputElement>(null)
   const [csvMsg, setCsvMsg] = useState<string | null>(null)
+  const hasOwnData = lines.some((l) => !l.isSample) || costs.some((c) => !c.isSample)
 
   const freeTop = result.products.filter((p) => p.revenue > 0).slice(0, 10)
   const visibleProducts = plan === 'pro' ? result.products : freeTop
@@ -93,15 +99,20 @@ export function ProductWorkspace() {
         eyebrow="Inputs"
         title="Orders, costs & ads"
         description={
-          usingSampleData
-            ? 'Demo orders from Shopify, Amazon and Etsy are loaded so you can explore. Upload your own export or cost template when you’re ready.'
-            : 'Edit unit costs below, or upload a MarginOS cost template and fresh platform orders.'
+          isEmptyShop
+            ? 'Upload a Shopify, Amazon or Etsy export — or load sample data to explore the calculator.'
+            : usingSampleData
+              ? 'Sample orders from Shopify, Amazon and Etsy are loaded so you can explore. Upload your own export when you’re ready.'
+              : 'Edit unit costs below, or upload a MarginOS cost template and fresh platform orders.'
         }
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" onClick={loadSample}>
-              Load sample
-            </Button>
+            {!hasOwnData ? (
+              <Button variant="secondary" size="sm" onClick={loadSample}>
+                Load sample
+              </Button>
+            ) : null}
+            <ClearSampleDataButton />
             <Button
               variant="secondary"
               size="sm"
@@ -176,6 +187,29 @@ export function ProductWorkspace() {
 
       <PlatformImport />
 
+      {isEmptyShop ? (
+        <Card className="mb-4 border-accent/30 bg-accent-soft/30" id="empty-upload-prompt">
+          <p className="text-sm font-semibold text-ink">Upload your orders to get started</p>
+          <p className="mt-1 text-sm text-subtle">
+            Choose Shopify, Amazon or Etsy above and import your export. Loading sample data does
+            not use a Free upload.
+          </p>
+        </Card>
+      ) : null}
+
+      {sampleClearedNotice ? (
+        <p className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ok/30 bg-ok-soft px-3 py-2 text-sm text-ok">
+          <span>{sampleClearedNotice}</span>
+          <button
+            type="button"
+            className="font-semibold underline-offset-2 hover:underline"
+            onClick={dismissSampleClearedNotice}
+          >
+            Dismiss
+          </button>
+        </p>
+      ) : null}
+
       {csvMsg ? (
         <p className="mb-3 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-ink">{csvMsg}</p>
       ) : null}
@@ -208,6 +242,7 @@ export function ProductWorkspace() {
         />
       </div>
 
+      {isEmptyShop ? null : (
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
         <Card className="max-h-[560px] overflow-auto p-2 sm:p-3">
           <ul className="space-y-1">
@@ -348,6 +383,7 @@ export function ProductWorkspace() {
           </Card>
         ) : null}
       </div>
+      )}
     </section>
   )
 }

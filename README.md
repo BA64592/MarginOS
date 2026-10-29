@@ -2,7 +2,7 @@
 
 Premium diagnosis app for e-commerce sellers: true profit after product cost, shipping, ads, platform fees and returns — with a Margin Health Score (0–100), ranked leaks, recommendations, calculators, scenarios and PDF export.
 
-Built to **MarginOS Product Spec v16** (approved 29 October 2026).
+Built to **MarginOS Product Spec v16** with amendments **v16.1**, **v16.2** and **v16.3** (approved 29 October 2026).
 
 ## Run
 
@@ -37,12 +37,13 @@ npm run preview
 | Shopify / Amazon / Etsy CSV parsers | Sample order dataset + MarginOS cost/ads templates; exact platform columns logged in open questions |
 | ECB FX + full tax engine | Stubs / settings UI; full rate tables pending sign-off |
 
-Open questions: `docs/OPEN-QUESTIONS.md` (updated by amendment **v16.1**)  
+Open questions: `docs/OPEN-QUESTIONS.md`  
 Approved spec: `docs/MarginOS-Spec-v16-Final.pdf`  
-Amendment: `docs/MarginOS-Amendment-v16.1.pdf`  
+Amendments: `docs/MarginOS-Amendment-v16.1.pdf`, `docs/MarginOS-Amendment-v16.3.pdf`  
 Checklists: `docs/checklists/` (Stripe SMP, auth rules)
 
 **Decided (v16.2):** K2 Etsy digital manual; K3 fee presets signed off (Shopify Basic, Amazon 15%); K5 in-app auth + SES London.  
+**Decided (v16.3):** Clear sample data + Start fresh; **K7** auto-clear sample on first successful own upload.  
 **Pending Akthar:** K1 sample exports, K4 Stripe account, K6 Google Cloud project.
 
 ## Pricing (from spec)

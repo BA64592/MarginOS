@@ -130,7 +130,15 @@ export function Modal({
 }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation()
+          onClose()
+        }
+      }}
+    >
       <button
         type="button"
         aria-label="Close dialog"
@@ -153,6 +161,64 @@ export function Modal({
           </button>
         </div>
         {children}
+      </div>
+    </div>
+  )
+}
+
+/** Confirm dialog with Cancel as the safe default (v16.3). Escape / backdrop = Cancel. */
+export function ConfirmDialog({
+  open,
+  title,
+  children,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+  danger = false,
+}: {
+  open: boolean
+  title: string
+  children: ReactNode
+  confirmLabel: string
+  onCancel: () => void
+  onConfirm: () => void
+  danger?: boolean
+}) {
+  if (!open) return null
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation()
+          onCancel()
+        }
+      }}
+    >
+      <button
+        type="button"
+        aria-label="Cancel"
+        className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px]"
+        onClick={onCancel}
+      />
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        className="relative z-10 w-full max-w-md animate-fade-up rounded-2xl border border-border bg-elevated p-5 shadow-xl"
+      >
+        <h3 id="confirm-dialog-title" className="font-display text-lg font-semibold text-ink">
+          {title}
+        </h3>
+        <div className="mt-3 space-y-2 text-sm text-subtle">{children}</div>
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <Button autoFocus variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>
+            {confirmLabel}
+          </Button>
+        </div>
       </div>
     </div>
   )

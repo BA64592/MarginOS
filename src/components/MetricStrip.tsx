@@ -6,10 +6,21 @@ import { MathsDisclosure } from './MathsDisclosure'
 import { Card } from './ui'
 
 export function MetricStrip() {
-  const { result, currency } = useApp()
+  const { result, currency, usingSampleData, isEmptyShop } = useApp()
   const band = result.health.band
   const tone =
     band === 'Strong' ? 'ok' : band === 'Needs attention' ? 'warn' : band === 'At risk' ? 'danger' : 'neutral'
+
+  if (isEmptyShop) {
+    return (
+      <Card className="animate-fade-up">
+        <p className="text-sm font-semibold text-ink">No results yet</p>
+        <p className="mt-1 text-sm text-subtle">
+          Upload your orders to see true profit, net margin and Health Score.
+        </p>
+      </Card>
+    )
+  }
 
   const items = [
     {
@@ -47,7 +58,11 @@ export function MetricStrip() {
   ]
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="space-y-3">
+      {usingSampleData ? (
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-warn">Sample data</p>
+      ) : null}
+      <div className="grid gap-3 sm:grid-cols-3">
       {items.map((item, i) => (
         <Card key={item.label} className={cn('animate-fade-up', i === 1 && 'delay-75', i === 2 && 'delay-150')}>
           <div className="mb-3 flex items-center justify-between">
@@ -64,6 +79,7 @@ export function MetricStrip() {
           <MathsDisclosure lines={item.maths} />
         </Card>
       ))}
+      </div>
     </div>
   )
 }

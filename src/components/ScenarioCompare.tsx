@@ -25,6 +25,13 @@ function ScenarioInner() {
         Units sold stay the same (no demand modelling). Changing price holds ad spend per unit at the current
         amount.
       </p>
+      {!scenarios.length ? (
+        <Card>
+          <p className="text-sm text-subtle">
+            No scenarios yet. Add at least two after you upload orders (Start fresh clears these).
+          </p>
+        </Card>
+      ) : null}
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {scenarioResults.map(({ scenario, result }) => (
           <Card key={scenario.id}>

@@ -25,7 +25,8 @@ const COLORS = [
 ]
 
 export function CostCharts() {
-  const { result, currency } = useApp()
+  const { result, currency, usingSampleData, isEmptyShop } = useApp()
+  if (isEmptyShop) return null
   const t = result.totals
   const breakdown = [
     { name: 'Product + packaging', value: t.productPackagingCost },
@@ -48,7 +49,11 @@ export function CostCharts() {
       <SectionHeading
         eyebrow="Visuals"
         title="Where the money goes"
-        description="Cost mix and true profit by product for the current period."
+        description={
+          usingSampleData
+            ? 'Sample data — cost mix and true profit by product for the demo period.'
+            : 'Cost mix and true profit by product for the current period.'
+        }
       />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="h-[320px]">

@@ -1,13 +1,23 @@
 import { useApp } from '../context/AppContext'
 import type { HomeCurrency } from '../lib/types'
+import { StartFreshButton } from './ConfirmActions'
 import { Card, Input, SectionHeading } from './ui'
 import { ProGate } from './ProGate'
 
 const CURRENCIES: HomeCurrency[] = ['GBP', 'EUR', 'USD', 'CAD', 'AUD']
 
 export function SettingsBar() {
-  const { currency, setCurrency, tax, setTax, monthlyOverheads, setMonthlyOverheads, plan, exportDataCsv } =
-    useApp()
+  const {
+    currency,
+    setCurrency,
+    tax,
+    setTax,
+    monthlyOverheads,
+    setMonthlyOverheads,
+    plan,
+    exportDataCsv,
+    user,
+  } = useApp()
 
   return (
     <section>
@@ -125,6 +135,26 @@ export function SettingsBar() {
           </ProGate>
         </div>
       )}
+
+      <Card className="mt-4">
+        <p className="mb-1 text-sm font-semibold text-ink">Start fresh</p>
+        <p className="mb-3 text-sm text-subtle">
+          Delete all orders, costs, ads, overheads, scenarios and saved datasets from this shop.
+          Your account, sign-in{plan === 'pro' ? ', Pro licence' : ''} and settings stay. This is not
+          account deletion.
+        </p>
+        <StartFreshButton />
+      </Card>
+
+      <Card className="mt-4 border-dashed">
+        <p className="mb-1 text-sm font-semibold text-ink">Delete account</p>
+        <p className="text-sm text-subtle">
+          Permanently deleting your account is separate from Start fresh. It removes the account
+          itself (and Pro access) under the account-deletion rules — not available in this demo
+          build.
+          {user ? ` Signed in as ${user.email}.` : ' Sign in first when this ships.'}
+        </p>
+      </Card>
     </section>
   )
 }

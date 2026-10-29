@@ -46,6 +46,8 @@ export interface ProductCostRow {
   /** Per returned unit average return shipping / restocking. */
   returnCostPerReturnedUnit: number
   digital: boolean
+  /** Built-in demo row — removable without touching the user’s own data (v16.3). */
+  isSample?: boolean
 }
 
 export interface AdSpendEntry {
@@ -55,6 +57,8 @@ export interface AdSpendEntry {
   startDate: string
   endDate: string
   attributedRevenue?: number
+  /** Built-in demo ad row (v16.3). */
+  isSample?: boolean
 }
 
 export interface OrderLine {
@@ -97,6 +101,8 @@ export interface OrderLine {
   shippingCostAllocated: boolean
   refundAllocated: boolean
   refundUnitsEstimated: boolean
+  /** Built-in demo order line — removable without touching the user’s own data (v16.3). */
+  isSample?: boolean
 }
 
 export interface StorePeriod {
@@ -247,6 +253,24 @@ export interface AppPersistedState {
   earlyBirdSold: number
   licenceActive: boolean
   digitalListingSkus: string[]
-  /** True when the loaded orders/costs are the built-in demo set. */
+  /** True when any built-in sample rows are still loaded (v16.3). */
   usingSampleData?: boolean
+}
+
+/** Privacy-safe audit event for Clear sample data / Start fresh (v16.3 E7). */
+export interface DataActionEvent {
+  id: string
+  /** sample data cleared | sample data cleared (automatic) | start fresh */
+  eventType: 'sample data cleared' | 'sample data cleared (automatic)' | 'start fresh'
+  at: string
+  accountId: string | null
+  plan: Plan
+  deleted: {
+    orderLines: number
+    costRows: number
+    adRows: number
+    savedDatasets: number
+    scenarios: number
+    overheadsCleared: boolean
+  }
 }

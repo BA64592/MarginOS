@@ -623,8 +623,8 @@ export function buildSampleDataset(currency: HomeCurrency = 'GBP'): {
 
   const lines: OrderLine[] = []
   let id = 0
-  const pushLine = (partial: Omit<OrderLine, 'id'>) => {
-    lines.push({ ...partial, id: `line_${++id}` })
+  const pushLine = (partial: Omit<OrderLine, 'id' | 'isSample'>) => {
+    lines.push({ ...partial, id: `line_${++id}`, isSample: true })
   }
 
   // Acceptance §10.3.18 style product on Shopify — mug-like tee economics at scale
@@ -881,7 +881,11 @@ export function buildSampleDataset(currency: HomeCurrency = 'GBP'): {
   }
 
   // Keep store-level health in a credible range while leaving some Thin / Losing SKUs for demos.
-  return { lines, costs, adSpend: 1600 }
+  return {
+    lines,
+    costs: costs.map((c) => ({ ...c, isSample: true })),
+    adSpend: 1600,
+  }
 }
 
 export function applyScenarioToLines(

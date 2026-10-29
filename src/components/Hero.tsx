@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
 import { formatMoney } from '../lib/format'
 import { proHeroCta } from '../lib/pricing'
+import { ClearSampleDataButton } from './ConfirmActions'
 import { Badge, Button } from './ui'
 
 function scrollToUpload() {
@@ -13,7 +14,15 @@ function scrollToUpload() {
 }
 
 export function Hero() {
-  const { result, setUpgradeOpen, plan, currency, earlyBirdLeft, usingSampleData } = useApp()
+  const {
+    result,
+    setUpgradeOpen,
+    plan,
+    currency,
+    earlyBirdLeft,
+    usingSampleData,
+    isEmptyShop,
+  } = useApp()
 
   return (
     <section
@@ -52,24 +61,31 @@ export function Hero() {
               <Upload className="h-4 w-4" />
               Upload your orders
             </Button>
+            <ClearSampleDataButton />
           </div>
           <p className="mt-4 max-w-lg text-sm text-subtle">
-            {usingSampleData
-              ? 'You’re viewing sample data. Upload a Shopify, Amazon or Etsy export to see your real margins.'
-              : 'Upload a Shopify, Amazon or Etsy export anytime to refresh your numbers.'}
+            {isEmptyShop
+              ? 'No orders loaded yet. Upload a Shopify, Amazon or Etsy export to see true profit and leaks.'
+              : usingSampleData
+                ? 'You’re viewing sample data. Upload a Shopify, Amazon or Etsy export to see your real margins.'
+                : 'Upload a Shopify, Amazon or Etsy export anytime to refresh your numbers.'}
           </p>
           <p className="mt-6 flex flex-wrap items-center gap-2 text-sm text-subtle">
             {usingSampleData ? <Badge tone="warn">Sample data</Badge> : null}
-            <span>
-              <span className="font-semibold text-ink">
-                {formatMoney(result.totals.trueProfit, currency)}
-              </span>{' '}
-              true profit · score{' '}
-              <span className="font-semibold text-ink">{result.health.score ?? '—'}</span>
-              {earlyBirdLeft > 0 && plan === 'free' ? (
-                <span className="ml-2 text-accent">· {earlyBirdLeft} early-bird places left</span>
-              ) : null}
-            </span>
+            {isEmptyShop ? (
+              <span className="font-medium text-ink">Empty shop — upload to get started</span>
+            ) : (
+              <span>
+                <span className="font-semibold text-ink">
+                  {formatMoney(result.totals.trueProfit, currency)}
+                </span>{' '}
+                true profit · score{' '}
+                <span className="font-semibold text-ink">{result.health.score ?? '—'}</span>
+                {earlyBirdLeft > 0 && plan === 'free' ? (
+                  <span className="ml-2 text-accent">· {earlyBirdLeft} early-bird places left</span>
+                ) : null}
+              </span>
+            )}
           </p>
         </div>
       </div>

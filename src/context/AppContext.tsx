@@ -20,6 +20,7 @@ import {
   earlyBirdPlacesLeft,
   mockStartCheckout,
 } from '../lib/payments/provider'
+import { logDataAction } from '../lib/auditLog'
 import { loadState, saveState } from '../lib/storage'
 import type {
   AdSpendEntry,
@@ -35,6 +36,8 @@ import type {
   ScenarioAdjustments,
   TaxSettings,
 } from '../lib/types'
+
+const SAMPLE_CLEARED_NOTE = 'Sample data has been removed now that your own data is in.'
 
 const defaultTax: TaxSettings = {
   pricesIncludeTax: true,
@@ -56,6 +59,25 @@ function emptyAdj(): ScenarioAdjustments {
     returnRatePct: 0,
     shippingChargePct: 0,
     discountPct: 0,
+  }
+}
+
+function defaultScenarios(): Scenario[] {
+  return [
+    { id: createId('scn'), name: 'Current', adjustments: emptyAdj() },
+    {
+      id: createId('scn'),
+      name: 'Lower ads / fewer returns',
+      adjustments: { ...emptyAdj(), adSpendPct: -20, returnRatePct: -30 },
+    },
+  ]
+}
+
+function countSample(lines: OrderLine[], costs: ProductCostRow[], ads: AdSpendEntry[]) {
+  return {
+    orderLines: lines.filter((l) => l.isSample).length,
+    costRows: costs.filter((c) => c.isSample).length,
+    adRows: ads.filter((a) => a.isSample).length,
   }
 }
 
@@ -92,6 +114,11 @@ interface AppContextValue {
   feesComparable: boolean
   warnings: string[]
   usingSampleData: boolean
+  /** True when the shop has no own (non-sample) order lines. */
+  isEmptyShop: boolean
+  /** One-shot notice after automatic sample clear (v16.3 E9). */
+  sampleClearedNotice: string | null
+  dismissSampleClearedNotice: () => void
   setUpgradeOpen: (v: boolean) => void
   setAuthOpen: (v: boolean) => void
   setSelectedSku: (sku: string | null) => void
@@ -105,6 +132,10 @@ interface AppContextValue {
   verifyEmail: () => void
   signOut: () => void
   loadSample: () => void
+  /** Remove sample rows only — never uses a Free upload (v16.3 E2). */
+  clearSampleData: () => void
+  /** Delete all shop data; keep account, Pro and settings (v16.3 E3). */
+  startFresh: () => void
   recordSuccessfulUpload: () => boolean
   replaceOrders: (lines: OrderLine[]) => void
   importPlatformOrders: (
@@ -136,42 +167,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [tax, setTaxState] = useState<TaxSettings>(saved?.tax ?? defaultTax)
   const [targetMarginPct, setTargetMarginPct] = useState(saved?.targetMarginPct ?? 10)
   const [monthlyOverheads, setMonthlyOverheads] = useState(saved?.monthlyOverheads ?? 0)
-  const [costs, setCosts] = useState<ProductCostRow[]>(saved?.costs ?? sample.costs)
-  const [ads, setAds] = useState<AdSpendEntry[]>(
-    saved?.ads ?? [
-      {
-        id: createId('ad'),
-        channel: 'Blended',
-        amount: sample.adSpend,
-        startDate: '2026-09-01',
-        endDate: '2026-09-30',
-      },
-    ],
-  )
-  const [lines, setLines] = useState<OrderLine[]>(saved?.lines ?? sample.lines)
-  const [scenarios, setScenarios] = useState<Scenario[]>(
-    saved?.scenarios ?? [
-      { id: createId('scn'), name: 'Current', adjustments: emptyAdj() },
-      {
-        id: createId('scn'),
-        name: 'Lower ads / fewer returns',
-        adjustments: { ...emptyAdj(), adSpendPct: -20, returnRatePct: -30 },
-      },
-    ],
-  )
+  // Older saves may lack isSample; if flagged as sample data, mark every row (v16.3 E1).
+  const legacySample = saved?.usingSampleData === true || saved == null
+  const markSampleCosts = (rows: ProductCostRow[]) =>
+    legacySample ? rows.map((c) => ({ ...c, isSample: c.isSample ?? true })) : rows
+  const markSampleLines = (rows: OrderLine[]) =>
+    legacySample ? rows.map((l) => ({ ...l, isSample: l.isSample ?? true })) : rows
+  const initialCosts = markSampleCosts(saved?.costs ?? sample.costs.map((c) => ({ ...c, isSample: true })))
+  const initialLines = markSampleLines(saved?.lines ?? sample.lines.map((l) => ({ ...l, isSample: true })))
+  const initialAds: AdSpendEntry[] = saved?.ads
+    ? legacySample
+      ? saved.ads.map((a) => ({ ...a, isSample: a.isSample ?? true }))
+      : saved.ads
+    : [
+        {
+          id: createId('ad'),
+          channel: 'Blended',
+          amount: sample.adSpend,
+          startDate: '2026-09-01',
+          endDate: '2026-09-30',
+          isSample: true,
+        },
+      ]
+  const [costs, setCosts] = useState<ProductCostRow[]>(initialCosts)
+  const [ads, setAds] = useState<AdSpendEntry[]>(initialAds)
+  const [lines, setLines] = useState<OrderLine[]>(initialLines)
+  const [scenarios, setScenarios] = useState<Scenario[]>(saved?.scenarios ?? defaultScenarios())
   const [savedDatasets, setSavedDatasets] = useState<SavedDataset[]>(saved?.savedDatasets ?? [])
   const [uploadDay, setUploadDay] = useState(
     saved?.uploadDay ?? { dateKey: todayKey(saved?.user?.timeZone ?? 'Europe/London'), used: 0 },
   )
   const [earlyBirdSold, setEarlyBirdSold] = useState(saved?.earlyBirdSold ?? 0)
-  const [usingSampleData, setUsingSampleData] = useState(
-    saved?.usingSampleData ?? saved == null,
-  )
+  const [sampleClearedNotice, setSampleClearedNotice] = useState<string | null>(null)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const [selectedSku, setSelectedSku] = useState<string | null>(
     (saved?.costs ?? sample.costs)[0]?.sku ?? null,
   )
+
+  const usingSampleData =
+    lines.some((l) => l.isSample) || costs.some((c) => c.isSample) || ads.some((a) => a.isSample)
+  /** Empty starting state: no order lines (after Clear sample / Start fresh). */
+  const isEmptyShop = lines.length === 0
 
   const tz = user?.timeZone ?? 'Europe/London'
   const dayKey = todayKey(tz)
@@ -301,6 +338,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     feeMathsNotes: feeCmp.mathsNotes,
     warnings: result.warnings,
     usingSampleData,
+    isEmptyShop,
+    sampleClearedNotice,
+    dismissSampleClearedNotice: () => setSampleClearedNotice(null),
     setUpgradeOpen,
     setAuthOpen,
     setSelectedSku,
@@ -357,6 +397,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     signOut: () => setUser(null),
     loadSample: () => {
+      // Loading sample is not an upload (v16.3 E1). Only when the shop is empty / sample-only.
+      const hasOwn =
+        lines.some((l) => !l.isSample) ||
+        costs.some((c) => !c.isSample) ||
+        ads.some((a) => !a.isSample)
+      if (hasOwn) return
       const s = buildSampleDataset(currency)
       setLines(s.lines)
       setCosts(s.costs)
@@ -367,10 +413,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
           amount: s.adSpend,
           startDate: '2026-09-01',
           endDate: '2026-09-30',
+          isSample: true,
         },
       ])
       setSelectedSku(s.costs[0]?.sku ?? null)
-      setUsingSampleData(true)
+      setSampleClearedNotice(null)
+    },
+    clearSampleData: () => {
+      const counts = countSample(lines, costs, ads)
+      if (counts.orderLines + counts.costRows + counts.adRows === 0) return
+      const nextLines = lines.filter((l) => !l.isSample)
+      const nextCosts = costs.filter((c) => !c.isSample)
+      const nextAds = ads.filter((a) => !a.isSample)
+      setLines(nextLines)
+      setCosts(nextCosts)
+      setAds(nextAds)
+      setSelectedSku(nextCosts[0]?.sku ?? nextLines[0]?.sku ?? null)
+      setSampleClearedNotice(null)
+      logDataAction({
+        eventType: 'sample data cleared',
+        at: new Date().toISOString(),
+        accountId: user?.id ?? null,
+        plan,
+        deleted: {
+          orderLines: counts.orderLines,
+          costRows: counts.costRows,
+          adRows: counts.adRows,
+          savedDatasets: 0,
+          scenarios: 0,
+          overheadsCleared: false,
+        },
+      })
+    },
+    startFresh: () => {
+      const sampleCounts = countSample(lines, costs, ads)
+      const ownLines = lines.filter((l) => !l.isSample).length
+      const ownCosts = costs.filter((c) => !c.isSample).length
+      const ownAds = ads.filter((a) => !a.isSample).length
+      const datasetsN = savedDatasets.length
+      const scenariosN = scenarios.length
+      setLines([])
+      setCosts([])
+      setAds([])
+      setMonthlyOverheads(0)
+      setScenarios([])
+      setSavedDatasets([])
+      setSelectedSku(null)
+      setSampleClearedNotice(null)
+      // uploadDay intentionally unchanged (v16.3 E4)
+      logDataAction({
+        eventType: 'start fresh',
+        at: new Date().toISOString(),
+        accountId: user?.id ?? null,
+        plan,
+        deleted: {
+          orderLines: ownLines + sampleCounts.orderLines,
+          costRows: ownCosts + sampleCounts.costRows,
+          adRows: ownAds + sampleCounts.adRows,
+          savedDatasets: datasetsN,
+          scenarios: scenariosN,
+          overheadsCleared: monthlyOverheads > 0,
+        },
+      })
     },
     recordSuccessfulUpload: () => {
       if (plan === 'pro') return true
@@ -386,8 +490,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return true
     },
     replaceOrders: (next) => {
-      setLines(next)
-      setUsingSampleData(false)
+      const hadSample = usingSampleData
+      const counts = countSample(lines, costs, ads)
+      setLines(next.map((l) => ({ ...l, isSample: false })))
+      if (hadSample) {
+        setCosts((prev) => prev.filter((c) => !c.isSample))
+        setAds((prev) => prev.filter((a) => !a.isSample))
+        setSampleClearedNotice(SAMPLE_CLEARED_NOTE)
+        logDataAction({
+          eventType: 'sample data cleared (automatic)',
+          at: new Date().toISOString(),
+          accountId: user?.id ?? null,
+          plan,
+          deleted: {
+            orderLines: counts.orderLines,
+            costRows: counts.costRows,
+            adRows: counts.adRows,
+            savedDatasets: 0,
+            scenarios: 0,
+            overheadsCleared: false,
+          },
+        })
+      }
     },
     importPlatformOrders: (input) => {
       if (!user?.emailVerified) {
@@ -400,6 +524,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       const parsed = importPlatformFiles(input)
       if (!parsed.ok) {
+        // Failed upload leaves sample data in place (v16.3 E9)
         return { ok: false, message: parsed.errors.join(' ') || 'Import failed.' }
       }
       if (plan === 'free' && parsed.lines.length > 50000) {
@@ -411,22 +536,77 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (plan === 'free') {
         setUploadDay((d) => ({ dateKey: dayKey, used: d.dateKey === dayKey ? d.used + 1 : 1 }))
       }
-      setLines(parsed.lines)
-      setUsingSampleData(false)
-      if (parsed.ads.length) {
+      const hadSample = usingSampleData
+      const counts = countSample(lines, costs, ads)
+      const ownLines = parsed.lines.map((l) => ({ ...l, isSample: false as const }))
+      setLines(ownLines)
+      if (hadSample) {
+        setCosts((prev) => prev.filter((c) => !c.isSample))
+        setAds((prev) => {
+          const kept = prev.filter((a) => !a.isSample)
+          if (parsed.ads.length && plan === 'pro') return [...parsed.ads, ...kept]
+          return kept
+        })
+        setSampleClearedNotice(SAMPLE_CLEARED_NOTE)
+        logDataAction({
+          eventType: 'sample data cleared (automatic)',
+          at: new Date().toISOString(),
+          accountId: user?.id ?? null,
+          plan,
+          deleted: {
+            orderLines: counts.orderLines,
+            costRows: counts.costRows,
+            adRows: counts.adRows,
+            savedDatasets: 0,
+            scenarios: 0,
+            overheadsCleared: false,
+          },
+        })
+      } else if (parsed.ads.length) {
         setAds((prev) => (plan === 'pro' ? [...parsed.ads, ...prev] : prev))
       }
+      setSelectedSku(ownLines[0]?.sku ?? null)
       const msg = [
         `Imported ${parsed.summary.newRows ?? parsed.lines.length} lines.`,
+        hadSample ? SAMPLE_CLEARED_NOTE : null,
         ...parsed.warnings.slice(0, 3),
         ...parsed.mathsNotes.slice(0, 2),
-      ].join(' ')
+      ]
+        .filter(Boolean)
+        .join(' ')
       return { ok: true, message: msg }
     },
     replaceTemplate: (nextCosts, nextAds) => {
-      setCosts(nextCosts)
-      if (nextAds) setAds(nextAds)
-      setUsingSampleData(false)
+      const hadSample = usingSampleData
+      const counts = countSample(lines, costs, ads)
+      const ownCosts = nextCosts.map((c) => ({ ...c, isSample: false as const }))
+      setCosts(ownCosts)
+      if (hadSample) {
+        setLines((prev) => prev.filter((l) => !l.isSample))
+        if (nextAds) {
+          setAds(nextAds.map((a) => ({ ...a, isSample: false as const })))
+        } else {
+          setAds((prev) => prev.filter((a) => !a.isSample))
+        }
+        setSampleClearedNotice(SAMPLE_CLEARED_NOTE)
+        logDataAction({
+          eventType: 'sample data cleared (automatic)',
+          at: new Date().toISOString(),
+          accountId: user?.id ?? null,
+          plan,
+          deleted: {
+            orderLines: counts.orderLines,
+            costRows: counts.costRows,
+            adRows: counts.adRows,
+            savedDatasets: 0,
+            scenarios: 0,
+            overheadsCleared: false,
+          },
+        })
+      } else if (nextAds) {
+        setAds(nextAds.map((a) => ({ ...a, isSample: false as const })))
+      }
+      setSelectedSku(ownCosts[0]?.sku ?? null)
     },
     updateCost: (sku, patch) =>
       setCosts((prev) => prev.map((c) => (c.sku === sku ? { ...c, ...patch } : c))),
