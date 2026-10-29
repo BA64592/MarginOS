@@ -1,6 +1,8 @@
 /**
  * Auth provider layer (v16.1 A5) — tool-neutral interface.
- * Demo implementation only until Akthar chooses K5 (recommended: in-app library + SES London).
+ * Approved stack (v16.2 / K5): in-app open-source library + Amazon SES London.
+ * This file still runs the demo adapter until SES credentials and the library are wired on a host.
+ * Google sign-in waits on K6 (Google Cloud project).
  */
 export interface AuthSession {
   accountId: string

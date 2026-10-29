@@ -1,6 +1,6 @@
 /**
  * Etsy Orders + Order Items (+ optional Monthly Statement) — v16.1 A1.
- * Default: listings are physical unless user marks digital (K2 not approved).
+ * Digital stays manual (K2 / v16.2): physical unless the user marks the listing or shop as digital.
  */
 import { createId } from '../format'
 import { allocateByLineValue, roundMoney } from '../money'

@@ -293,7 +293,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     selectedSku,
     feesComparable: feeCmp.comparable,
     feeMathsNotes: feeCmp.mathsNotes,
-    warnings: [...result.warnings, ...feeCmp.mathsNotes.filter((n) => n.includes('DRAFT'))],
+    warnings: result.warnings,
     setUpgradeOpen,
     setAuthOpen,
     setSelectedSku,

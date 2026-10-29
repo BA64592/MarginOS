@@ -42,7 +42,8 @@ Approved spec: `docs/MarginOS-Spec-v16-Final.pdf`
 Amendment: `docs/MarginOS-Amendment-v16.1.pdf`  
 Checklists: `docs/checklists/` (Stripe SMP, auth rules)
 
-**Pending Akthar (v16.1 Part C):** K1 sample exports, K2 Etsy digital auto-detect, K3 fee preset sign-off, K4 Stripe account, K5 auth/email choice, K6 Google Cloud project.
+**Decided (v16.2):** K2 Etsy digital manual; K3 fee presets signed off (Shopify Basic, Amazon 15%); K5 in-app auth + SES London.  
+**Pending Akthar:** K1 sample exports, K4 Stripe account, K6 Google Cloud project.
 
 ## Pricing (from spec)
 

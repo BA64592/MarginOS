@@ -1,7 +1,7 @@
 /**
- * DRAFT fee presets from amendment v16.1 A2.
- * Status: pending Akthar sign-off (K3). Coded for development; labelled draft in UI/maths.
- * Sources checked by Business & Product 29 October 2026.
+ * Launch fee presets from amendment v16.1 A2 — signed off Akthar 29 Oct 2026 (v16.2 / K3).
+ * Shopify plan: Basic. Amazon referral compared to 15% Everything else.
+ * Sources checked by Business & Product 29 October 2026; recheck at least every 6 months.
  */
 import type { HomeCurrency, Platform } from '../types'
 
@@ -13,7 +13,7 @@ export interface FeePreset {
   platform: Platform
   region: FeeRegion
   feeType: ComparedFeeType
-  /** Shopify plan used for payment preset — Basic recommended (K3b, pending). */
+  /** Shopify plan used for payment preset — Basic (K3 / v16.2). */
   shopifyPlan?: 'Basic'
   percent: number
   fixedPerOrder: number
@@ -22,44 +22,45 @@ export interface FeePreset {
   notes?: string
   source: string
   asOf: string
-  status: 'draft'
+  status: 'approved'
 }
 
-/** Shopify Payments Basic plan — domestic online card (K3b recommendation). */
+/** Shopify Payments Basic plan — domestic online card (K3 signed off). */
 export const FEE_PRESETS: FeePreset[] = [
   // Shopify payment (Basic)
-  { platform: 'shopify', region: 'UK', feeType: 'payment', shopifyPlan: 'Basic', percent: 2.0, fixedPerOrder: 0.25, source: 'shopify.com/uk/pricing', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'shopify', region: 'EU', feeType: 'payment', shopifyPlan: 'Basic', percent: 2.0, fixedPerOrder: 0.25, notes: 'Ireland checked; other EU countries confirm per country page', source: 'shopify.com/ie/pricing', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'shopify', region: 'US', feeType: 'payment', shopifyPlan: 'Basic', percent: 2.9, fixedPerOrder: 0.3, source: 'shopify.com/pricing', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'shopify', region: 'CA', feeType: 'payment', shopifyPlan: 'Basic', percent: 2.8, fixedPerOrder: 0.3, source: 'shopify.com/ca/pricing', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'shopify', region: 'AU', feeType: 'payment', shopifyPlan: 'Basic', percent: 1.7, fixedPerOrder: 0.3, source: 'shopify.com/au/pricing', asOf: '2026-10-29', status: 'draft' },
+  { platform: 'shopify', region: 'UK', feeType: 'payment', shopifyPlan: 'Basic', percent: 2.0, fixedPerOrder: 0.25, source: 'shopify.com/uk/pricing', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'shopify', region: 'EU', feeType: 'payment', shopifyPlan: 'Basic', percent: 2.0, fixedPerOrder: 0.25, notes: 'Ireland checked; other EU countries confirm per country page', source: 'shopify.com/ie/pricing', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'shopify', region: 'US', feeType: 'payment', shopifyPlan: 'Basic', percent: 2.9, fixedPerOrder: 0.3, source: 'shopify.com/pricing', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'shopify', region: 'CA', feeType: 'payment', shopifyPlan: 'Basic', percent: 2.8, fixedPerOrder: 0.3, source: 'shopify.com/ca/pricing', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'shopify', region: 'AU', feeType: 'payment', shopifyPlan: 'Basic', percent: 1.7, fixedPerOrder: 0.3, source: 'shopify.com/au/pricing', asOf: '2026-10-29', status: 'approved' },
 
-  // Amazon referral — Everything else 15% (K3c recommended default)
-  { platform: 'amazon', region: 'UK', feeType: 'referral', percent: 15, fixedPerOrder: 0.25, notes: 'Everything else + £0.25 min; category note in Show the maths', source: 'Amazon UK referral fees', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'amazon', region: 'US', feeType: 'referral', percent: 15, fixedPerOrder: 0.3, notes: 'Everything else + $0.30 min', source: 'Amazon US referral fees', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'amazon', region: 'EU', feeType: 'referral', percent: 15, fixedPerOrder: 0.3, notes: 'Everything else + €0.30 min (DE schedule)', source: 'Amazon.de referral fees', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'amazon', region: 'CA', feeType: 'referral', percent: 15, fixedPerOrder: 0.4, source: 'Amazon CA referral fees', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'amazon', region: 'AU', feeType: 'referral', percent: 15, fixedPerOrder: 0, source: 'Amazon AU referral fees', asOf: '2026-10-29', status: 'draft' },
+  // Amazon referral — Everything else 15% (K3 signed off)
+  { platform: 'amazon', region: 'UK', feeType: 'referral', percent: 15, fixedPerOrder: 0.25, notes: 'Everything else + £0.25 min; category note in Show the maths', source: 'Amazon UK referral fees', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'amazon', region: 'US', feeType: 'referral', percent: 15, fixedPerOrder: 0.3, notes: 'Everything else + $0.30 min', source: 'Amazon US referral fees', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'amazon', region: 'EU', feeType: 'referral', percent: 15, fixedPerOrder: 0.3, notes: 'Everything else + €0.30 min (DE schedule)', source: 'Amazon.de referral fees', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'amazon', region: 'CA', feeType: 'referral', percent: 15, fixedPerOrder: 0.4, source: 'Amazon CA referral fees', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'amazon', region: 'AU', feeType: 'referral', percent: 15, fixedPerOrder: 0, source: 'Amazon AU referral fees', asOf: '2026-10-29', status: 'approved' },
 
   // Etsy
-  { platform: 'etsy', region: 'UK', feeType: 'referral', percent: 6.5, fixedPerOrder: 0, regulatoryPercent: 0.48, source: 'Etsy Fees and taxes / Regulatory operating fee', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'UK', feeType: 'payment', percent: 4, fixedPerOrder: 0.2, source: 'Etsy Payment processing fees', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'UK', feeType: 'listing', percent: 0, fixedPerOrder: 0.2, notes: '$0.20 per unit sold converted at ECB on order date', source: 'Etsy listing fee', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'EU', feeType: 'referral', percent: 6.5, fixedPerOrder: 0, regulatoryPercent: 0, notes: 'FR/IT/ES/HU regulatory % applied per country when known', source: 'Etsy Fees', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'EU', feeType: 'payment', percent: 4, fixedPerOrder: 0.3, source: 'Etsy Payment processing (euro)', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'EU', feeType: 'listing', percent: 0, fixedPerOrder: 0.2, source: 'Etsy listing fee', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'US', feeType: 'referral', percent: 6.5, fixedPerOrder: 0, source: 'Etsy Fees', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'US', feeType: 'payment', percent: 3, fixedPerOrder: 0.25, source: 'Etsy Payment processing', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'US', feeType: 'listing', percent: 0, fixedPerOrder: 0.2, source: 'Etsy listing fee', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'CA', feeType: 'referral', percent: 6.5, fixedPerOrder: 0, regulatoryPercent: 0.5, source: 'Etsy Fees', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'CA', feeType: 'payment', percent: 3, fixedPerOrder: 0.25, source: 'Etsy Payment processing CA', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'CA', feeType: 'listing', percent: 0, fixedPerOrder: 0.2, source: 'Etsy listing fee', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'AU', feeType: 'referral', percent: 6.5, fixedPerOrder: 0, source: 'Etsy Fees', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'AU', feeType: 'payment', percent: 3, fixedPerOrder: 0.25, source: 'Etsy Payment processing AU', asOf: '2026-10-29', status: 'draft' },
-  { platform: 'etsy', region: 'AU', feeType: 'listing', percent: 0, fixedPerOrder: 0.2, source: 'Etsy listing fee', asOf: '2026-10-29', status: 'draft' },
+  { platform: 'etsy', region: 'UK', feeType: 'referral', percent: 6.5, fixedPerOrder: 0, regulatoryPercent: 0.48, source: 'Etsy Fees and taxes / Regulatory operating fee', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'UK', feeType: 'payment', percent: 4, fixedPerOrder: 0.2, source: 'Etsy Payment processing fees', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'UK', feeType: 'listing', percent: 0, fixedPerOrder: 0.2, notes: '$0.20 per unit sold converted at ECB on order date', source: 'Etsy listing fee', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'EU', feeType: 'referral', percent: 6.5, fixedPerOrder: 0, regulatoryPercent: 0, notes: 'FR/IT/ES/HU regulatory % applied per country when known', source: 'Etsy Fees', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'EU', feeType: 'payment', percent: 4, fixedPerOrder: 0.3, source: 'Etsy Payment processing (euro)', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'EU', feeType: 'listing', percent: 0, fixedPerOrder: 0.2, source: 'Etsy listing fee', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'US', feeType: 'referral', percent: 6.5, fixedPerOrder: 0, source: 'Etsy Fees', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'US', feeType: 'payment', percent: 3, fixedPerOrder: 0.25, source: 'Etsy Payment processing', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'US', feeType: 'listing', percent: 0, fixedPerOrder: 0.2, source: 'Etsy listing fee', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'CA', feeType: 'referral', percent: 6.5, fixedPerOrder: 0, regulatoryPercent: 0.5, source: 'Etsy Fees', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'CA', feeType: 'payment', percent: 3, fixedPerOrder: 0.25, source: 'Etsy Payment processing CA', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'CA', feeType: 'listing', percent: 0, fixedPerOrder: 0.2, source: 'Etsy listing fee', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'AU', feeType: 'referral', percent: 6.5, fixedPerOrder: 0, source: 'Etsy Fees', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'AU', feeType: 'payment', percent: 3, fixedPerOrder: 0.25, source: 'Etsy Payment processing AU', asOf: '2026-10-29', status: 'approved' },
+  { platform: 'etsy', region: 'AU', feeType: 'listing', percent: 0, fixedPerOrder: 0.2, source: 'Etsy listing fee', asOf: '2026-10-29', status: 'approved' },
 ]
 
-export const FEE_PRESETS_PENDING_SIGNOFF = true
+export const FEE_PRESETS_PENDING_SIGNOFF = false
+export const FEE_PRESETS_SIGNED_OFF_ON = '2026-10-29'
 
 export function regionForCountry(country: string): FeeRegion {
   const c = country.toUpperCase()
@@ -97,7 +98,7 @@ export function compareFees(
   _currency: HomeCurrency,
 ): { comparable: boolean; excessPp: number | null; mathsNotes: string[] } {
   const mathsNotes: string[] = [
-    'Fee presets are DRAFT pending Akthar sign-off (v16.1 K3).',
+    'Fee presets signed off 29 Oct 2026 (v16.2): Shopify Basic; Amazon referral vs 15% Everything else.',
   ]
 
   if (!lines.length) return { comparable: false, excessPp: null, mathsNotes }
