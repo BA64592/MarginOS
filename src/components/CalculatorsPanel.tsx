@@ -13,8 +13,9 @@ export function CalculatorsPanel() {
   const calc = useMemo(() => {
     if (!product) return null
     const units = Math.max(1, product.unitsSold)
+    const unitCombined = product.productPackagingCost / units
     const input = {
-      unitCost: product.productPackagingCost / units - 0, // combined; split approximate
+      unitCost: unitCombined,
       packaging: 0,
       perUnitShippingCost: product.shippingCost / units,
       perUnitAdCost: product.adSpendShare / units,
@@ -24,18 +25,17 @@ export function CalculatorsPanel() {
       perUnitShippingCharged: product.shippingCharged / units,
       currentAveragePrice: product.revenue / units,
       targetMargin: targetMarginPct / 100,
+      currency,
     }
-    // Prefer unit+packaging from cost if available via product maths — use packaging 0 and unitCost as combined product+pack for calculator UX
-    const unitCombined = product.productPackagingCost / units
-    const target = calcTargetPrice({ ...input, unitCost: unitCombined, packaging: 0 })
-    const breakeven = calcBreakEvenPrice({ ...input, unitCost: unitCombined, packaging: 0 })
+    const target = calcTargetPrice(input)
+    const breakeven = calcBreakEvenPrice(input)
     const beRoas =
       product.contributionMarginPct <= 0
         ? 'not reachable'
         : 1 / (product.contributionMarginPct / 100)
     const beAcos = product.contributionMarginPct <= 0 ? null : product.contributionMarginPct
     return { target, breakeven, beRoas, beAcos, unitCombined }
-  }, [product, targetMarginPct])
+  }, [product, targetMarginPct, currency])
 
   if (!product || !calc) {
     return (

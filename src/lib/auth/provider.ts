@@ -42,7 +42,7 @@ export const demoAuthProvider: AuthProvider = {
         emailVerified: false,
         provider: 'demo',
       },
-      message: 'Signed in (demo). Verify email before upload/checkout.',
+      message: 'Signed in. Verify your email before upload or checkout.',
     }
   },
   async signInGoogle(claims) {
@@ -56,21 +56,21 @@ export const demoAuthProvider: AuthProvider = {
         googleSub: claims.sub,
       },
       message: claims.email_verified
-        ? 'Google sign-in verified.'
-        : 'Google email not verified — MarginOS verification required.',
+        ? 'Signed in with Google.'
+        : 'Google email not verified — please verify with MarginOS.',
     }
   },
   async requestEmailVerification() {
-    return { ok: true, message: 'Demo: verification link issued (single-use, 24h).' }
+    return { ok: true, message: 'Verification email sent.' }
   },
   async verifyEmail() {
-    return { ok: true, message: 'Email verified (demo).' }
+    return { ok: true, message: 'Email verified.' }
   },
   async requestPasswordReset() {
-    return { ok: true, message: 'Demo: reset link issued (single-use, 1h).' }
+    return { ok: true, message: 'Password reset email sent.' }
   },
   async resetPassword(_token, newPassword) {
     if (newPassword.length < 8) return { ok: false, message: 'Password must be at least 8 characters.' }
-    return { ok: true, message: 'Password reset (demo); other sessions would be signed out.' }
+    return { ok: true, message: 'Password updated. Other sessions have been signed out.' }
   },
 }

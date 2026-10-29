@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { SAMPLE_ADS_TEMPLATE, SAMPLE_COST_TEMPLATE, parseCostTemplate } from '../lib/csv/template'
 import { formatMoney, formatPct } from '../lib/format'
+import { proUnlockPaywallCopy } from '../lib/pricing'
 import { cn } from '../lib/cn'
 import { PlatformImport } from './PlatformImport'
 import { SliderField } from './SliderField'
@@ -256,7 +257,7 @@ export function ProductWorkspace() {
               ))}
             </div>
 
-            {plan === 'pro' ? (
+              {plan === 'pro' ? (
               <div className="mb-5 rounded-xl border border-accent/20 bg-accent-soft/40 px-3 py-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-accent">Target price</p>
                 <p className="mt-1 font-display text-xl font-semibold text-ink">
@@ -269,9 +270,9 @@ export function ProductWorkspace() {
               </div>
             ) : (
               <p className="mb-4 text-sm text-subtle">
-                Target price for every product is Pro.{' '}
+                Target price for every product is included with Pro.{' '}
                 <button type="button" className="font-semibold text-accent" onClick={() => setUpgradeOpen(true)}>
-                  Upgrade
+                  {proUnlockPaywallCopy(currency)}
                 </button>
               </p>
             )}

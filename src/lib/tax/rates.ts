@@ -76,7 +76,7 @@ export function rateForOrder(args: {
     return {
       rate: 0,
       row: null,
-      note: 'US sales tax is taken only from the export — no assumed rate (v16 §12.8 / v16.1 A3).',
+      note: 'US sales tax is taken only from the export — no rate is assumed.',
     }
   }
 
@@ -100,13 +100,13 @@ export function rateForOrder(args: {
     return {
       rate: 0,
       row: null,
-      note: `No built-in rate for ${country}${args.province ? '/' + args.province : ''} — use export tax or add TEDB row.`,
+      note: `No built-in rate for ${country}${args.province ? '/' + args.province : ''} — use the tax shown in your export.`,
     }
   }
 
   return {
     rate: row.rate,
     row,
-    note: `Used ${row.rateType} ${(row.rate * 100).toFixed(3)}% from ${row.source} (checked ${row.checkedOn}); valid from ${row.validFrom}. Estimates, not tax advice.`,
+    note: `Used ${row.rateType} ${(row.rate * 100).toFixed(1)}% (valid from ${row.validFrom}). Estimates, not tax advice.`,
   }
 }

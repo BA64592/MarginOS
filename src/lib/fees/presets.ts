@@ -97,9 +97,7 @@ export function compareFees(
   }[],
   _currency: HomeCurrency,
 ): { comparable: boolean; excessPp: number | null; mathsNotes: string[] } {
-  const mathsNotes: string[] = [
-    'Fee presets signed off 29 Oct 2026 (v16.2): Shopify Basic; Amazon referral vs 15% Everything else.',
-  ]
+  const mathsNotes: string[] = []
 
   if (!lines.length) return { comparable: false, excessPp: null, mathsNotes }
 
@@ -118,7 +116,7 @@ export function compareFees(
     )
     if (!allActual) {
       mathsNotes.push(
-        `${platform}: compared fee types not fully actual — Fees part / Fee drag stay off for these lines.`,
+        `${platform}: some fees are estimated, so the Fees score and Fee drag are not shown for these lines.`,
       )
       continue
     }
@@ -142,7 +140,7 @@ export function compareFees(
       }
       if (platform === 'amazon') {
         mathsNotes.push(
-          'Amazon referral rate depends on category (5–20%). Compared against 15% Everything else; if your category is above 15%, part of fee drag is the category standard rate (K3c).',
+          'Amazon referral rates vary by category (typically 5–20%). Comparison uses 15%; if your category is higher, part of any fee drag is that category’s standard rate.',
         )
       }
     }

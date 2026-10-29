@@ -9,8 +9,6 @@ export const en = {
   healthScore: 'Health score',
   netMargin: 'Net margin',
   upgradePro: 'Upgrade to Pro',
-  proPrice: '£59 lifetime',
-  earlyBirdPrice: '£39 early-bird',
   free: 'Free',
   pro: 'Pro',
   estimated: 'estimated',

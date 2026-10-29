@@ -1,6 +1,7 @@
 import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
 import { formatMoney } from '../lib/format'
+import { proHeroCta } from '../lib/pricing'
 import { Button } from './ui'
 
 export function Hero() {
@@ -28,12 +29,13 @@ export function Hero() {
             {en.tagline}
           </h2>
           <p className="mt-3 max-w-lg text-sm text-subtle sm:text-base">
-            True profit after product cost, shipping, ads, platform fees and returns — {en.positioning.toLowerCase()}
+            True profit after product cost, shipping, ads, platform fees and returns —{' '}
+            {en.positioning.toLowerCase()}
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {plan === 'free' ? (
               <Button onClick={() => setUpgradeOpen(true)}>
-                Get Pro · {earlyBirdLeft > 0 ? `${en.earlyBirdPrice}` : en.proPrice}
+                {proHeroCta(currency, earlyBirdLeft)}
               </Button>
             ) : (
               <Button variant="secondary">Pro unlocked</Button>

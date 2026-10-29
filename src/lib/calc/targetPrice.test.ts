@@ -17,6 +17,7 @@ const c18 = calcTargetPrice({
   returnCostRate: 0.05,
   targetMargin: 0.1,
   perUnitShippingCharged: 4,
+  currency: 'GBP',
 })
 if (c18.price !== 20) throw new Error(`c18 target price expected 20, got ${c18.price}`)
 
@@ -41,6 +42,7 @@ const c24 = calcTargetPrice({
   targetMargin: 0.1,
   perUnitShippingCharged: 0,
   platformMixLabel: '60% Shopify / 40% Amazon by revenue',
+  currency: 'GBP',
 })
 assertClose(c24.price!, 21.1, 'c24 target price')
 

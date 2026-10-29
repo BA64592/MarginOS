@@ -59,10 +59,9 @@ export function PlatformImport() {
 
   return (
     <Card className="mb-4">
-      <p className="mb-2 text-sm font-semibold text-ink">Platform order CSV (v16.1 A1 mappings)</p>
+      <p className="mb-2 text-sm font-semibold text-ink">Platform order CSV</p>
       <p className="mb-3 text-xs text-subtle">
-        Headers matched by name (case/space insensitive). Personal data columns are stripped. Columns marked
-        “confirm” in the amendment still need real export checks (K1).
+        Upload Shopify, Amazon or Etsy exports. Buyer personal data is removed on import.
         {plan === 'free' ? ` · ${uploadsLeft} of 3 uploads left today.` : ''}
       </p>
       <div className="mb-3 flex flex-wrap gap-2">

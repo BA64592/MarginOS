@@ -1,3 +1,4 @@
+import { formatMoney } from '../format'
 import { allocateByLineValue, roundMoney, roundPct, roundWholeCurrency } from '../money'
 import type {
   AnalysisResult,
@@ -11,6 +12,10 @@ import type {
 } from '../types'
 import { applyHighReturnsConfidencePenalty, calcHealth } from './health'
 import { calcTargetPrice } from './targetPrice'
+
+function money(value: number, currency: HomeCurrency, whole = false) {
+  return formatMoney(value, currency, whole)
+}
 
 const CURRENCY_WORD: Record<HomeCurrency, string> = {
   GBP: 'pound',
@@ -201,8 +206,8 @@ export function analyzeStore(args: {
       refundUnitsEstimated,
       costMissing,
       maths: {
-        revenue: `Revenue = product sales + shipping charged − discounts = ${revenue.toFixed(2)} (refunds counted in return cost, not here).`,
-        cm: `CM = revenue − product/packaging − shipping − fees − return cost = ${cm.toFixed(2)}.`,
+        revenue: `Revenue = product sales + shipping charged − discounts = ${money(revenue, args.currency)} (refunds counted in return cost, not here).`,
+        cm: `CM = revenue − product/packaging − shipping − fees − return cost = ${money(cm, args.currency)}.`,
       },
     })
   }
@@ -260,6 +265,7 @@ export function analyzeStore(args: {
       perUnitShippingCharged,
       currentAveragePrice: row.unitsSold > 0 ? row.revenue / row.unitsSold : undefined,
       platformMixLabel: mix || undefined,
+      currency: args.currency,
     })
 
     return {
@@ -272,7 +278,7 @@ export function analyzeStore(args: {
       targetPriceNote: target.note,
       maths: {
         ...row.maths,
-        net: `Net profit = CM − ad share = ${netProfit.toFixed(2)}.`,
+        net: `Net profit = CM − ad share = ${money(netProfit, args.currency)}.`,
         target: target.maths.join(' '),
         fees: `Percentage fees ${(percentageFees * 100).toFixed(2)}% of revenue (referral + payment + listing).`,
       },
@@ -398,7 +404,7 @@ function detectLeaks(args: {
         totals.contributionMarginPct <= 0
           ? `Fix pricing and costs first — every ad ${moneyWord} loses money.`
           : `Reduce or pause spend until ROAS reaches break-even ${typeof be === 'number' ? be.toFixed(2) : be}×.`,
-      maths: [`Impact = ad spend − max(CM, 0), scaled to 30 days → ${impact}.`],
+      maths: [`Impact = ad spend − max(CM, 0), scaled to 30 days → ${money(impact, currency, true)}.`],
     })
   }
 
@@ -431,13 +437,13 @@ function detectLeaks(args: {
       title: `High returns — ${p.name}`,
       description: `Unit return rate ${(p.unitReturnRate * 100).toFixed(1)}% (target ${(targetRate * 100).toFixed(1)}%).`,
       monthlyImpact: impact,
-      recommendation: `Review sizing, photos and descriptions; profit gained at the target rate ≈ ${impact} / month.`,
+      recommendation: `Review sizing, photos and descriptions; profit gained at the target rate ≈ ${money(impact, currency, true)} / month.`,
       productSku: p.sku,
       productName: p.name,
       estimated: p.refundUnitsEstimated,
       maths: [
         p.refundUnitsEstimated ? 'Units refunded estimated from refund amount.' : 'Units refunded from line data.',
-        `Impact = return cost × (1 − target ÷ product rate), ×30/days.`,
+        `Impact = return cost × (1 − target ÷ product rate), ×30/days → ${money(impact, currency, true)}.`,
       ],
     })
   }
@@ -465,17 +471,17 @@ function detectLeaks(args: {
       description:
         p.verdict === 'No revenue'
           ? 'Costs with no revenue in the period (samples/replacements).'
-          : `Net profit ${p.netProfit.toFixed(2)} (${p.netMarginPct.toFixed(1)}%).`,
+          : `Net profit ${money(p.netProfit, currency)} (${p.netMarginPct.toFixed(1)}%).`,
       monthlyImpact: monthlyLoss,
       recommendation:
         p.verdict === 'No revenue'
-          ? `Stop sending free samples/replacements or charge for them (monthly cost ≈ ${monthlyLoss}).`
+          ? `Stop sending free samples/replacements or charge for them (monthly cost ≈ ${money(monthlyLoss, currency, true)}).`
           : p.targetPrice != null && !p.targetPriceNote.startsWith('Current price')
-            ? `Raise price to ${p.targetPrice.toFixed(2)}, or discontinue.`
+            ? `Raise price to ${money(p.targetPrice, currency)}, or discontinue.`
             : p.targetPriceNote || 'Raise price or discontinue.',
       productSku: p.sku,
       productName: p.name,
-      maths: [`Monthly loss scaled to 30 days → ${monthlyLoss}.`],
+      maths: [`Monthly loss scaled to 30 days → ${money(monthlyLoss, currency, true)}.`],
     })
   }
 
@@ -492,8 +498,10 @@ function detectLeaks(args: {
         title: 'Shipping subsidy',
         description: `Net shipping is ${((totals.netShippingCost / totals.shippingEligibleRevenue) * 100).toFixed(1)}% of shipping-eligible revenue (trigger > 5%).`,
         monthlyImpact: impact,
-        recommendation: `Raise free-shipping threshold or add a shipping charge — about ${perOrder.toFixed(2)} to recover per order (monthly).`,
-        maths: [`Impact = net shipping − 5% of shipping-eligible revenue, ×30/days.`],
+        recommendation: `Raise free-shipping threshold or add a shipping charge — about ${money(perOrder, currency)} to recover per order (monthly).`,
+        maths: [
+          `Impact = net shipping − 5% of shipping-eligible revenue, ×30/days → ${money(impact, currency, true)}.`,
+        ],
       })
     }
   }
@@ -503,15 +511,14 @@ function detectLeaks(args: {
     const impact = roundWholeCurrency(
       scaleToMonth(((feesExcessPp - 0) / 100) * totals.revenue, days),
     )
-    // Spec: (actual fee % − matching preset fee %) × compared revenue — full excess over preset
     leaks.push({
       id: 'leak_fees',
       leakType: 'fee_drag',
       title: 'Fee drag',
       description: `Actual compared fees are ${feesExcessPp.toFixed(1)} pp above the matching preset.`,
       monthlyImpact: impact,
-      recommendation: `Review fee plan or payment settings — excess fees ≈ ${impact} / month.`,
-      maths: [`Impact = excess fee pp × revenue, scaled to 30 days.`],
+      recommendation: `Review fee plan or payment settings — excess fees ≈ ${money(impact, currency, true)} / month.`,
+      maths: [`Impact = excess fee pp × revenue, scaled to 30 days → ${money(impact, currency, true)}.`],
     })
   }
 
@@ -526,7 +533,7 @@ function detectLeaks(args: {
       p.targetPrice != null && p.targetPriceNote.startsWith('Current price')
         ? p.targetPriceNote
         : p.targetPrice != null
-          ? `Raise price to ${p.targetPrice.toFixed(2)}.`
+          ? `Raise price to ${money(p.targetPrice, currency)}.`
           : p.targetPriceNote
     leaks.push({
       id: `leak_thin_${p.sku}`,
@@ -537,7 +544,9 @@ function detectLeaks(args: {
       recommendation: raise,
       productSku: p.sku,
       productName: p.name,
-      maths: [`Impact = (target margin − product margin) × revenue, ×30/days.`],
+      maths: [
+        `Impact = (target margin − product margin) × revenue, ×30/days → ${money(impact, currency, true)}.`,
+      ],
     })
   }
 

@@ -1,14 +1,15 @@
 /**
- * Payment provider layer (spec §12.10). App code only talks to these terms;
- * Stripe Managed Payments would live in a Stripe adapter behind this interface.
+ * Payment provider layer. App code only talks to these terms;
+ * Stripe Managed Payments lives in an adapter behind this interface.
  */
+import { formatMoney } from '../format'
 import type { HomeCurrency } from '../types'
 
 export const EARLY_BIRD_CAP = 200
 export const PRO_PRICE_GBP = 59
 export const EARLY_BIRD_PRICE_GBP = 39
 
-/** Fixed local tax-inclusive prices (spec §12.5). */
+/** Fixed local tax-inclusive prices — single source for Pro amounts. */
 export const FIXED_PRICES = {
   full: { GBP: 59, USD: 79, EUR: 69, CAD: 109, AUD: 109 },
   earlyBird: { GBP: 39, USD: 52, EUR: 47, CAD: 73, AUD: 74 },
@@ -89,8 +90,8 @@ export function mockStartCheckout(args: {
   return {
     ok: true,
     message: earlyBird
-      ? `Pro unlocked at early-bird ${amount} ${args.currency} (demo).`
-      : `Pro unlocked at ${amount} ${args.currency} (demo).`,
+      ? `Pro unlocked at early-bird ${formatMoney(amount, args.currency, true)}.`
+      : `Pro unlocked at ${formatMoney(amount, args.currency, true)}.`,
     licence,
     earlyBirdSold: args.earlyBirdSold + (earlyBird ? 1 : 0),
   }

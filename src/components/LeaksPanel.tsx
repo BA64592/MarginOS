@@ -1,6 +1,7 @@
 import { ArrowDownRight } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { formatMoney } from '../lib/format'
+import { proUnlockPaywallCopy } from '../lib/pricing'
 import { Badge, Card, SectionHeading } from './ui'
 import { ProGate } from './ProGate'
 import { MathsDisclosure } from './MathsDisclosure'
@@ -17,7 +18,7 @@ export function LeaksPanel() {
         title="Ranked by monthly impact"
         description={
           plan === 'pro'
-            ? 'Every launch leak (§12.3) with impact in your home currency — no summed total.'
+            ? 'Every leak with impact in your home currency, ranked largest first.'
             : 'Free shows top 3 leaks without money impact. Amounts unlock in Pro.'
         }
       />
@@ -54,10 +55,12 @@ export function LeaksPanel() {
                   <button
                     type="button"
                     onClick={() => setUpgradeOpen(true)}
-                    className="shrink-0 rounded-xl border border-dashed border-border bg-muted/60 px-3 py-2 text-left text-xs text-subtle"
+                    className="shrink-0 max-w-[14rem] rounded-xl border border-dashed border-border bg-muted/60 px-3 py-2 text-left text-xs text-subtle"
                   >
                     Impact locked
-                    <span className="mt-1 block font-semibold text-accent">Unlock with Pro</span>
+                    <span className="mt-1 block font-semibold text-accent">
+                      {proUnlockPaywallCopy(currency)}
+                    </span>
                   </button>
                 )}
               </div>

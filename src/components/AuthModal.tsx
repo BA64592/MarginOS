@@ -8,27 +8,17 @@ export function AuthModal() {
   const [password, setPassword] = useState('password123')
 
   return (
-    <Modal
-      open={authOpen}
-      onClose={() => setAuthOpen(false)}
-      title={user ? 'Account' : 'Sign in'}
-    >
+    <Modal open={authOpen} onClose={() => setAuthOpen(false)} title={user ? 'Account' : 'Sign in'}>
       {user ? (
         <div className="space-y-3 text-sm">
           <p className="text-ink">
-            Signed in as <span className="font-semibold">{user.email}</span> ({user.authProvider})
+            Signed in as <span className="font-semibold">{user.email}</span>
           </p>
           <p className="text-subtle">
             Email verified: {user.emailVerified ? 'Yes' : 'No'} · Time zone: {user.timeZone}
           </p>
           {!user.emailVerified ? (
-            <Button
-              onClick={() => {
-                verifyEmail()
-              }}
-            >
-              Send verification (demo: mark verified)
-            </Button>
+            <Button onClick={() => verifyEmail()}>Resend verification email</Button>
           ) : null}
           <Button variant="secondary" onClick={signOut}>
             Sign out
@@ -51,20 +41,9 @@ export function AuthModal() {
           <Button className="w-full" onClick={() => signInEmail(email, password)}>
             Continue with email
           </Button>
-          <Button
-            variant="secondary"
-            className="w-full"
-            onClick={() => signInGoogle(true)}
-          >
-            Continue with Google (verified)
+          <Button variant="secondary" className="w-full" onClick={() => signInGoogle(true)}>
+            Continue with Google
           </Button>
-          <Button variant="ghost" className="w-full" onClick={() => signInGoogle(false)}>
-            Google without verified email (demo)
-          </Button>
-          <p className="text-xs text-subtle">
-            Demo auth only. Launch uses email/password + Google; Google counts as verified only when
-            email_verified is true.
-          </p>
         </div>
       )}
     </Modal>

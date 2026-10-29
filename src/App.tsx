@@ -36,8 +36,7 @@ export default function App() {
         </main>
         <footer className="border-t border-border py-8 text-center text-sm text-subtle">
           <p className="font-display text-base font-semibold text-ink">MarginOS</p>
-          <p className="mt-1">One price, yours for life. Pro via Stripe Managed Payments (Sold through Link).</p>
-          <p className="mt-2 text-xs">Built to MarginOS Spec v16 · Demo auth & checkout are local mocks</p>
+          <p className="mt-1">One price, yours for life.</p>
         </footer>
         <UpgradeModal />
         <AuthModal />

@@ -224,7 +224,7 @@ export function applyShopifyPaymentFees(
   }
 
   const mathsNote =
-    'Shopify Payments Fee may include international and conversion charges; recorded wholly as payment processing (v16.1 A1).'
+    'Shopify Payments fee may include international and conversion charges; shown wholly as payment processing.'
 
   const next = lines.map((l) => ({ ...l }))
   const byOrder = new Map<string, OrderLine[]>()

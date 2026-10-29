@@ -2,7 +2,7 @@ import { FileDown, Moon, Sparkles, Sun, User } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
 import { exportPdfReport } from '../lib/pdf'
-import { earlyBirdPlacesLeft } from '../lib/payments/provider'
+import { proShortCta } from '../lib/pricing'
 import { Badge, Button } from './ui'
 
 export function Header() {
@@ -17,7 +17,7 @@ export function Header() {
     result,
     scenarioResults,
     currency,
-    earlyBirdSold,
+    earlyBirdLeft,
   } = useApp()
 
   return (
@@ -71,9 +71,7 @@ export function Header() {
           {plan === 'free' ? (
             <Button size="sm" onClick={() => setUpgradeOpen(true)}>
               <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">
-                Pro · {earlyBirdPlacesLeft(earlyBirdSold) > 0 ? en.earlyBirdPrice : en.proPrice}
-              </span>
+              <span className="hidden sm:inline">{proShortCta(currency, earlyBirdLeft)}</span>
               <span className="sm:hidden">Pro</span>
             </Button>
           ) : (
@@ -91,7 +89,6 @@ export function Header() {
           </button>
         </div>
       ) : null}
-      {/* Language selector present but hidden until a second language exists (§4) */}
       <select className="hidden" aria-hidden="true" defaultValue="en">
         <option value="en">English</option>
       </select>

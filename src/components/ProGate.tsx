@@ -2,6 +2,7 @@ import { Lock } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useApp } from '../context/AppContext'
 import { cn } from '../lib/cn'
+import { proUnlockPaywallCopy } from '../lib/pricing'
 import { Button } from './ui'
 
 export function ProGate({
@@ -15,7 +16,7 @@ export function ProGate({
   className?: string
   compact?: boolean
 }) {
-  const { plan, setUpgradeOpen } = useApp()
+  const { plan, setUpgradeOpen, currency } = useApp()
 
   if (plan === 'pro') return <>{children}</>
 
@@ -35,10 +36,10 @@ export function ProGate({
             {label}
           </div>
           {!compact ? (
-            <p className="mb-3 text-sm text-subtle">
-              Unlock with Pro for £19 lifetime — no subscription.
-            </p>
-          ) : null}
+            <p className="mb-3 text-sm text-subtle">{proUnlockPaywallCopy(currency)}</p>
+          ) : (
+            <p className="mb-2 text-xs text-subtle">{proUnlockPaywallCopy(currency)}</p>
+          )}
           <Button size="sm" onClick={() => setUpgradeOpen(true)}>
             Upgrade to Pro
           </Button>
