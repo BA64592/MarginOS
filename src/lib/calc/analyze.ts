@@ -848,7 +848,8 @@ export function buildSampleDataset(currency: HomeCurrency = 'GBP'): {
     )
   }
 
-  return { lines, costs, adSpend: 4200 }
+  // Keep store-level health in a credible range while leaving some Thin / Losing SKUs for demos.
+  return { lines, costs, adSpend: 1600 }
 }
 
 export function applyScenarioToLines(

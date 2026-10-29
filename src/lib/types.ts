@@ -228,7 +228,7 @@ export interface UploadDayState {
 }
 
 export interface AppPersistedState {
-  version: 2
+  version: 3
   plan: Plan
   theme: 'light' | 'dark'
   currency: HomeCurrency
