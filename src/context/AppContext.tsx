@@ -224,7 +224,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const state: AppPersistedState = {
-      version: 3,
+      version: 4,
       plan,
       theme,
       currency,
