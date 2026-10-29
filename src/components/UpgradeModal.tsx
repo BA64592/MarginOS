@@ -13,6 +13,7 @@ import {
 import { Button, Input, Modal } from './ui'
 
 const PERKS = [
+  'Keep your data, saved datasets and history',
   'Unlimited uploads, products and saved datasets',
   'Health Score breakdown by part',
   'Every leak ranked by impact in your currency',
@@ -78,6 +79,10 @@ export function UpgradeModal() {
         </Button>
       </div>
       <p className="mt-3 text-xs text-subtle">
+        Free uploads are deleted after 24 hours, and original files are deleted as soon as they&apos;re
+        imported. Upgrading within 24 hours keeps your Free data in Pro.
+      </p>
+      <p className="mt-2 text-xs text-subtle">
         14-day money-back guarantee. Sold through Link. Bank statements show LINK.COM* MARGINOS.
       </p>
     </Modal>

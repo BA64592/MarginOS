@@ -6,6 +6,7 @@ import { formatMoney, formatPct } from '../lib/format'
 import { proUnlockPaywallCopy } from '../lib/pricing'
 import { cn } from '../lib/cn'
 import { ClearSampleDataButton } from './ConfirmActions'
+import { FreeRetentionBanner } from './FreeRetentionBanner'
 import { PlatformImport } from './PlatformImport'
 import { SliderField } from './SliderField'
 import { Badge, Button, Card, SectionHeading } from './ui'
@@ -183,6 +184,10 @@ export function ProductWorkspace() {
         >
           Ads template
         </button>
+      </div>
+
+      <div className="mb-4">
+        <FreeRetentionBanner />
       </div>
 
       <PlatformImport />

@@ -17,7 +17,19 @@ export function SettingsBar() {
     plan,
     exportDataCsv,
     user,
+    keptProData,
+    setUpgradeOpen,
   } = useApp()
+
+  const downloadCsv = () => {
+    const blob = new Blob([exportDataCsv()], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'marginos-data-export.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <section>
@@ -56,18 +68,13 @@ export function SettingsBar() {
             <button
               type="button"
               className="text-sm font-semibold text-accent underline-offset-2 hover:underline"
-              onClick={() => {
-                const blob = new Blob([exportDataCsv()], { type: 'text/csv' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = 'marginos-data-export.csv'
-                a.click()
-                URL.revokeObjectURL(url)
-              }}
+              onClick={downloadCsv}
             >
               Download my data (CSV)
             </button>
+            <p className="mt-1 text-xs text-subtle">
+              Cleaned order rows and costs only — never the original upload file.
+            </p>
           </div>
         </div>
       </Card>
@@ -136,12 +143,39 @@ export function SettingsBar() {
         </div>
       )}
 
+      {keptProData && plan === 'free' ? (
+        <Card className="mt-4 border-accent/30 bg-accent-soft/30">
+          <p className="mb-1 text-sm font-semibold text-ink">Previous Pro data kept (export only)</p>
+          <p className="mb-3 text-sm text-subtle">
+            After a refund or chargeback your Pro shop is held until you Start fresh or delete the
+            account. It does not appear in results while you&apos;re on Free. Re-activate Pro to
+            restore it unchanged.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="text-sm font-semibold text-accent underline-offset-2 hover:underline"
+              onClick={downloadCsv}
+            >
+              Download kept data (CSV)
+            </button>
+            <button
+              type="button"
+              className="text-sm font-semibold text-accent underline-offset-2 hover:underline"
+              onClick={() => setUpgradeOpen(true)}
+            >
+              Restore with Pro
+            </button>
+          </div>
+        </Card>
+      ) : null}
+
       <Card className="mt-4">
         <p className="mb-1 text-sm font-semibold text-ink">Start fresh</p>
         <p className="mb-3 text-sm text-subtle">
-          Delete all orders, costs, ads, overheads, scenarios and saved datasets from this shop.
-          Your account, sign-in{plan === 'pro' ? ', Pro licence' : ''} and settings stay. This is not
-          account deletion.
+          Delete all orders, costs, ads, overheads, scenarios and saved datasets from this shop
+          {keptProData ? ', including any kept ex-Pro data' : ''}. Your account, sign-in
+          {plan === 'pro' ? ', Pro licence' : ''} and settings stay. This is not account deletion.
         </p>
         <StartFreshButton />
       </Card>

@@ -21,13 +21,23 @@ import {
   mockStartCheckout,
 } from '../lib/payments/provider'
 import { logDataAction } from '../lib/auditLog'
+import {
+  earliestClock,
+  formatDeletionTime,
+  isExpired,
+  pauseClocks,
+  resumeOrCancelClocks,
+  upsertClock,
+} from '../lib/retention'
 import { loadState, saveState } from '../lib/storage'
 import type {
   AdSpendEntry,
   AnalysisResult,
   AppPersistedState,
   AuthUser,
+  FreeRetentionClock,
   HomeCurrency,
+  KeptProData,
   OrderLine,
   Plan,
   ProductCostRow,
@@ -119,6 +129,15 @@ interface AppContextValue {
   /** One-shot notice after automatic sample clear (v16.3 E9). */
   sampleClearedNotice: string | null
   dismissSampleClearedNotice: () => void
+  /** Free 24h clocks (v16.4). Empty for Pro / sample-only. */
+  freeClocks: FreeRetentionClock[]
+  /** Earliest Free clock still running, if any. */
+  earliestFreeClock: FreeRetentionClock | null
+  freeDataDeletedNotice: string | null
+  dismissFreeDataDeletedNotice: () => void
+  keptProData: KeptProData | null
+  paymentPending: boolean
+  setPaymentPending: (v: boolean) => void
   setUpgradeOpen: (v: boolean) => void
   setAuthOpen: (v: boolean) => void
   setSelectedSku: (sku: string | null) => void
@@ -199,6 +218,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
   const [earlyBirdSold, setEarlyBirdSold] = useState(saved?.earlyBirdSold ?? 0)
   const [sampleClearedNotice, setSampleClearedNotice] = useState<string | null>(null)
+  const [freeClocks, setFreeClocks] = useState<FreeRetentionClock[]>(
+    saved?.plan === 'pro' ? [] : (saved?.freeClocks ?? []),
+  )
+  const [freeDataDeletedNotice, setFreeDataDeletedNotice] = useState<string | null>(
+    saved?.freeDataDeletedNotice ?? null,
+  )
+  const [keptProData, setKeptProData] = useState<KeptProData | null>(saved?.keptProData ?? null)
+  const [paymentPending, setPaymentPending] = useState(saved?.paymentPending ?? false)
+  const [nowTick, setNowTick] = useState(() => Date.now())
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const [selectedSku, setSelectedSku] = useState<string | null>(
@@ -209,6 +237,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lines.some((l) => l.isSample) || costs.some((c) => c.isSample) || ads.some((a) => a.isSample)
   /** Empty starting state: no order lines (after Clear sample / Start fresh). */
   const isEmptyShop = lines.length === 0
+  const earliestFreeClock =
+    plan === 'free' && !usingSampleData ? earliestClock(freeClocks, nowTick) : null
 
   const tz = user?.timeZone ?? 'Europe/London'
   const dayKey = todayKey(tz)
@@ -223,8 +253,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [theme])
 
   useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    if (plan !== 'free') return
+    setFreeClocks((prev) => {
+      if (paymentPending) return pauseClocks(prev)
+      return resumeOrCancelClocks(prev, { cancel: false })
+    })
+  }, [paymentPending, plan])
+
+  useEffect(() => {
+    if (plan !== 'free' || !freeClocks.length) return
+    const expired = freeClocks.filter((c) => isExpired(c, nowTick))
+    if (!expired.length) return
+    const expiredKinds = new Set(expired.map((c) => c.kind))
+    if (expiredKinds.has('orders')) {
+      setLines((prev) => prev.filter((l) => l.isSample))
+    }
+    if (expiredKinds.has('template') || expiredKinds.has('manual')) {
+      setCosts((prev) => prev.filter((c) => c.isSample))
+      setAds((prev) => prev.filter((a) => a.isSample))
+    }
+    setFreeClocks((prev) => prev.filter((c) => !isExpired(c, nowTick)))
+    setSelectedSku(null)
+    setFreeDataDeletedNotice(
+      'Your Free data was deleted after 24 hours. Upload again, or upgrade to Pro to keep your data.',
+    )
+  }, [nowTick, plan, freeClocks])
+
+  useEffect(() => {
     const state: AppPersistedState = {
-      version: 4,
+      version: 5,
       plan,
       theme,
       currency,
@@ -244,6 +306,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       licenceActive: plan === 'pro',
       digitalListingSkus: costs.filter((c) => c.digital).map((c) => c.sku),
       usingSampleData,
+      freeClocks: plan === 'free' ? freeClocks : [],
+      freeDataDeletedNotice,
+      keptProData,
+      paymentPending,
     }
     saveState(state)
   }, [
@@ -262,6 +328,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     uploadDay,
     earlyBirdSold,
     usingSampleData,
+    freeClocks,
+    freeDataDeletedNotice,
+    keptProData,
+    paymentPending,
   ])
 
   const adSpendTotal = ads.reduce((s, a) => s + a.amount, 0)
@@ -341,6 +411,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isEmptyShop,
     sampleClearedNotice,
     dismissSampleClearedNotice: () => setSampleClearedNotice(null),
+    freeClocks,
+    earliestFreeClock,
+    freeDataDeletedNotice,
+    dismissFreeDataDeletedNotice: () => setFreeDataDeletedNotice(null),
+    keptProData,
+    paymentPending,
+    setPaymentPending,
     setUpgradeOpen,
     setAuthOpen,
     setSelectedSku,
@@ -460,6 +537,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSavedDatasets([])
       setSelectedSku(null)
       setSampleClearedNotice(null)
+      setFreeClocks([])
+      setFreeDataDeletedNotice(null)
+      setKeptProData(null) // K8 / 15.E: Start fresh also deletes kept ex-Pro data
       // uploadDay intentionally unchanged (v16.3 E4)
       logDataAction({
         eventType: 'start fresh',
@@ -540,6 +620,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const counts = countSample(lines, costs, ads)
       const ownLines = parsed.lines.map((l) => ({ ...l, isSample: false as const }))
       setLines(ownLines)
+      setFreeDataDeletedNotice(null)
+      const nextClocks = plan === 'free' ? upsertClock(freeClocks, 'orders') : freeClocks
+      if (plan === 'free') setFreeClocks(nextClocks)
+      const ordersClock = nextClocks.find((c) => c.kind === 'orders') ?? null
       if (hadSample) {
         setCosts((prev) => prev.filter((c) => !c.isSample))
         setAds((prev) => {
@@ -566,8 +650,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAds((prev) => (plan === 'pro' ? [...parsed.ads, ...prev] : prev))
       }
       setSelectedSku(ownLines[0]?.sku ?? null)
+      // Raw file never stored after import (v16.4 F5)
+      const deletionNote =
+        plan === 'free' && ordersClock
+          ? `Free data deleted ${formatDeletionTime(ordersClock.expiresAt, tz)} (${tz}).`
+          : plan === 'free'
+            ? 'Free uploads are deleted after 24 hours.'
+            : null
       const msg = [
         `Imported ${parsed.summary.newRows ?? parsed.lines.length} lines.`,
+        'Original file deleted after import.',
+        deletionNote,
         hadSample ? SAMPLE_CLEARED_NOTE : null,
         ...parsed.warnings.slice(0, 3),
         ...parsed.mathsNotes.slice(0, 2),
@@ -581,6 +674,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const counts = countSample(lines, costs, ads)
       const ownCosts = nextCosts.map((c) => ({ ...c, isSample: false as const }))
       setCosts(ownCosts)
+      setFreeDataDeletedNotice(null)
+      if (plan === 'free') {
+        setFreeClocks((prev) => upsertClock(prev, 'template'))
+      }
       if (hadSample) {
         setLines((prev) => prev.filter((l) => !l.isSample))
         if (nextAds) {
@@ -608,9 +705,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       setSelectedSku(ownCosts[0]?.sku ?? null)
     },
-    updateCost: (sku, patch) =>
-      setCosts((prev) => prev.map((c) => (c.sku === sku ? { ...c, ...patch } : c))),
-    setAdTotalManual: (amount) =>
+    updateCost: (sku, patch) => {
+      setCosts((prev) => {
+        const row = prev.find((c) => c.sku === sku)
+        // First save of a non-sample manual edit starts a Free manual clock (F1)
+        if (plan === 'free' && row && !row.isSample) {
+          setFreeClocks((clocks) =>
+            clocks.some((c) => c.kind === 'manual') ? clocks : upsertClock(clocks, 'manual'),
+          )
+        }
+        return prev.map((c) => (c.sku === sku ? { ...c, ...patch } : c))
+      })
+    },
+    setAdTotalManual: (amount) => {
+      if (plan === 'free') {
+        setFreeClocks((clocks) =>
+          clocks.some((c) => c.kind === 'manual') ? clocks : upsertClock(clocks, 'manual'),
+        )
+      }
       setAds([
         {
           id: createId('ad'),
@@ -618,8 +730,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           amount,
           startDate: '2026-09-01',
           endDate: '2026-09-30',
+          isSample: false,
         },
-      ]),
+      ])
+    },
     unlockProDemo: (billingCountry) => {
       if (!user) {
         setAuthOpen(true)
@@ -631,29 +745,69 @@ export function AppProvider({ children }: { children: ReactNode }) {
         billingCountry,
         currency,
         alreadyPro: plan === 'pro',
-        paymentPending: false,
+        paymentPending,
         earlyBirdSold,
       })
       if (res.ok) {
         setPlan('pro')
         if (res.earlyBirdSold != null) setEarlyBirdSold(res.earlyBirdSold)
-        // Free dataset carries into Pro shop
-        setSavedDatasets((prev) => [
-          {
-            id: createId('ds'),
-            name: 'Upgraded from Free',
-            start: result.totals.period.start,
-            end: result.totals.period.end,
-            platforms: [...new Set(lines.map((l) => l.platform))],
-            createdAt: new Date().toISOString(),
-          },
-          ...prev,
-        ])
+        setPaymentPending(false)
+        // F7: upgrading cancels every running 24-hour clock
+        setFreeClocks([])
+        setFreeDataDeletedNotice(null)
+        // K8: restore kept ex-Pro data if present
+        if (keptProData) {
+          setLines(keptProData.lines)
+          setCosts(keptProData.costs)
+          setAds(keptProData.ads)
+          setSavedDatasets(keptProData.savedDatasets)
+          setScenarios(keptProData.scenarios)
+          setMonthlyOverheads(keptProData.monthlyOverheads)
+          setKeptProData(null)
+        } else if (lines.some((l) => !l.isSample)) {
+          // Free dataset still within 24h carries into Pro shop
+          setSavedDatasets((prev) => [
+            {
+              id: createId('ds'),
+              name: 'Upgraded from Free',
+              start: result.totals.period.start,
+              end: result.totals.period.end,
+              platforms: [...new Set(lines.map((l) => l.platform))],
+              createdAt: new Date().toISOString(),
+            },
+            ...prev,
+          ])
+        }
         setUpgradeOpen(false)
       }
       return { ok: res.ok, message: res.message }
     },
-    switchToFree: () => setPlan('free'),
+    switchToFree: () => {
+      // Demo stand-in for refunded Pro (K8): keep shop for CSV export only
+      const ownLines = lines.filter((l) => !l.isSample)
+      const ownCosts = costs.filter((c) => !c.isSample)
+      const ownAds = ads.filter((a) => !a.isSample)
+      if (ownLines.length || ownCosts.length || savedDatasets.length) {
+        setKeptProData({
+          lines: ownLines,
+          costs: ownCosts,
+          ads: ownAds,
+          savedDatasets,
+          scenarios,
+          monthlyOverheads,
+          keptAt: new Date().toISOString(),
+        })
+      }
+      setLines([])
+      setCosts([])
+      setAds([])
+      setSavedDatasets([])
+      setScenarios([])
+      setMonthlyOverheads(0)
+      setSelectedSku(null)
+      setFreeClocks([])
+      setPlan('free')
+    },
     createScenario: () => {
       if (plan !== 'pro') {
         setUpgradeOpen(true)
@@ -685,12 +839,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ])
     },
     exportDataCsv: () => {
-      const header = 'sku,name,revenue,net_profit,net_margin_pct,verdict'
-      const rows = result.products.map(
-        (p) =>
-          `${p.sku},"${p.name}",${p.revenue},${p.netProfit},${p.netMarginPct},${p.verdict}`,
+      // Cleaned rows only — never the original file (v16.4 F3 / F5).
+      // K8: ex-Pro kept data is exportable from settings when results are empty.
+      const sourceLines = lines.length ? lines : (keptProData?.lines ?? [])
+      const sourceCosts = costs.length ? costs : (keptProData?.costs ?? [])
+      if (result.products.length) {
+        const header = 'sku,name,revenue,net_profit,net_margin_pct,verdict'
+        const rows = result.products.map(
+          (p) =>
+            `${p.sku},"${p.name}",${p.revenue},${p.netProfit},${p.netMarginPct},${p.verdict}`,
+        )
+        return [header, ...rows].join('\n')
+      }
+      const costHeader = 'sku,name,unit_cost,packaging_cost,shipping_cost_per_unit,return_cost_per_returned_unit'
+      const costRows = sourceCosts.map(
+        (c) =>
+          `${c.sku},"${c.name}",${c.unitCost},${c.packagingCost},${c.shippingCostPerUnit},${c.returnCostPerReturnedUnit}`,
       )
-      return [header, ...rows].join('\n')
+      const orderHeader = 'order_id,sku,name,quantity,line_value,platform,order_date'
+      const orderRows = sourceLines.map(
+        (l) =>
+          `${l.orderId},${l.sku},"${l.name}",${l.quantity},${l.lineValue},${l.platform},${l.orderDate}`,
+      )
+      return [
+        '# costs',
+        costHeader,
+        ...costRows,
+        '# orders',
+        orderHeader,
+        ...orderRows,
+      ].join('\n')
     },
   }
 

@@ -3,6 +3,11 @@ export const en = {
   brand: 'MarginOS',
   tagline: 'Find where your margin leaks and what each leak costs you.',
   positioning: 'One price, yours for life.',
+  /** K10 sales wording (v16.4) — privacy line pending legal review. */
+  freeTryLine: 'Try it on one file, results in minutes. Your data is deleted after 24 hours.',
+  proDataBenefit: 'Keep your data, saved datasets and history',
+  privacyRetentionLine:
+    'Free uploads are deleted after 24 hours, and original files are deleted as soon as they\'re imported.',
   showTheMaths: 'Show the maths',
   hideTheMaths: 'Hide the maths',
   trueProfit: 'True profit',

@@ -49,6 +49,9 @@ export function Hero() {
             True profit after product cost, shipping, ads, platform fees and returns —{' '}
             {en.positioning.toLowerCase()}
           </p>
+          {plan === 'free' ? (
+            <p className="mt-2 max-w-lg text-sm text-subtle">{en.freeTryLine}</p>
+          ) : null}
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {plan === 'free' ? (
               <Button onClick={() => setUpgradeOpen(true)}>

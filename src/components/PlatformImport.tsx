@@ -2,6 +2,7 @@ import { useRef, useState, type RefObject } from 'react'
 import { useApp } from '../context/AppContext'
 import { platformLabel } from '../lib/platforms'
 import type { Platform } from '../lib/types'
+import { FreeUploadPolicyNote } from './FreeRetentionBanner'
 import { Button, Card } from './ui'
 
 export function PlatformImport() {
@@ -61,10 +62,13 @@ export function PlatformImport() {
   return (
     <Card className="mb-4" id="platform-upload" tabIndex={-1}>
       <p className="mb-2 text-sm font-semibold text-ink">Upload platform orders</p>
-      <p className="mb-3 text-xs text-subtle">
+      <p className="mb-2 text-xs text-subtle">
         Upload Shopify, Amazon or Etsy exports. Buyer personal details are stripped on import.
         {plan === 'free' ? ` · ${uploadsLeft} of 3 uploads left today.` : ''}
       </p>
+      <div className="mb-3">
+        <FreeUploadPolicyNote />
+      </div>
       <div className="mb-3 flex flex-wrap gap-2">
         {(['shopify', 'amazon', 'etsy'] as Platform[]).map((p) => (
           <Button

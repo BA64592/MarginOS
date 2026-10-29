@@ -1,7 +1,7 @@
 # Open questions log (spec §14)
 
-Amended by **MarginOS Spec Amendment v16.1**, clarification **v16.2**, and feature amendment **v16.3** (29 October 2026).  
-**Akthar decisions 29 October 2026:** K2, K3, K5 (v16.2); Clear sample data / Start fresh + **K7** (v16.3).
+Amended by **v16.1**, **v16.2**, **v16.3**, and **v16.4** (29 October 2026).  
+**Akthar decisions 29 October 2026:** K2–K5 (v16.2); K7 (v16.3); Free 24h + raw-file deletion + **K8–K11** (v16.4).
 
 | ID | Date raised | Section | Question | Raised by | Answer | Answered by | Amendment |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -11,6 +11,7 @@ Amended by **MarginOS Spec Amendment v16.1**, clarification **v16.2**, and featu
 | Q4 | 29 Oct 2026 | 12.5, 12.10 | Live Stripe Managed Payments setup? | Developer | Checklist **A4**. Akthar Stripe tasks still open (**K4**). | Business & Product | v16.1 |
 | Q5 | 29 Oct 2026 | 5, 10.2, 12.6 | Real email/password and Google sign-in? | Developer | **Approved (v16.2):** in-app open-source sign-in library + **Amazon SES London**. Google Cloud project still Akthar (**K6**). A5 security rules apply. | Akthar | v16.1 / v16.2 |
 | Q6 | 29 Oct 2026 | 6, 7, 10.2, 12.4, 12.6, 12.7 | Demo testing: costs set to £0 were applied to loaded sample orders. Can users clear sample data, or reset everything? | Akthar (demo testing) | **v16.3 approved:** Clear sample data + Start fresh (each with “Are you sure?”); uploads not restored; account deletion unchanged (15.E). **K7:** sample cleared automatically on first successful own upload; failed/cancelled upload leaves it (E9). | Business & Product; Akthar | v16.3 |
+| Q7 | 29 Oct 2026 | 7, 10.1, 10.2, 10.3, 12.4, 12.6, 12.7, 15.E | Storage cost and privacy: should Free keep data at all, and should original files be kept? | Akthar | **v16.4 approved:** Free data deleted 24 hours after each upload (own clock, no reminder); raw files deleted after import; Pro retention unchanged; upgrade within 24h keeps data. **K8–K11** decided (K8 refunded Pro kept until Start fresh / account deletion, export-only while not Pro). | Business & Product; Akthar | v16.4 |
 
 ## Decisions locked (v16.2)
 
@@ -28,4 +29,4 @@ Amended by **MarginOS Spec Amendment v16.1**, clarification **v16.2**, and featu
 | **K4** | Stripe account, SMP eligibility, Dashboard | Action — blocks live checkout |
 | **K6** | Google Cloud OAuth project | Action — needed for Google sign-in |
 
-See also: `docs/MarginOS-Amendment-v16.1.pdf`, `docs/MarginOS-Amendment-v16.3.pdf`, `docs/checklists/`, `docs/DECISIONS-v16.2.md`, `docs/DECISIONS-v16.3.md`.
+See also: `docs/MarginOS-Amendment-v16.1.pdf`, `docs/MarginOS-Amendment-v16.3.pdf`, `docs/MarginOS-Amendment-v16.4.pdf`, `docs/checklists/`, `docs/DECISIONS-v16.2.md`, `docs/DECISIONS-v16.3.md`, `docs/DECISIONS-v16.4.md`.

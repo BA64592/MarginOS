@@ -233,8 +233,32 @@ export interface UploadDayState {
   used: number
 }
 
+/** Free 24-hour retention clock per successful upload (v16.4 F1). Sample data has none. */
+export type FreeUploadKind = 'orders' | 'template' | 'manual'
+
+export interface FreeRetentionClock {
+  id: string
+  kind: FreeUploadKind
+  startedAt: string
+  expiresAt: string
+  /** Set while a delayed payment is pending (K11). */
+  pausedAt: string | null
+  remainingMsWhenPaused: number | null
+}
+
+/** Snapshot of Pro shop kept after refund/chargeback — export only until Pro returns (K8). */
+export interface KeptProData {
+  costs: ProductCostRow[]
+  ads: AdSpendEntry[]
+  lines: OrderLine[]
+  savedDatasets: SavedDataset[]
+  scenarios: Scenario[]
+  monthlyOverheads: number
+  keptAt: string
+}
+
 export interface AppPersistedState {
-  version: 4
+  version: 5
   plan: Plan
   theme: 'light' | 'dark'
   currency: HomeCurrency
@@ -255,6 +279,14 @@ export interface AppPersistedState {
   digitalListingSkus: string[]
   /** True when any built-in sample rows are still loaded (v16.3). */
   usingSampleData?: boolean
+  /** Free upload retention clocks (v16.4). Empty for Pro / sample. */
+  freeClocks?: FreeRetentionClock[]
+  /** Shown once after Free 24h deletion (v16.4 F2). */
+  freeDataDeletedNotice?: string | null
+  /** Ex-Pro kept shop for CSV export only (K8). */
+  keptProData?: KeptProData | null
+  /** Delayed payment pending — clocks paused (K11). */
+  paymentPending?: boolean
 }
 
 /** Privacy-safe audit event for Clear sample data / Start fresh (v16.3 E7). */
