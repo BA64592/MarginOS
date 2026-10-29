@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 import { SAMPLE_ADS_TEMPLATE, SAMPLE_COST_TEMPLATE, parseCostTemplate } from '../lib/csv/template'
 import { formatMoney, formatPct } from '../lib/format'
 import { cn } from '../lib/cn'
+import { PlatformImport } from './PlatformImport'
 import { SliderField } from './SliderField'
 import { Badge, Button, Card, SectionHeading } from './ui'
 import { MathsDisclosure } from './MathsDisclosure'
@@ -165,6 +166,8 @@ export function ProductWorkspace() {
           Ads template
         </button>
       </div>
+
+      <PlatformImport />
 
       {csvMsg ? (
         <p className="mb-3 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-ink">{csvMsg}</p>

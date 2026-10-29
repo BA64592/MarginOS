@@ -37,8 +37,12 @@ npm run preview
 | Shopify / Amazon / Etsy CSV parsers | Sample order dataset + MarginOS cost/ads templates; exact platform columns logged in open questions |
 | ECB FX + full tax engine | Stubs / settings UI; full rate tables pending sign-off |
 
-Open questions: `docs/OPEN-QUESTIONS.md`  
-Approved spec: `docs/MarginOS-Spec-v16-Final.pdf`
+Open questions: `docs/OPEN-QUESTIONS.md` (updated by amendment **v16.1**)  
+Approved spec: `docs/MarginOS-Spec-v16-Final.pdf`  
+Amendment: `docs/MarginOS-Amendment-v16.1.pdf`  
+Checklists: `docs/checklists/` (Stripe SMP, auth rules)
+
+**Pending Akthar (v16.1 Part C):** K1 sample exports, K2 Etsy digital auto-detect, K3 fee preset sign-off, K4 Stripe account, K5 auth/email choice, K6 Google Cloud project.
 
 ## Pricing (from spec)
 

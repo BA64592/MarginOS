@@ -11,8 +11,10 @@ import {
   applyScenarioToLines,
   buildSampleDataset,
 } from '../lib/calc/analyze'
+import { importPlatformFiles, type PlatformImportInput } from '../lib/csv/importPlatform'
 import { compareFees } from '../lib/fees/presets'
 import { createId } from '../lib/format'
+import { demoAuthProvider } from '../lib/auth/provider'
 import {
   EARLY_BIRD_CAP,
   earlyBirdPlacesLeft,
@@ -104,7 +106,11 @@ interface AppContextValue {
   loadSample: () => void
   recordSuccessfulUpload: () => boolean
   replaceOrders: (lines: OrderLine[]) => void
+  importPlatformOrders: (
+    input: PlatformImportInput,
+  ) => { ok: boolean; message: string }
   replaceTemplate: (costs: ProductCostRow[], ads?: AdSpendEntry[]) => void
+  feeMathsNotes: string[]
   updateCost: (sku: string, patch: Partial<ProductCostRow>) => void
   setAdTotalManual: (amount: number) => void
   unlockProDemo: (billingCountry: string) => { ok: boolean; message: string }
@@ -286,7 +292,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     authOpen,
     selectedSku,
     feesComparable: feeCmp.comparable,
-    warnings: result.warnings,
+    feeMathsNotes: feeCmp.mathsNotes,
+    warnings: [...result.warnings, ...feeCmp.mathsNotes.filter((n) => n.includes('DRAFT'))],
     setUpgradeOpen,
     setAuthOpen,
     setSelectedSku,
@@ -295,36 +302,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTax: (patch) => setTaxState((t) => ({ ...t, ...patch })),
     setTargetMarginPct,
     setMonthlyOverheads,
-    signInEmail: (email) => {
-      const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
-      setUser({
-        id: createId('user'),
-        email,
-        emailVerified: false,
-        authProvider: 'email',
-        createdAt: new Date().toISOString(),
-        lastSignInAt: new Date().toISOString(),
-        timeZone: tzGuess,
-        timeZoneChangedAt: null,
+    signInEmail: (email, password) => {
+      void demoAuthProvider.signInEmail(email, password).then((res) => {
+        if (!res.ok || !res.session) return
+        const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
+        setUser({
+          id: res.session.accountId,
+          email: res.session.email,
+          emailVerified: res.session.emailVerified,
+          authProvider: 'email',
+          createdAt: new Date().toISOString(),
+          lastSignInAt: new Date().toISOString(),
+          timeZone: tzGuess,
+          timeZoneChangedAt: null,
+        })
+        setAuthOpen(false)
       })
-      setAuthOpen(false)
     },
     signInGoogle: (emailVerified) => {
-      const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
-      setUser({
-        id: createId('user'),
-        email: 'seller@gmail.com',
-        emailVerified,
-        authProvider: 'google',
-        googleEmailVerified: emailVerified,
-        createdAt: new Date().toISOString(),
-        lastSignInAt: new Date().toISOString(),
-        timeZone: tzGuess,
-        timeZoneChangedAt: null,
-      })
-      setAuthOpen(false)
+      void demoAuthProvider
+        .signInGoogle({
+          sub: 'demo-google-sub',
+          email: 'seller@gmail.com',
+          email_verified: emailVerified,
+        })
+        .then((res) => {
+          if (!res.ok || !res.session) return
+          const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
+          setUser({
+            id: res.session.accountId,
+            email: res.session.email,
+            emailVerified: res.session.emailVerified,
+            authProvider: 'google',
+            googleEmailVerified: emailVerified,
+            createdAt: new Date().toISOString(),
+            lastSignInAt: new Date().toISOString(),
+            timeZone: tzGuess,
+            timeZoneChangedAt: null,
+          })
+          setAuthOpen(false)
+        })
     },
-    verifyEmail: () => setUser((u) => (u ? { ...u, emailVerified: true } : u)),
+    verifyEmail: () => {
+      void demoAuthProvider.verifyEmail('demo').then(() => {
+        setUser((u) => (u ? { ...u, emailVerified: true } : u))
+      })
+    },
     signOut: () => setUser(null),
     loadSample: () => {
       const s = buildSampleDataset(currency)
@@ -355,6 +378,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return true
     },
     replaceOrders: (next) => setLines(next),
+    importPlatformOrders: (input) => {
+      if (!user?.emailVerified) {
+        setAuthOpen(true)
+        return { ok: false, message: 'Verify your email before your first upload.' }
+      }
+      if (plan === 'free' && uploadsLeft <= 0) {
+        setUpgradeOpen(true)
+        return { ok: false, message: '0 uploads left today.' }
+      }
+      const parsed = importPlatformFiles(input)
+      if (!parsed.ok) {
+        return { ok: false, message: parsed.errors.join(' ') || 'Import failed.' }
+      }
+      if (plan === 'free' && parsed.lines.length > 50000) {
+        return {
+          ok: false,
+          message: 'Free uploads are limited to 50,000 orders. Use a shorter date range or Pro.',
+        }
+      }
+      if (plan === 'free') {
+        setUploadDay((d) => ({ dateKey: dayKey, used: d.dateKey === dayKey ? d.used + 1 : 1 }))
+      }
+      setLines(parsed.lines)
+      if (parsed.ads.length) {
+        setAds((prev) => (plan === 'pro' ? [...parsed.ads, ...prev] : prev))
+      }
+      const msg = [
+        `Imported ${parsed.summary.newRows ?? parsed.lines.length} lines.`,
+        ...parsed.warnings.slice(0, 3),
+        ...parsed.mathsNotes.slice(0, 2),
+      ].join(' ')
+      return { ok: true, message: msg }
+    },
     replaceTemplate: (nextCosts, nextAds) => {
       setCosts(nextCosts)
       if (nextAds) setAds(nextAds)

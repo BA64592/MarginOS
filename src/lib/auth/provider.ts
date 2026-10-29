@@ -1,0 +1,74 @@
+/**
+ * Auth provider layer (v16.1 A5) — tool-neutral interface.
+ * Demo implementation only until Akthar chooses K5 (recommended: in-app library + SES London).
+ */
+export interface AuthSession {
+  accountId: string
+  email: string
+  emailVerified: boolean
+  provider: 'email' | 'google' | 'demo'
+  googleSub?: string
+}
+
+export interface AuthProvider {
+  signUpEmail(email: string, password: string): Promise<{ ok: boolean; message: string }>
+  signInEmail(email: string, password: string): Promise<{ ok: boolean; session?: AuthSession; message: string }>
+  signInGoogle(idTokenClaims: {
+    sub: string
+    email: string
+    email_verified: boolean
+  }): Promise<{ ok: boolean; session?: AuthSession; message: string }>
+  requestEmailVerification(accountId: string): Promise<{ ok: boolean; message: string }>
+  verifyEmail(token: string): Promise<{ ok: boolean; message: string }>
+  requestPasswordReset(email: string): Promise<{ ok: boolean; message: string }>
+  resetPassword(token: string, newPassword: string): Promise<{ ok: boolean; message: string }>
+}
+
+/** Demo adapter — mirrors A5 gates without real hashing/email. */
+export const demoAuthProvider: AuthProvider = {
+  async signUpEmail(email, password) {
+    if (password.length < 8) return { ok: false, message: 'Password must be at least 8 characters.' }
+    return { ok: true, message: `Verification email would be sent to ${email} (24h link).` }
+  },
+  async signInEmail(email, password) {
+    if (password.length < 8) return { ok: false, message: 'Password must be at least 8 characters.' }
+    return {
+      ok: true,
+      session: {
+        accountId: `demo_${email}`,
+        email,
+        emailVerified: false,
+        provider: 'demo',
+      },
+      message: 'Signed in (demo). Verify email before upload/checkout.',
+    }
+  },
+  async signInGoogle(claims) {
+    return {
+      ok: true,
+      session: {
+        accountId: `google_${claims.sub}`,
+        email: claims.email,
+        emailVerified: claims.email_verified === true,
+        provider: 'google',
+        googleSub: claims.sub,
+      },
+      message: claims.email_verified
+        ? 'Google sign-in verified.'
+        : 'Google email not verified — MarginOS verification required.',
+    }
+  },
+  async requestEmailVerification() {
+    return { ok: true, message: 'Demo: verification link issued (single-use, 24h).' }
+  },
+  async verifyEmail() {
+    return { ok: true, message: 'Email verified (demo).' }
+  },
+  async requestPasswordReset() {
+    return { ok: true, message: 'Demo: reset link issued (single-use, 1h).' }
+  },
+  async resetPassword(_token, newPassword) {
+    if (newPassword.length < 8) return { ok: false, message: 'Password must be at least 8 characters.' }
+    return { ok: true, message: 'Password reset (demo); other sessions would be signed out.' }
+  },
+}
