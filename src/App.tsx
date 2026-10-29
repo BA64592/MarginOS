@@ -1,13 +1,16 @@
+import { AuthModal } from './components/AuthModal'
+import { CalculatorsPanel } from './components/CalculatorsPanel'
 import { CostCharts } from './components/CostCharts'
 import { Header } from './components/Header'
 import { HealthScorePanel } from './components/HealthScorePanel'
 import { Hero } from './components/Hero'
-import { HistoryPanel } from './components/HistoryPanel'
 import { LeaksPanel } from './components/LeaksPanel'
 import { MetricStrip } from './components/MetricStrip'
 import { ProductWorkspace } from './components/ProductWorkspace'
 import { RecommendationsPanel } from './components/RecommendationsPanel'
+import { SavedDatasets } from './components/SavedDatasets'
 import { ScenarioCompare } from './components/ScenarioCompare'
+import { SettingsBar } from './components/SettingsBar'
 import { UpgradeModal } from './components/UpgradeModal'
 import { AppProvider } from './context/AppContext'
 
@@ -26,15 +29,18 @@ export default function App() {
           <CostCharts />
           <LeaksPanel />
           <RecommendationsPanel />
+          <CalculatorsPanel />
           <ScenarioCompare />
-          <HistoryPanel />
+          <SavedDatasets />
+          <SettingsBar />
         </main>
         <footer className="border-t border-border py-8 text-center text-sm text-subtle">
           <p className="font-display text-base font-semibold text-ink">MarginOS</p>
-          <p className="mt-1">One price, no subscription. Pro £19 lifetime via Lemon Squeezy.</p>
-          <p className="mt-2 text-xs">Built to the approved product specification · Demo unlock is local only</p>
+          <p className="mt-1">One price, yours for life. Pro via Stripe Managed Payments (Sold through Link).</p>
+          <p className="mt-2 text-xs">Built to MarginOS Spec v16 · Demo auth & checkout are local mocks</p>
         </footer>
         <UpgradeModal />
+        <AuthModal />
       </div>
     </AppProvider>
   )

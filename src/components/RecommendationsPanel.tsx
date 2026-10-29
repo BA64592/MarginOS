@@ -13,11 +13,10 @@ export function RecommendationsPanel() {
         title="What to fix next"
         description={
           plan === 'pro'
-            ? 'Specific actions for every leak, ordered by impact.'
-            : 'Free includes one headline action. Pro unlocks an action for every leak.'
+            ? 'Specific actions with calculated figures for every leak.'
+            : 'Free includes one headline action.'
         }
       />
-
       <Card className="mb-3 border-accent/30 bg-accent-soft/40">
         <div className="flex gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white dark:text-slate-950">
@@ -27,11 +26,10 @@ export function RecommendationsPanel() {
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
               Headline action
             </p>
-            <p className="mt-1 text-sm text-ink sm:text-[15px]">{result.headlineRecommendation}</p>
+            <p className="mt-1 text-sm text-ink sm:text-[15px]">{result.headlineAction}</p>
           </div>
         </div>
       </Card>
-
       {plan === 'pro' ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {result.leaks.map((leak) => (
@@ -40,11 +38,6 @@ export function RecommendationsPanel() {
               <p className="mt-2 text-sm text-subtle">{leak.recommendation}</p>
             </Card>
           ))}
-          {!result.leaks.length ? (
-            <Card>
-              <p className="text-sm text-subtle">No extra actions — portfolio is within benchmarks.</p>
-            </Card>
-          ) : null}
         </div>
       ) : (
         <ProGate label="Actions for every leak — Pro">

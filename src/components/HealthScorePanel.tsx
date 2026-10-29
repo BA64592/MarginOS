@@ -1,135 +1,119 @@
 import { useApp } from '../context/AppContext'
-import { healthTone } from '../lib/calc'
 import { cn } from '../lib/cn'
 import { Card, SectionHeading } from './ui'
 import { ProGate } from './ProGate'
+import { MathsDisclosure } from './MathsDisclosure'
 
 const RADIUS = 54
 const CIRC = 2 * Math.PI * RADIUS
 
 export function HealthScorePanel() {
   const { result, plan } = useApp()
-  const tone = healthTone(result.healthScore)
-  const offset = CIRC - (result.healthScore / 100) * CIRC
-  const parts = Object.values(result.healthBreakdown)
+  const score = result.health.score ?? 0
+  const tone =
+    result.health.band === 'Strong'
+      ? 'ok'
+      : result.health.band === 'Needs attention'
+        ? 'warn'
+        : 'danger'
+  const offset = CIRC - (score / 100) * CIRC
 
   return (
     <section>
       <SectionHeading
         eyebrow="Diagnosis"
         title="Margin Health Score"
-        description="A 0–100 score that explains which cost areas are dragging true profit."
+        description="Weighted parts from §12.1 — missing parts are dropped and weights rescaled."
       />
       <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
         <Card className="flex flex-col items-center justify-center">
-          <div className="relative h-40 w-40">
-            <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
-              <circle
-                cx="70"
-                cy="70"
-                r={RADIUS}
-                fill="none"
-                stroke="var(--bg-muted)"
-                strokeWidth="12"
-              />
-              <circle
-                cx="70"
-                cy="70"
-                r={RADIUS}
-                fill="none"
-                stroke={
-                  tone === 'ok'
-                    ? 'var(--ok)'
-                    : tone === 'warn'
-                      ? 'var(--warn)'
-                      : 'var(--danger)'
-                }
-                strokeWidth="12"
-                strokeLinecap="round"
-                strokeDasharray={CIRC}
-                strokeDashoffset={offset}
-                className="animate-score-fill transition-[stroke-dashoffset] duration-500"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center rotate-0">
-              <span
-                className={cn(
-                  'font-display text-4xl font-semibold',
-                  tone === 'ok' && 'text-ok',
-                  tone === 'warn' && 'text-warn',
-                  tone === 'danger' && 'text-danger',
-                )}
-              >
-                {result.healthScore}
-              </span>
-              <span className="text-xs text-subtle">Overall</span>
-            </div>
-          </div>
-          <p className="mt-2 text-center text-sm text-subtle">
-            {tone === 'ok'
-              ? 'Healthy margins vs benchmarks'
-              : tone === 'warn'
-                ? 'Fixable leaks — prioritise the top £ impact'
-                : 'Margin under pressure — act on high-severity leaks'}
-          </p>
+          {result.health.score == null ? (
+            <p className="text-center text-sm text-subtle">No score — check the file (revenue is 0).</p>
+          ) : (
+            <>
+              <div className="relative h-40 w-40">
+                <svg viewBox="0 0 140 140" className="h-full w-full -rotate-90">
+                  <circle cx="70" cy="70" r={RADIUS} fill="none" stroke="var(--bg-muted)" strokeWidth="12" />
+                  <circle
+                    cx="70"
+                    cy="70"
+                    r={RADIUS}
+                    fill="none"
+                    stroke={
+                      tone === 'ok' ? 'var(--ok)' : tone === 'warn' ? 'var(--warn)' : 'var(--danger)'
+                    }
+                    strokeWidth="12"
+                    strokeLinecap="round"
+                    strokeDasharray={CIRC}
+                    strokeDashoffset={offset}
+                    className="animate-score-fill"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span
+                    className={cn(
+                      'font-display text-4xl font-semibold',
+                      tone === 'ok' && 'text-ok',
+                      tone === 'warn' && 'text-warn',
+                      tone === 'danger' && 'text-danger',
+                    )}
+                  >
+                    {result.health.score}
+                  </span>
+                  <span className="text-xs text-subtle">{result.health.band}</span>
+                </div>
+              </div>
+              <p className="mt-2 text-center text-sm text-subtle">
+                Confidence: {result.health.confidence}
+              </p>
+            </>
+          )}
+          <MathsDisclosure lines={result.health.maths.concat(result.health.confidenceReasons)} />
         </Card>
 
         {plan === 'free' ? (
-          <ProGate label="Score breakdown — Pro">
-            <BreakdownGrid parts={parts} productRows={result.products} />
+          <ProGate label="Score breakdown by part — Pro">
+            <Breakdown parts={result.health.parts} />
           </ProGate>
         ) : (
-          <BreakdownGrid parts={parts} productRows={result.products} />
+          <Breakdown parts={result.health.parts} />
         )}
       </div>
     </section>
   )
 }
 
-function BreakdownGrid({
+function Breakdown({
   parts,
-  productRows,
 }: {
-  parts: { label: string; score: number; max: number; valuePct: number }[]
-  productRows: { product: { id: string; name: string }; marginPct: number; trueProfit: number }[]
+  parts: { label: string; score: number | null; dropped: boolean; dropReason?: string; detail: string; weight: number }[]
 }) {
   return (
     <Card>
-      <p className="mb-3 text-sm font-semibold text-ink">By cost area</p>
+      <p className="mb-3 text-sm font-semibold text-ink">By score part</p>
       <div className="space-y-3">
         {parts.map((part) => (
           <div key={part.label}>
-            <div className="mb-1 flex items-center justify-between text-sm">
-              <span className="text-ink">{part.label}</span>
+            <div className="mb-1 flex items-center justify-between gap-2 text-sm">
+              <span className="text-ink">
+                {part.label}{' '}
+                <span className="text-xs text-subtle">({part.weight}%)</span>
+              </span>
               <span className="text-subtle">
-                {part.score}/{part.max} · {part.valuePct.toFixed(1)}%
+                {part.dropped ? 'Dropped' : `${part.score}/100`}
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-accent transition-all duration-500"
-                style={{ width: `${(part.score / part.max) * 100}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="mb-2 mt-5 text-sm font-semibold text-ink">By product</p>
-      <div className="space-y-2">
-        {productRows.map((row) => (
-          <div
-            key={row.product.id}
-            className="flex items-center justify-between gap-3 rounded-lg bg-muted/70 px-3 py-2 text-sm"
-          >
-            <span className="truncate font-medium text-ink">{row.product.name}</span>
-            <span
-              className={cn(
-                'shrink-0 tabular-nums',
-                row.marginPct >= 20 ? 'text-ok' : row.marginPct >= 8 ? 'text-warn' : 'text-danger',
-              )}
-            >
-              {row.marginPct.toFixed(1)}%
-            </span>
+            {part.dropped ? (
+              <p className="text-xs text-subtle">{part.dropReason}</p>
+            ) : (
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-accent transition-all duration-500"
+                  style={{ width: `${part.score ?? 0}%` }}
+                />
+              </div>
+            )}
+            <p className="mt-1 text-xs text-subtle">{part.detail}</p>
           </div>
         ))}
       </div>

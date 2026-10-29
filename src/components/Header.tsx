@@ -1,11 +1,24 @@
-import { FileDown, Moon, Sparkles, Sun } from 'lucide-react'
+import { FileDown, Moon, Sparkles, Sun, User } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { en } from '../i18n/en'
 import { exportPdfReport } from '../lib/pdf'
+import { earlyBirdPlacesLeft } from '../lib/payments/provider'
 import { Badge, Button } from './ui'
 
 export function Header() {
-  const { plan, theme, toggleTheme, setUpgradeOpen, setPlan, result, scenarios, history } =
-    useApp()
+  const {
+    plan,
+    theme,
+    toggleTheme,
+    setUpgradeOpen,
+    switchToFree,
+    setAuthOpen,
+    user,
+    result,
+    scenarioResults,
+    currency,
+    earlyBirdSold,
+  } = useApp()
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-bg/80 backdrop-blur-xl">
@@ -17,29 +30,29 @@ export function Header() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="font-display text-lg font-semibold tracking-tight text-ink sm:text-xl">
-                MarginOS
+                {en.brand}
               </h1>
               <Badge tone={plan === 'pro' ? 'pro' : 'neutral'}>
-                {plan === 'pro' ? 'Pro' : 'Free'}
+                {plan === 'pro' ? en.pro : en.free}
               </Badge>
             </div>
-            <p className="hidden truncate text-xs text-subtle sm:block">
-              Find where your margin leaks — one price, no subscription.
-            </p>
+            <p className="hidden truncate text-xs text-subtle sm:block">{en.positioning}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" aria-label="Toggle dark mode" onClick={toggleTheme} className="px-2">
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
           <Button
             variant="ghost"
             size="sm"
-            aria-label="Toggle dark mode"
-            onClick={toggleTheme}
             className="px-2"
+            onClick={() => setAuthOpen(true)}
+            aria-label="Account"
           >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            <User className="h-4 w-4" />
           </Button>
-
           <Button
             variant="secondary"
             size="sm"
@@ -49,27 +62,39 @@ export function Header() {
                 setUpgradeOpen(true)
                 return
               }
-              void exportPdfReport({ result, scenarios, history })
+              exportPdfReport({ result, scenarios: scenarioResults, currency })
             }}
           >
             <FileDown className="h-4 w-4" />
             PDF
           </Button>
-
           {plan === 'free' ? (
             <Button size="sm" onClick={() => setUpgradeOpen(true)}>
               <Sparkles className="h-4 w-4" />
-              <span className="hidden xs:inline">Upgrade</span>
+              <span className="hidden sm:inline">
+                Pro · {earlyBirdPlacesLeft(earlyBirdSold) > 0 ? en.earlyBirdPrice : en.proPrice}
+              </span>
               <span className="sm:hidden">Pro</span>
-              <span className="hidden sm:inline">Upgrade · £19</span>
             </Button>
           ) : (
-            <Button size="sm" variant="secondary" onClick={() => setPlan('free')}>
+            <Button size="sm" variant="secondary" onClick={switchToFree}>
               Switch to Free
             </Button>
           )}
         </div>
       </div>
+      {user && !user.emailVerified ? (
+        <div className="border-t border-warn/30 bg-warn-soft px-4 py-2 text-center text-xs text-warn sm:px-6">
+          {en.verifyEmail}{' '}
+          <button type="button" className="font-semibold underline" onClick={() => setAuthOpen(true)}>
+            Verify now
+          </button>
+        </div>
+      ) : null}
+      {/* Language selector present but hidden until a second language exists (§4) */}
+      <select className="hidden" aria-hidden="true" defaultValue="en">
+        <option value="en">English</option>
+      </select>
     </header>
   )
 }

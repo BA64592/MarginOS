@@ -1,61 +1,51 @@
 # MarginOS
 
-Premium single-page web app for e-commerce sellers: true profit after product cost, shipping, ads, platform fees and returns — with a Margin Health Score, ranked £ leaks, recommendations, scenario comparison and PDF export.
+Premium diagnosis app for e-commerce sellers: true profit after product cost, shipping, ads, platform fees and returns — with a Margin Health Score (0–100), ranked leaks, recommendations, calculators, scenarios and PDF export.
 
-Built to the approved MarginOS product specification (Akthar Uddin, 29 Oct 2026).
+Built to **MarginOS Product Spec v16** (approved 29 October 2026).
 
-## Stack
-
-- React + TypeScript (Vite)
-- Tailwind CSS v4
-- Recharts
-- jsPDF (Pro PDF export)
-- localStorage persistence
-
-## Run locally
+## Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-App runs at [http://localhost:3847](http://localhost:3847).
+Dev server: [http://localhost:3847](http://localhost:3847)
 
 ```bash
 npm run build
 npm run preview
 ```
 
-## Free vs Pro (from approved spec)
+## Spec alignment (launch slice)
 
-| Feature | Free | Pro (£19 lifetime) |
-| --- | --- | --- |
-| Data input | Manual or one CSV upload | Unlimited CSV + saved datasets |
-| Products | Up to 10 | Unlimited |
-| True profit | Yes | Yes |
-| Health Score | Overall only | Breakdown by cost area & product |
-| Margin leaks | Top 3, no £ impact | All leaks ranked by £ impact |
-| Recommendations | 1 headline action | Action for every leak |
-| Scenario comparison | No | Yes |
-| PDF reports | No | Yes |
-| Saved history | No | Yes |
+| Area | Status in this build |
+| --- | --- |
+| True profit / CM / net margin (§12.0) | Implemented |
+| Health Score parts + confidence (§12.1) | Implemented |
+| Product verdicts (§12.2) | Implemented |
+| Six launch leaks + target price (§12.3) | Implemented |
+| Free vs Pro matrix (§7–8 launch) | UI + gating |
+| Show the maths | On key metrics |
+| Calculators | Break-even ROAS/ACOS, break-even & target price |
+| Scenarios / PDF / saved datasets | Pro |
+| Currency GBP/EUR/USD/CAD/AUD | Selector |
+| i18n store + hidden language selector | English only |
+| Auth (email + Google) | Demo modal |
+| Stripe Managed Payments (§12.10) | Mock provider layer |
+| Shopify / Amazon / Etsy CSV parsers | Sample order dataset + MarginOS cost/ads templates; exact platform columns logged in open questions |
+| ECB FX + full tax engine | Stubs / settings UI; full rate tables pending sign-off |
 
-Demo Pro unlock is local (no Lemon Squeezy checkout in this build).
+Open questions: `docs/OPEN-QUESTIONS.md`  
+Approved spec: `docs/MarginOS-Spec-v16-Final.pdf`
 
-## CSV format
+## Pricing (from spec)
 
-```csv
-name,units_sold,selling_price,product_cost,shipping_cost,ad_spend,platform_fee_pct,return_rate_pct
-```
+- Free: £0  
+- Pro: £59 lifetime (early-bird £39 for first 200 sales)  
+- Sold through Link (Stripe Managed Payments); displayed prices tax-inclusive  
 
-## True profit model
+## Stack
 
-For each product (monthly):
-
-- Gross revenue = units × price
-- Refunds = gross × return rate
-- Net revenue = gross − refunds
-- Costs = COGS + shipping + ads + platform fees + return handling (60% of COGS+shipping on returned units)
-- **True profit** = net revenue − costs
-
-Health Score (0–100) scores net margin, ad efficiency, returns, platform fees and COGS ratio against healthy e-com benchmarks. Leaks are sized as £ above those benchmarks.
+React + TypeScript (Vite), Tailwind CSS v4, Recharts, jsPDF, localStorage.

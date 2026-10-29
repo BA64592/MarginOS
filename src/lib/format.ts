@@ -1,34 +1,26 @@
-const gbp = new Intl.NumberFormat('en-GB', {
-  style: 'currency',
-  currency: 'GBP',
-  maximumFractionDigits: 0,
-})
+import type { HomeCurrency } from './types'
 
-const gbpExact = new Intl.NumberFormat('en-GB', {
-  style: 'currency',
-  currency: 'GBP',
-  maximumFractionDigits: 2,
-})
-
-const pct = new Intl.NumberFormat('en-GB', {
-  style: 'percent',
-  maximumFractionDigits: 1,
-})
-
-export function formatGbp(value: number, exact = false) {
-  return (exact ? gbpExact : gbp).format(value)
+const localeFor: Record<HomeCurrency, string> = {
+  GBP: 'en-GB',
+  EUR: 'en-GB',
+  USD: 'en-US',
+  CAD: 'en-CA',
+  AUD: 'en-AU',
 }
 
-export function formatPct(value: number) {
-  return pct.format(value / 100)
-}
-
-export function formatNumber(value: number, digits = 0) {
-  return new Intl.NumberFormat('en-GB', {
-    maximumFractionDigits: digits,
+export function formatMoney(value: number, currency: HomeCurrency, whole = false) {
+  return new Intl.NumberFormat(localeFor[currency], {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: whole ? 0 : 2,
+    minimumFractionDigits: whole ? 0 : 2,
   }).format(value)
 }
 
-export function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, n))
+export function formatPct(value: number) {
+  return `${value.toFixed(1)}%`
+}
+
+export function createId(prefix = 'id') {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`
 }

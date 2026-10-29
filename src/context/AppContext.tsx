@@ -6,220 +6,443 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { createBlankProduct, createScenario, sampleProducts } from '../data/sampleProducts'
 import {
-  FREE_CSV_UPLOAD_LIMIT,
-  FREE_PRODUCT_LIMIT,
-  analyzePortfolio,
-  applyAdjustments,
-  createId,
-  emptyAdjustments,
-} from '../lib/calc'
-import { parseProductsCsv } from '../lib/csv'
+  analyzeStore,
+  applyScenarioToLines,
+  buildSampleDataset,
+} from '../lib/calc/analyze'
+import { compareFees } from '../lib/fees/presets'
+import { createId } from '../lib/format'
+import {
+  EARLY_BIRD_CAP,
+  earlyBirdPlacesLeft,
+  mockStartCheckout,
+} from '../lib/payments/provider'
 import { loadState, saveState } from '../lib/storage'
 import type {
-  HistorySnapshot,
+  AdSpendEntry,
+  AnalysisResult,
+  AppPersistedState,
+  AuthUser,
+  HomeCurrency,
+  OrderLine,
   Plan,
-  PortfolioResult,
-  Product,
+  ProductCostRow,
+  SavedDataset,
   Scenario,
   ScenarioAdjustments,
+  TaxSettings,
 } from '../lib/types'
+
+const defaultTax: TaxSettings = {
+  pricesIncludeTax: true,
+  businessCountry: 'GB',
+  vatGstRegistered: false,
+  vatGstFrom: null,
+  euOss: false,
+  euIoss: false,
+  ukFlatRate: false,
+  ukFlatRatePct: 0,
+  usSelfCollectStates: [],
+}
+
+function emptyAdj(): ScenarioAdjustments {
+  return {
+    pricePct: 0,
+    productCostPct: 0,
+    adSpendPct: 0,
+    returnRatePct: 0,
+    shippingChargePct: 0,
+    discountPct: 0,
+  }
+}
+
+function todayKey(tz: string) {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date())
+  } catch {
+    return new Date().toISOString().slice(0, 10)
+  }
+}
 
 interface AppContextValue {
   plan: Plan
   theme: 'light' | 'dark'
-  products: Product[]
+  currency: HomeCurrency
+  user: AuthUser | null
+  tax: TaxSettings
+  targetMarginPct: number
+  monthlyOverheads: number
+  costs: ProductCostRow[]
+  ads: AdSpendEntry[]
+  lines: OrderLine[]
   scenarios: Scenario[]
-  activeScenarioId: string | null
-  csvUploadCount: number
-  history: HistorySnapshot[]
+  savedDatasets: SavedDataset[]
+  uploadDay: { dateKey: string; used: number }
+  uploadsLeft: number
+  earlyBirdSold: number
+  earlyBirdLeft: number
+  result: AnalysisResult
+  scenarioResults: { scenario: Scenario; result: AnalysisResult }[]
   upgradeOpen: boolean
-  result: PortfolioResult
-  scenarioResults: { scenario: Scenario; result: PortfolioResult }[]
-  selectedProductId: string | null
-  setSelectedProductId: (id: string | null) => void
-  setPlan: (plan: Plan) => void
+  authOpen: boolean
+  selectedSku: string | null
+  feesComparable: boolean
+  warnings: string[]
+  setUpgradeOpen: (v: boolean) => void
+  setAuthOpen: (v: boolean) => void
+  setSelectedSku: (sku: string | null) => void
   toggleTheme: () => void
-  setUpgradeOpen: (open: boolean) => void
-  updateProduct: (id: string, patch: Partial<Product>) => void
-  addProduct: () => void
-  removeProduct: (id: string) => void
-  importCsv: (text: string) => { ok: boolean; error?: string }
-  resetSample: () => void
-  createScenarioFromCurrent: (name?: string) => void
+  setCurrency: (c: HomeCurrency) => void
+  setTax: (patch: Partial<TaxSettings>) => void
+  setTargetMarginPct: (n: number) => void
+  setMonthlyOverheads: (n: number) => void
+  signInEmail: (email: string, password: string) => void
+  signInGoogle: (emailVerified: boolean) => void
+  verifyEmail: () => void
+  signOut: () => void
+  loadSample: () => void
+  recordSuccessfulUpload: () => boolean
+  replaceOrders: (lines: OrderLine[]) => void
+  replaceTemplate: (costs: ProductCostRow[], ads?: AdSpendEntry[]) => void
+  updateCost: (sku: string, patch: Partial<ProductCostRow>) => void
+  setAdTotalManual: (amount: number) => void
+  unlockProDemo: (billingCountry: string) => { ok: boolean; message: string }
+  switchToFree: () => void
+  createScenario: () => void
   updateScenario: (id: string, patch: Partial<Scenario>) => void
-  setScenarioAdjustments: (id: string, adjustments: ScenarioAdjustments) => void
   removeScenario: (id: string) => void
-  setActiveScenarioId: (id: string | null) => void
-  saveHistorySnapshot: (label?: string) => void
-  clearHistory: () => void
-  canAddProduct: boolean
-  canUploadCsv: boolean
+  saveDataset: (name: string) => void
+  exportDataCsv: () => string
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
 
-function initialTheme(): 'light' | 'dark' {
-  const saved = loadState()
-  if (saved?.theme) return saved.theme
-  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark'
-  }
-  return 'light'
-}
-
 export function AppProvider({ children }: { children: ReactNode }) {
   const saved = loadState()
+  const sample = buildSampleDataset(saved?.currency ?? 'GBP')
+
   const [plan, setPlan] = useState<Plan>(saved?.plan ?? 'free')
-  const [theme, setTheme] = useState<'light' | 'dark'>(initialTheme)
-  const [products, setProducts] = useState<Product[]>(saved?.products ?? sampleProducts)
-  const [scenarios, setScenarios] = useState<Scenario[]>(
-    saved?.scenarios ?? [
-      createScenario('Current month', sampleProducts),
+  const [theme, setTheme] = useState<'light' | 'dark'>(saved?.theme ?? 'light')
+  const [currency, setCurrency] = useState<HomeCurrency>(saved?.currency ?? 'GBP')
+  const [user, setUser] = useState<AuthUser | null>(saved?.user ?? null)
+  const [tax, setTaxState] = useState<TaxSettings>(saved?.tax ?? defaultTax)
+  const [targetMarginPct, setTargetMarginPct] = useState(saved?.targetMarginPct ?? 10)
+  const [monthlyOverheads, setMonthlyOverheads] = useState(saved?.monthlyOverheads ?? 0)
+  const [costs, setCosts] = useState<ProductCostRow[]>(saved?.costs ?? sample.costs)
+  const [ads, setAds] = useState<AdSpendEntry[]>(
+    saved?.ads ?? [
       {
-        ...createScenario('Lower ads / fewer returns', sampleProducts),
-        adjustments: { ...emptyAdjustments(), adSpendPct: -20, returnRatePct: -30 },
+        id: createId('ad'),
+        channel: 'Blended',
+        amount: sample.adSpend,
+        startDate: '2026-09-01',
+        endDate: '2026-09-30',
       },
     ],
   )
-  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(
-    saved?.activeScenarioId ?? null,
+  const [lines, setLines] = useState<OrderLine[]>(saved?.lines ?? sample.lines)
+  const [scenarios, setScenarios] = useState<Scenario[]>(
+    saved?.scenarios ?? [
+      { id: createId('scn'), name: 'Current', adjustments: emptyAdj() },
+      {
+        id: createId('scn'),
+        name: 'Lower ads / fewer returns',
+        adjustments: { ...emptyAdj(), adSpendPct: -20, returnRatePct: -30 },
+      },
+    ],
   )
-  const [csvUploadCount, setCsvUploadCount] = useState(saved?.csvUploadCount ?? 0)
-  const [history, setHistory] = useState<HistorySnapshot[]>(saved?.history ?? [])
+  const [savedDatasets, setSavedDatasets] = useState<SavedDataset[]>(saved?.savedDatasets ?? [])
+  const [uploadDay, setUploadDay] = useState(
+    saved?.uploadDay ?? { dateKey: todayKey(saved?.user?.timeZone ?? 'Europe/London'), used: 0 },
+  )
+  const [earlyBirdSold, setEarlyBirdSold] = useState(saved?.earlyBirdSold ?? 0)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(
-    (saved?.products ?? sampleProducts)[0]?.id ?? null,
+  const [authOpen, setAuthOpen] = useState(false)
+  const [selectedSku, setSelectedSku] = useState<string | null>(
+    (saved?.costs ?? sample.costs)[0]?.sku ?? null,
   )
+
+  const tz = user?.timeZone ?? 'Europe/London'
+  const dayKey = todayKey(tz)
+  useEffect(() => {
+    if (uploadDay.dateKey !== dayKey) setUploadDay({ dateKey: dayKey, used: 0 })
+  }, [dayKey, uploadDay.dateKey])
+
+  const uploadsLeft = plan === 'pro' ? Infinity : Math.max(0, 3 - uploadDay.used)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
 
   useEffect(() => {
-    saveState({
-      version: 1,
+    const state: AppPersistedState = {
+      version: 2,
       plan,
       theme,
-      products,
+      currency,
+      user,
+      tax,
+      targetMarginPct,
+      monthlyOverheads,
+      conversionFeePct: 0,
+      userFxRates: {},
+      costs,
+      ads,
+      lines,
       scenarios,
-      activeScenarioId,
-      csvUploadCount,
-      history,
-      upgradeOpen: false,
-    })
-  }, [plan, theme, products, scenarios, activeScenarioId, csvUploadCount, history])
+      savedDatasets,
+      uploadDay,
+      earlyBirdSold,
+      licenceActive: plan === 'pro',
+      digitalListingSkus: costs.filter((c) => c.digital).map((c) => c.sku),
+    }
+    saveState(state)
+  }, [
+    plan,
+    theme,
+    currency,
+    user,
+    tax,
+    targetMarginPct,
+    monthlyOverheads,
+    costs,
+    ads,
+    lines,
+    scenarios,
+    savedDatasets,
+    uploadDay,
+    earlyBirdSold,
+  ])
 
-  const result = useMemo(() => analyzePortfolio(products), [products])
+  const adSpendTotal = ads.reduce((s, a) => s + a.amount, 0)
+  const feeCmp = useMemo(() => compareFees(lines, currency), [lines, currency])
+  const periodDays = useMemo(() => {
+    if (!lines.length) return 30
+    const dates = lines.map((l) => l.postingDate || l.orderDate).sort()
+    const a = new Date(dates[0] + 'T00:00:00Z').getTime()
+    const b = new Date(dates[dates.length - 1] + 'T00:00:00Z').getTime()
+    return Math.max(1, Math.round((b - a) / 86400000) + 1)
+  }, [lines])
+  const overheadsForPeriod = (monthlyOverheads * periodDays) / 30
 
-  const scenarioResults = useMemo(
+  const result = useMemo(
     () =>
-      scenarios.map((scenario) => ({
-        scenario,
-        result: analyzePortfolio(applyAdjustments(scenario.products, scenario.adjustments)),
-      })),
-    [scenarios],
+      analyzeStore({
+        lines,
+        costs,
+        adSpendTotal,
+        overheadsForPeriod: plan === 'pro' ? overheadsForPeriod : 0,
+        conversionFees: 0,
+        currency,
+        targetMarginPct,
+        feesComparable: feeCmp.comparable,
+        feesExcessPp: feeCmp.excessPp,
+      }),
+    [lines, costs, adSpendTotal, overheadsForPeriod, currency, targetMarginPct, feeCmp, plan],
   )
 
-  const canAddProduct = plan === 'pro' || products.length < FREE_PRODUCT_LIMIT
-  const canUploadCsv = plan === 'pro' || csvUploadCount < FREE_CSV_UPLOAD_LIMIT
+  const scenarioResults = useMemo(() => {
+    if (plan !== 'pro') return []
+    return scenarios.map((scenario) => {
+      const applied = applyScenarioToLines(lines, costs, adSpendTotal, scenario.adjustments)
+      return {
+        scenario,
+        result: analyzeStore({
+          lines: applied.lines,
+          costs: applied.costs,
+          adSpendTotal: applied.adSpend,
+          overheadsForPeriod,
+          conversionFees: 0,
+          currency,
+          targetMarginPct,
+          feesComparable: feeCmp.comparable,
+          feesExcessPp: feeCmp.excessPp,
+        }),
+      }
+    })
+  }, [plan, scenarios, lines, costs, adSpendTotal, overheadsForPeriod, currency, targetMarginPct, feeCmp])
 
   const value: AppContextValue = {
     plan,
     theme,
-    products,
+    currency,
+    user,
+    tax,
+    targetMarginPct,
+    monthlyOverheads,
+    costs,
+    ads,
+    lines,
     scenarios,
-    activeScenarioId,
-    csvUploadCount,
-    history,
-    upgradeOpen,
+    savedDatasets,
+    uploadDay,
+    uploadsLeft: Number.isFinite(uploadsLeft) ? uploadsLeft : 999,
+    earlyBirdSold,
+    earlyBirdLeft: earlyBirdPlacesLeft(earlyBirdSold),
     result,
     scenarioResults,
-    selectedProductId,
-    setSelectedProductId,
-    setPlan,
-    toggleTheme: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')),
+    upgradeOpen,
+    authOpen,
+    selectedSku,
+    feesComparable: feeCmp.comparable,
+    warnings: result.warnings,
     setUpgradeOpen,
-    updateProduct: (id, patch) => {
-      setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
-    },
-    addProduct: () => {
-      if (!canAddProduct) {
-        setUpgradeOpen(true)
-        return
-      }
-      const next = createBlankProduct()
-      setProducts((prev) => [...prev, next])
-      setSelectedProductId(next.id)
-    },
-    removeProduct: (id) => {
-      setProducts((prev) => {
-        const next = prev.filter((p) => p.id !== id)
-        if (selectedProductId === id) setSelectedProductId(next[0]?.id ?? null)
-        return next
-      })
-    },
-    importCsv: (text) => {
-      if (!canUploadCsv) {
-        setUpgradeOpen(true)
-        return { ok: false, error: 'Free plan allows one CSV upload. Upgrade to Pro for unlimited uploads.' }
-      }
-      const parsed = parseProductsCsv(text)
-      if (parsed.error) return { ok: false, error: parsed.error }
-      let next = parsed.products
-      if (plan === 'free' && next.length > FREE_PRODUCT_LIMIT) {
-        next = next.slice(0, FREE_PRODUCT_LIMIT)
-      }
-      setProducts(next)
-      setSelectedProductId(next[0]?.id ?? null)
-      setCsvUploadCount((c) => c + 1)
-      return { ok: true }
-    },
-    resetSample: () => {
-      const next = sampleProducts.map((p) => ({ ...p, id: createId('prod') }))
-      setProducts(next)
-      setSelectedProductId(next[0]?.id ?? null)
-    },
-    createScenarioFromCurrent: (name) => {
-      if (plan !== 'pro') {
-        setUpgradeOpen(true)
-        return
-      }
-      const scenario = createScenario(name ?? `Scenario ${scenarios.length + 1}`, products)
-      setScenarios((prev) => [...prev, scenario])
-      setActiveScenarioId(scenario.id)
-    },
-    updateScenario: (id, patch) => {
-      setScenarios((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
-    },
-    setScenarioAdjustments: (id, adjustments) => {
-      setScenarios((prev) => prev.map((s) => (s.id === id ? { ...s, adjustments } : s)))
-    },
-    removeScenario: (id) => {
-      setScenarios((prev) => prev.filter((s) => s.id !== id))
-      if (activeScenarioId === id) setActiveScenarioId(null)
-    },
-    setActiveScenarioId,
-    saveHistorySnapshot: (label) => {
-      if (plan !== 'pro') {
-        setUpgradeOpen(true)
-        return
-      }
-      const snap: HistorySnapshot = {
-        id: createId('hist'),
-        label: label ?? new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+    setAuthOpen,
+    setSelectedSku,
+    toggleTheme: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')),
+    setCurrency,
+    setTax: (patch) => setTaxState((t) => ({ ...t, ...patch })),
+    setTargetMarginPct,
+    setMonthlyOverheads,
+    signInEmail: (email) => {
+      const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
+      setUser({
+        id: createId('user'),
+        email,
+        emailVerified: false,
+        authProvider: 'email',
         createdAt: new Date().toISOString(),
-        trueProfit: result.totals.trueProfit,
-        marginPct: result.totals.marginPct,
-        healthScore: result.healthScore,
-        productCount: products.length,
-      }
-      setHistory((prev) => [snap, ...prev].slice(0, 24))
+        lastSignInAt: new Date().toISOString(),
+        timeZone: tzGuess,
+        timeZoneChangedAt: null,
+      })
+      setAuthOpen(false)
     },
-    clearHistory: () => setHistory([]),
-    canAddProduct,
-    canUploadCsv,
+    signInGoogle: (emailVerified) => {
+      const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
+      setUser({
+        id: createId('user'),
+        email: 'seller@gmail.com',
+        emailVerified,
+        authProvider: 'google',
+        googleEmailVerified: emailVerified,
+        createdAt: new Date().toISOString(),
+        lastSignInAt: new Date().toISOString(),
+        timeZone: tzGuess,
+        timeZoneChangedAt: null,
+      })
+      setAuthOpen(false)
+    },
+    verifyEmail: () => setUser((u) => (u ? { ...u, emailVerified: true } : u)),
+    signOut: () => setUser(null),
+    loadSample: () => {
+      const s = buildSampleDataset(currency)
+      setLines(s.lines)
+      setCosts(s.costs)
+      setAds([
+        {
+          id: createId('ad'),
+          channel: 'Blended',
+          amount: s.adSpend,
+          startDate: '2026-09-01',
+          endDate: '2026-09-30',
+        },
+      ])
+      setSelectedSku(s.costs[0]?.sku ?? null)
+    },
+    recordSuccessfulUpload: () => {
+      if (plan === 'pro') return true
+      if (!user?.emailVerified) {
+        setAuthOpen(true)
+        return false
+      }
+      if (uploadsLeft <= 0) {
+        setUpgradeOpen(true)
+        return false
+      }
+      setUploadDay((d) => ({ dateKey: dayKey, used: d.dateKey === dayKey ? d.used + 1 : 1 }))
+      return true
+    },
+    replaceOrders: (next) => setLines(next),
+    replaceTemplate: (nextCosts, nextAds) => {
+      setCosts(nextCosts)
+      if (nextAds) setAds(nextAds)
+    },
+    updateCost: (sku, patch) =>
+      setCosts((prev) => prev.map((c) => (c.sku === sku ? { ...c, ...patch } : c))),
+    setAdTotalManual: (amount) =>
+      setAds([
+        {
+          id: createId('ad'),
+          channel: plan === 'pro' ? 'Meta' : 'Blended',
+          amount,
+          startDate: '2026-09-01',
+          endDate: '2026-09-30',
+        },
+      ]),
+    unlockProDemo: (billingCountry) => {
+      if (!user) {
+        setAuthOpen(true)
+        return { ok: false, message: 'Sign in to buy Pro.' }
+      }
+      const res = mockStartCheckout({
+        accountId: user.id,
+        emailVerified: user.emailVerified,
+        billingCountry,
+        currency,
+        alreadyPro: plan === 'pro',
+        paymentPending: false,
+        earlyBirdSold,
+      })
+      if (res.ok) {
+        setPlan('pro')
+        if (res.earlyBirdSold != null) setEarlyBirdSold(res.earlyBirdSold)
+        // Free dataset carries into Pro shop
+        setSavedDatasets((prev) => [
+          {
+            id: createId('ds'),
+            name: 'Upgraded from Free',
+            start: result.totals.period.start,
+            end: result.totals.period.end,
+            platforms: [...new Set(lines.map((l) => l.platform))],
+            createdAt: new Date().toISOString(),
+          },
+          ...prev,
+        ])
+        setUpgradeOpen(false)
+      }
+      return { ok: res.ok, message: res.message }
+    },
+    switchToFree: () => setPlan('free'),
+    createScenario: () => {
+      if (plan !== 'pro') {
+        setUpgradeOpen(true)
+        return
+      }
+      setScenarios((prev) => [
+        ...prev,
+        { id: createId('scn'), name: `Scenario ${prev.length + 1}`, adjustments: emptyAdj() },
+      ])
+    },
+    updateScenario: (id, patch) =>
+      setScenarios((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s))),
+    removeScenario: (id) => setScenarios((prev) => prev.filter((s) => s.id !== id)),
+    saveDataset: (name) => {
+      if (plan !== 'pro') {
+        setUpgradeOpen(true)
+        return
+      }
+      setSavedDatasets((prev) => [
+        {
+          id: createId('ds'),
+          name,
+          start: result.totals.period.start,
+          end: result.totals.period.end,
+          platforms: [...new Set(lines.map((l) => l.platform))],
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ])
+    },
+    exportDataCsv: () => {
+      const header = 'sku,name,revenue,net_profit,net_margin_pct,verdict'
+      const rows = result.products.map(
+        (p) =>
+          `${p.sku},"${p.name}",${p.revenue},${p.netProfit},${p.netMarginPct},${p.verdict}`,
+      )
+      return [header, ...rows].join('\n')
+    },
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
@@ -230,3 +453,5 @@ export function useApp() {
   if (!ctx) throw new Error('useApp must be used within AppProvider')
   return ctx
 }
+
+export { EARLY_BIRD_CAP }

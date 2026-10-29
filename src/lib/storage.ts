@@ -1,13 +1,13 @@
 import type { AppPersistedState } from './types'
 
-const KEY = 'marginos.v1'
+const KEY = 'marginos.v2'
 
 export function loadState(): AppPersistedState | null {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as AppPersistedState
-    if (parsed?.version !== 1) return null
+    if (parsed?.version !== 2) return null
     return parsed
   } catch {
     return null
@@ -18,14 +18,6 @@ export function saveState(state: AppPersistedState) {
   try {
     localStorage.setItem(KEY, JSON.stringify(state))
   } catch {
-    // Ignore quota / private mode failures.
-  }
-}
-
-export function clearState() {
-  try {
-    localStorage.removeItem(KEY)
-  } catch {
-    // no-op
+    // ignore
   }
 }

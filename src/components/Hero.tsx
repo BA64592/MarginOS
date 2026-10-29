@@ -1,9 +1,10 @@
 import { useApp } from '../context/AppContext'
-import { formatGbp } from '../lib/format'
+import { en } from '../i18n/en'
+import { formatMoney } from '../lib/format'
 import { Button } from './ui'
 
 export function Hero() {
-  const { result, setUpgradeOpen, plan } = useApp()
+  const { result, setUpgradeOpen, plan, currency, earlyBirdLeft } = useApp()
 
   return (
     <section
@@ -21,18 +22,19 @@ export function Hero() {
       <div className="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
         <div className="animate-fade-up max-w-2xl">
           <p className="font-display text-5xl font-semibold tracking-tight text-ink sm:text-6xl lg:text-7xl">
-            MarginOS
+            {en.brand}
           </p>
           <h2 className="mt-4 max-w-xl text-lg font-medium leading-snug text-ink sm:text-xl">
-            Find where your margin leaks and what each leak costs you.
+            {en.tagline}
           </h2>
           <p className="mt-3 max-w-lg text-sm text-subtle sm:text-base">
-            True profit after product cost, shipping, ads, platform fees and returns — one price, no
-            subscription.
+            True profit after product cost, shipping, ads, platform fees and returns — {en.positioning.toLowerCase()}
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             {plan === 'free' ? (
-              <Button onClick={() => setUpgradeOpen(true)}>Get Pro · £19 lifetime</Button>
+              <Button onClick={() => setUpgradeOpen(true)}>
+                Get Pro · {earlyBirdLeft > 0 ? `${en.earlyBirdPrice}` : en.proPrice}
+              </Button>
             ) : (
               <Button variant="secondary">Pro unlocked</Button>
             )}
@@ -47,9 +49,14 @@ export function Hero() {
           </div>
           <p className="mt-8 text-sm text-subtle">
             Live catalogue ·{' '}
-            <span className="font-semibold text-ink">{formatGbp(result.totals.trueProfit)}</span>{' '}
+            <span className="font-semibold text-ink">
+              {formatMoney(result.totals.trueProfit, currency)}
+            </span>{' '}
             true profit · score{' '}
-            <span className="font-semibold text-ink">{result.healthScore}</span>
+            <span className="font-semibold text-ink">{result.health.score ?? '—'}</span>
+            {earlyBirdLeft > 0 && plan === 'free' ? (
+              <span className="ml-2 text-accent">· {earlyBirdLeft} early-bird places left</span>
+            ) : null}
           </p>
         </div>
       </div>
