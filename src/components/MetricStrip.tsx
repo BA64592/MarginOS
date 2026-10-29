@@ -15,13 +15,13 @@ export function MetricStrip() {
     {
       label: 'True profit',
       value: formatMoney(result.totals.trueProfit, currency),
-      hint: 'CM − ads − conversion fees − overheads',
+      hint: 'Contribution margin − ads − conversion fees − overheads',
       icon: Wallet,
       accent: result.totals.trueProfit >= 0 ? 'text-ok' : 'text-danger',
       maths: [
         `Revenue ${formatMoney(result.totals.revenue, currency)} (product + shipping charged − discounts; tax excluded).`,
-        `CM ${formatMoney(result.totals.contributionMargin, currency)} (${formatPct(result.totals.contributionMarginPct)}).`,
-        `True profit = CM − ads ${formatMoney(result.totals.adSpend, currency)} − conversion ${formatMoney(result.totals.conversionFees, currency)} − overheads ${formatMoney(result.totals.overheads, currency)}.`,
+        `Contribution margin ${formatMoney(result.totals.contributionMargin, currency)} (${formatPct(result.totals.contributionMarginPct)}).`,
+        `True profit = contribution margin − ads ${formatMoney(result.totals.adSpend, currency)} − conversion ${formatMoney(result.totals.conversionFees, currency)} − overheads ${formatMoney(result.totals.overheads, currency)}.`,
       ],
     },
     {

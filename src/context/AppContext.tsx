@@ -91,6 +91,7 @@ interface AppContextValue {
   selectedSku: string | null
   feesComparable: boolean
   warnings: string[]
+  usingSampleData: boolean
   setUpgradeOpen: (v: boolean) => void
   setAuthOpen: (v: boolean) => void
   setSelectedSku: (sku: string | null) => void
@@ -163,6 +164,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     saved?.uploadDay ?? { dateKey: todayKey(saved?.user?.timeZone ?? 'Europe/London'), used: 0 },
   )
   const [earlyBirdSold, setEarlyBirdSold] = useState(saved?.earlyBirdSold ?? 0)
+  const [usingSampleData, setUsingSampleData] = useState(
+    saved?.usingSampleData ?? saved == null,
+  )
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const [selectedSku, setSelectedSku] = useState<string | null>(
@@ -202,6 +206,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       earlyBirdSold,
       licenceActive: plan === 'pro',
       digitalListingSkus: costs.filter((c) => c.digital).map((c) => c.sku),
+      usingSampleData,
     }
     saveState(state)
   }, [
@@ -219,6 +224,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     savedDatasets,
     uploadDay,
     earlyBirdSold,
+    usingSampleData,
   ])
 
   const adSpendTotal = ads.reduce((s, a) => s + a.amount, 0)
@@ -294,6 +300,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     feesComparable: feeCmp.comparable,
     feeMathsNotes: feeCmp.mathsNotes,
     warnings: result.warnings,
+    usingSampleData,
     setUpgradeOpen,
     setAuthOpen,
     setSelectedSku,
@@ -363,6 +370,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         },
       ])
       setSelectedSku(s.costs[0]?.sku ?? null)
+      setUsingSampleData(true)
     },
     recordSuccessfulUpload: () => {
       if (plan === 'pro') return true
@@ -377,7 +385,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setUploadDay((d) => ({ dateKey: dayKey, used: d.dateKey === dayKey ? d.used + 1 : 1 }))
       return true
     },
-    replaceOrders: (next) => setLines(next),
+    replaceOrders: (next) => {
+      setLines(next)
+      setUsingSampleData(false)
+    },
     importPlatformOrders: (input) => {
       if (!user?.emailVerified) {
         setAuthOpen(true)
@@ -401,6 +412,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setUploadDay((d) => ({ dateKey: dayKey, used: d.dateKey === dayKey ? d.used + 1 : 1 }))
       }
       setLines(parsed.lines)
+      setUsingSampleData(false)
       if (parsed.ads.length) {
         setAds((prev) => (plan === 'pro' ? [...parsed.ads, ...prev] : prev))
       }
@@ -414,6 +426,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     replaceTemplate: (nextCosts, nextAds) => {
       setCosts(nextCosts)
       if (nextAds) setAds(nextAds)
+      setUsingSampleData(false)
     },
     updateCost: (sku, patch) =>
       setCosts((prev) => prev.map((c) => (c.sku === sku ? { ...c, ...patch } : c))),

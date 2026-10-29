@@ -50,7 +50,7 @@ export function CalculatorsPanel() {
       <SectionHeading
         eyebrow="Calculators"
         title="Break-even & target price"
-        description="Free: one product at a time. Break-even ROAS/ACOS, break-even price, target-margin price."
+        description="Pick a product to see break-even ROAS, ACOS, break-even price and the price that hits your target margin."
       />
       <Card>
         <div className="mb-4 grid gap-3 sm:grid-cols-2">
@@ -94,7 +94,7 @@ export function CalculatorsPanel() {
             </p>
             <MathsDisclosure
               lines={[
-                `Break-even ROAS = 1 ÷ CM% = 1 ÷ ${formatPct(product.contributionMarginPct)}.`,
+                `Break-even ROAS = 1 ÷ contribution margin % = 1 ÷ ${formatPct(product.contributionMarginPct)}.`,
               ]}
             />
           </div>
@@ -103,7 +103,11 @@ export function CalculatorsPanel() {
             <p className="font-display text-xl font-semibold text-ink">
               {calc.beAcos == null ? '—' : formatPct(calc.beAcos)}
             </p>
-            <MathsDisclosure lines={['Break-even ACOS = CM % (ads can take up to this share of revenue).']} />
+            <MathsDisclosure
+              lines={[
+                'Break-even ACOS = contribution margin % (ads can take up to this share of revenue).',
+              ]}
+            />
           </div>
           <div className="rounded-xl bg-muted/80 px-3 py-3">
             <p className="text-xs uppercase tracking-wide text-subtle">Break-even price</p>

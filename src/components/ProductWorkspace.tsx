@@ -36,6 +36,7 @@ export function ProductWorkspace() {
     user,
     setAuthOpen,
     warnings,
+    usingSampleData,
   } = useApp()
   const fileRef = useRef<HTMLInputElement>(null)
   const [csvMsg, setCsvMsg] = useState<string | null>(null)
@@ -91,7 +92,11 @@ export function ProductWorkspace() {
       <SectionHeading
         eyebrow="Inputs"
         title="Orders, costs & ads"
-        description="Sample Shopify / Amazon / Etsy order lines are loaded. Add the MarginOS cost template (or edit costs) — Free holds one order dataset + one template."
+        description={
+          usingSampleData
+            ? 'Demo orders from Shopify, Amazon and Etsy are loaded so you can explore. Upload your own export or cost template when you’re ready.'
+            : 'Edit unit costs below, or upload a MarginOS cost template and fresh platform orders.'
+        }
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" onClick={loadSample}>
@@ -125,6 +130,7 @@ export function ProductWorkspace() {
       />
 
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-subtle">
+        {usingSampleData ? <Badge tone="warn">Sample data</Badge> : null}
         {plan === 'free' ? (
           <Badge tone={uploadsLeft === 0 ? 'danger' : 'warn'}>
             {uploadsLeft} of 3 uploads left today
@@ -187,7 +193,7 @@ export function ProductWorkspace() {
 
       <div className="mb-4">
         <SliderField
-          label={plan === 'pro' ? 'Ad spend (period total)' : 'Ad spend — blended total (Free)'}
+          label="Ad spend for this period"
           value={ads.reduce((s, a) => s + a.amount, 0)}
           min={0}
           max={20000}
@@ -196,8 +202,8 @@ export function ProductWorkspace() {
           onChange={setAdTotalManual}
           hint={
             plan === 'pro'
-              ? 'Pro can import per-channel ads with attributed revenue for ROAS.'
-              : 'Free results use blended ad spend only.'
+              ? 'Pro can split ads by channel and match spend to the revenue those ads drove.'
+              : 'Enter your total ad spend for the period. Pro can split spend by channel.'
           }
         />
       </div>
@@ -231,7 +237,7 @@ export function ProductWorkspace() {
           </ul>
           {plan === 'free' ? (
             <p className="mt-2 px-2 text-xs text-subtle">
-              Free: Losing money / Thin / Healthy verdicts on top 10 by revenue.
+              Free shows Losing money / Thin / Healthy on your top 10 products by revenue.
             </p>
           ) : null}
         </Card>
@@ -305,7 +311,7 @@ export function ProductWorkspace() {
                   step={0.1}
                   suffix={currency}
                   onChange={(shippingCostPerUnit) => updateCost(selected.sku, { shippingCostPerUnit })}
-                  hint="Used when no per-order shipping cost is on the line."
+                  hint="Used when an order line has no shipping cost of its own."
                 />
                 <SliderField
                   label="Return cost / returned unit"
@@ -329,15 +335,14 @@ export function ProductWorkspace() {
                 selected.maths.fees,
               ].filter(Boolean)}
             />
-            {plan === 'free' ? (
-              <p className="mt-3 text-xs text-subtle">
-                Per-product refund breakdown is calculated internally for Free verdicts/leaks, but showing it is
-                Pro.
-              </p>
-            ) : (
+            {plan === 'pro' ? (
               <p className="mt-3 text-sm text-subtle">
                 Return cost {formatMoney(selected.returnCost, currency)}
                 {selected.refundUnitsEstimated ? ' (estimated from refund amount)' : ''}.
+              </p>
+            ) : (
+              <p className="mt-3 text-xs text-subtle">
+                A full refund breakdown per product is included with Pro.
               </p>
             )}
           </Card>

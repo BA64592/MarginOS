@@ -37,9 +37,11 @@ export function CostCharts() {
   ].filter((d) => d.value > 0)
 
   const byProduct = result.products.slice(0, 10).map((p) => ({
-    name: p.name.length > 14 ? `${p.name.slice(0, 12)}…` : p.name,
+    name: p.name,
     profit: Math.round(p.netProfit),
   }))
+
+  const moneyTick = (value: number) => formatMoney(value, currency, true)
 
   return (
     <section>
@@ -71,13 +73,27 @@ export function CostCharts() {
             </PieChart>
           </ResponsiveContainer>
         </Card>
-        <Card className="h-[320px]">
+        <Card className="h-[380px] sm:h-[400px]">
           <p className="mb-3 text-sm font-semibold text-ink">True profit by product</p>
           <ResponsiveContainer width="100%" height="90%">
-            <BarChart data={byProduct} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+            <BarChart
+              data={byProduct}
+              margin={{ top: 8, right: 12, left: 8, bottom: 72 }}
+            >
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
-              <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+              <XAxis
+                dataKey="name"
+                interval={0}
+                angle={-28}
+                textAnchor="end"
+                height={80}
+                tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+              />
+              <YAxis
+                tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                tickFormatter={moneyTick}
+                width={72}
+              />
               <Tooltip
                 formatter={(value) => formatMoney(Number(value), currency, true)}
                 contentStyle={{

@@ -1,5 +1,6 @@
 import { useRef, useState, type RefObject } from 'react'
 import { useApp } from '../context/AppContext'
+import { platformLabel } from '../lib/platforms'
 import type { Platform } from '../lib/types'
 import { Button, Card } from './ui'
 
@@ -14,7 +15,7 @@ export function PlatformImport() {
   const run = async () => {
     if (!user) {
       setAuthOpen(true)
-      setMessage('Sign in and verify email before uploading.')
+      setMessage('Sign in and verify your email before uploading.')
       return
     }
     const read = async (ref: RefObject<HTMLInputElement | null>) => {
@@ -58,10 +59,10 @@ export function PlatformImport() {
   }
 
   return (
-    <Card className="mb-4">
-      <p className="mb-2 text-sm font-semibold text-ink">Platform order CSV</p>
+    <Card className="mb-4" id="platform-upload" tabIndex={-1}>
+      <p className="mb-2 text-sm font-semibold text-ink">Upload platform orders</p>
       <p className="mb-3 text-xs text-subtle">
-        Upload Shopify, Amazon or Etsy exports. Buyer personal data is removed on import.
+        Upload Shopify, Amazon or Etsy exports. Buyer personal details are stripped on import.
         {plan === 'free' ? ` · ${uploadsLeft} of 3 uploads left today.` : ''}
       </p>
       <div className="mb-3 flex flex-wrap gap-2">
@@ -72,31 +73,31 @@ export function PlatformImport() {
             variant={platform === p ? 'primary' : 'secondary'}
             onClick={() => setPlatform(p)}
           >
-            {p}
+            {platformLabel(p)}
           </Button>
         ))}
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-xs text-subtle">
-          {platform === 'shopify' && 'Orders export (required)'}
-          {platform === 'amazon' && 'Transaction report (required)'}
-          {platform === 'etsy' && 'Orders CSV (required)'}
+          {platform === 'shopify' && 'Shopify Orders export (required)'}
+          {platform === 'amazon' && 'Amazon Transaction report (required)'}
+          {platform === 'etsy' && 'Etsy Orders CSV (required)'}
           <input ref={primaryRef} type="file" accept=".csv,text/csv" className="mt-1 block w-full text-sm" />
         </label>
         {platform === 'shopify' ? (
           <label className="text-xs text-subtle">
-            Payments transactions (optional — actual fees)
+            Shopify Payments transactions (optional — actual fees)
             <input ref={secondaryRef} type="file" accept=".csv,text/csv" className="mt-1 block w-full text-sm" />
           </label>
         ) : null}
         {platform === 'etsy' ? (
           <>
             <label className="text-xs text-subtle">
-              Order Items CSV (required)
+              Etsy Order Items CSV (required)
               <input ref={secondaryRef} type="file" accept=".csv,text/csv" className="mt-1 block w-full text-sm" />
             </label>
             <label className="text-xs text-subtle sm:col-span-2">
-              Monthly Statement (optional — actual fees / labels)
+              Etsy Monthly Statement (optional — actual fees / labels)
               <input ref={tertiaryRef} type="file" accept=".csv,text/csv" className="mt-1 block w-full text-sm" />
             </label>
           </>
@@ -104,7 +105,7 @@ export function PlatformImport() {
       </div>
       <div className="mt-3">
         <Button size="sm" onClick={() => void run()}>
-          Import platform CSV
+          Import {platformLabel(platform)} CSV
         </Button>
       </div>
       {message ? <p className="mt-2 text-sm text-subtle">{message}</p> : null}

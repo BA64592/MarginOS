@@ -100,7 +100,7 @@ export function calcHealth(args: {
       weight: 20,
       score: 0,
       dropped: false,
-      detail: `Every ad ${currencyName.toLowerCase()} loses money (CM ≤ 0% with ad spend).`,
+      detail: `Every ad ${currencyName.toLowerCase()} loses money (contribution margin ≤ 0% with ad spend).`,
     })
   } else {
     const score = roundScore(adEfficiencyScore(totals.blendedRoas, totals.breakEvenRoas))

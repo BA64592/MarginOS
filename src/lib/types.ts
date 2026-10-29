@@ -247,4 +247,6 @@ export interface AppPersistedState {
   earlyBirdSold: number
   licenceActive: boolean
   digitalListingSkus: string[]
+  /** True when the loaded orders/costs are the built-in demo set. */
+  usingSampleData?: boolean
 }

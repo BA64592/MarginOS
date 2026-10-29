@@ -18,8 +18,8 @@ export function LeaksPanel() {
         title="Ranked by monthly impact"
         description={
           plan === 'pro'
-            ? 'Every leak with impact in your home currency, ranked largest first.'
-            : 'Free shows top 3 leaks without money impact. Amounts unlock in Pro.'
+            ? 'Every margin leak with monthly impact in your home currency, largest first.'
+            : 'Free shows your top 3 leaks. Monthly £ impact unlocks in Pro.'
         }
       />
 

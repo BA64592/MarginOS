@@ -13,8 +13,8 @@ export function RecommendationsPanel() {
         title="What to fix next"
         description={
           plan === 'pro'
-            ? 'Specific actions with calculated figures for every leak.'
-            : 'Free includes one headline action.'
+            ? 'A clear next step for every leak, with the figures behind it.'
+            : 'Free includes one headline action naming the product to fix first.'
         }
       />
       <Card className="mb-3 border-accent/30 bg-accent-soft/40">

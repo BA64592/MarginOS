@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import { cn } from '../lib/cn'
 
 export function Button({
@@ -44,19 +44,20 @@ export function Card({
   className,
   children,
   interactive = false,
-}: {
-  className?: string
+  ...props
+}: HTMLAttributes<HTMLDivElement> & {
   children: ReactNode
   interactive?: boolean
 }) {
   return (
     <div
+      {...props}
       className={cn(
         'rounded-2xl border border-border bg-elevated p-4 sm:p-5',
         interactive && 'transition hover:border-accent/40',
         className,
       )}
-      style={{ boxShadow: 'var(--shadow)' }}
+      style={{ boxShadow: 'var(--shadow)', ...props.style }}
     >
       {children}
     </div>

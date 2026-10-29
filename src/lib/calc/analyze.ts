@@ -206,8 +206,8 @@ export function analyzeStore(args: {
       refundUnitsEstimated,
       costMissing,
       maths: {
-        revenue: `Revenue = product sales + shipping charged − discounts = ${money(revenue, args.currency)} (refunds counted in return cost, not here).`,
-        cm: `CM = revenue − product/packaging − shipping − fees − return cost = ${money(cm, args.currency)}.`,
+        revenue: `Revenue = product sales + shipping charged − discounts = ${money(revenue, args.currency)} (refunds are counted in return cost, not here).`,
+        cm: `Contribution margin = revenue − product/packaging − shipping − fees − return cost = ${money(cm, args.currency)}.`,
       },
     })
   }
@@ -250,7 +250,11 @@ export function analyzeStore(args: {
       platformRev.set(l.platform, (platformRev.get(l.platform) ?? 0) + l.lineValue)
     }
     const mix = [...platformRev.entries()]
-      .map(([p, v]) => `${Math.round((v / Math.max(row.revenue, 1)) * 100)}% ${p}`)
+      .map(([p, v]) => {
+        const label =
+          p === 'shopify' ? 'Shopify' : p === 'amazon' ? 'Amazon' : p === 'etsy' ? 'Etsy' : p
+        return `${Math.round((v / Math.max(row.revenue, 1)) * 100)}% ${label}`
+      })
       .join(' / ')
 
     const target = calcTargetPrice({
@@ -278,7 +282,7 @@ export function analyzeStore(args: {
       targetPriceNote: target.note,
       maths: {
         ...row.maths,
-        net: `Net profit = CM − ad share = ${money(netProfit, args.currency)}.`,
+        net: `True profit = contribution margin − this product’s share of ad spend = ${money(netProfit, args.currency)}.`,
         target: target.maths.join(' '),
         fees: `Percentage fees ${(percentageFees * 100).toFixed(2)}% of revenue (referral + payment + listing).`,
       },
@@ -354,9 +358,7 @@ export function analyzeStore(args: {
   const highReturnsEstimated = leaks.some((l) => l.leakType === 'high_returns' && l.estimated)
   health = applyHighReturnsConfidencePenalty(health, highReturnsEstimated)
 
-  const headlineAction =
-    leaks[0]?.recommendation ??
-    'Margins look on track against the launch leak rules — keep monitoring ads, returns and fees.'
+  const headlineAction = buildHeadlineAction(leaks, products)
 
   return {
     totals,
@@ -367,6 +369,25 @@ export function analyzeStore(args: {
     warnings,
     shortPeriod,
   }
+}
+
+function buildHeadlineAction(leaks: Leak[], products: ProductResult[]): string {
+  if (!leaks.length) {
+    const best = [...products].sort((a, b) => b.netProfit - a.netProfit)[0]
+    return best
+      ? `${best.name}: margins look healthy — keep watching ads, returns and fees each month.`
+      : 'Your margins look healthy — keep watching ads, returns and fees each month.'
+  }
+  const top = leaks[0]
+  const named =
+    top.productName ||
+    [...products].sort((a, b) => a.netProfit - b.netProfit)[0]?.name ||
+    products[0]?.name
+  if (!named) return top.recommendation
+  if (top.recommendation.startsWith(`${named}:`) || top.recommendation.startsWith(`${named} `)) {
+    return top.recommendation
+  }
+  return `${named}: ${top.recommendation}`
 }
 
 function detectLeaks(args: {
@@ -404,7 +425,9 @@ function detectLeaks(args: {
         totals.contributionMarginPct <= 0
           ? `Fix pricing and costs first — every ad ${moneyWord} loses money.`
           : `Reduce or pause spend until ROAS reaches break-even ${typeof be === 'number' ? be.toFixed(2) : be}×.`,
-      maths: [`Impact = ad spend − max(CM, 0), scaled to 30 days → ${money(impact, currency, true)}.`],
+      maths: [
+        `Impact = ad spend − max(contribution margin, 0), scaled to 30 days → ${money(impact, currency, true)}.`,
+      ],
     })
   }
 

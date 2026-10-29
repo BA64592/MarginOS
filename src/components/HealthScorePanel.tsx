@@ -23,7 +23,7 @@ export function HealthScorePanel() {
       <SectionHeading
         eyebrow="Diagnosis"
         title="Margin Health Score"
-        description="Each part scores margin, ads, returns, mix, fees and shipping. Missing parts are dropped and the rest are rescaled."
+        description="Scores margin, ads, returns, product mix, fees and shipping. Parts that don’t apply are left out so the rest still add up to 100."
       />
       <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
         <Card className="flex flex-col items-center justify-center">
