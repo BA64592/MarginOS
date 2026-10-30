@@ -214,12 +214,12 @@ Do **not** redesign the first viewport into a dashboard, add card clutter to the
 
 | Slice | Owner | Scope | Re-test focus |
 | --- | --- | --- | --- |
-| **A — Spec UI parity** | Dev (+ Design review) | B5, B6, B7 | **Done 30 Oct 2026** — Free template + orders notices; upload-limit midnight copy; Shopify PII warnings. Also: Google disabled until K6; K11 fail→delete demo controls in Upgrade modal. |
-| **B — Auth real** | Dev | B2 | Verify gate, SES email; Google UI disabled pending K6 (done in Slice A) |
-| **C — Stripe SMP** | Dev + Akthar K4 | B1 | Test-mode matrix in stripe-smp checklist |
-| **D — Retention backend** | Dev | B3, B8 | F8 acceptance criteria; K11 fail; K8 webhook; 24-month job |
-| **E — FX** | Dev (+ Product) | B4 | Multi-currency import / unsupported currency message |
-| **F — Account deletion** | Dev + Design | B9 | After B/C |
+| **A — Spec UI parity** | Dev (+ Design review) | B5, B6, B7 | **Done 30 Oct 2026** |
+| **B — Auth real** | Dev | B2 | **Scaffolded** — verify tokens + `/api/auth/send-verification` (needs SES secrets / K5) |
+| **C — Stripe SMP** | Dev + Akthar K4 | B1 | **Scaffolded** — `/api/checkout` + webhook stub (needs K4 secrets) |
+| **D — Retention backend** | Dev | B3, B8 | **Partial** — client K11 + 24-month inactivity; server purge/webhooks still need host |
+| **E — FX** | Dev (+ Product) | B4 | **Done** — ECB table + convert-at-import + unsupported currency drop |
+| **F — Account deletion** | Dev + Design | B9 | **Done** — email-confirm delete in Settings |
 
 QA will re-run Spec v16 + v16.4 acceptance after each merged slice. **No production deploy without explicit owner approval.**
 

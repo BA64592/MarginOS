@@ -4,6 +4,7 @@ import { CostCharts } from './components/CostCharts'
 import { Header } from './components/Header'
 import { HealthScorePanel } from './components/HealthScorePanel'
 import { Hero } from './components/Hero'
+import { InactivityBanner } from './components/InactivityBanner'
 import { LeaksPanel } from './components/LeaksPanel'
 import { MetricStrip } from './components/MetricStrip'
 import { ProductWorkspace } from './components/ProductWorkspace'
@@ -19,6 +20,7 @@ export default function App() {
     <AppProvider>
       <div className="min-h-screen bg-bg text-ink">
         <Header />
+        <InactivityBanner />
         <Hero />
         <main className="mx-auto max-w-6xl space-y-12 px-4 py-8 sm:px-6 sm:py-12">
           <MetricStrip />

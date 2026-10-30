@@ -14,14 +14,15 @@ import {
 import { importPlatformFiles, type PlatformImportInput } from '../lib/csv/importPlatform'
 import { compareFees } from '../lib/fees/presets'
 import { createId } from '../lib/format'
-import { demoAuthProvider } from '../lib/auth/provider'
+import { marginosAuthProvider } from '../lib/auth/provider'
 import {
   EARLY_BIRD_CAP,
   earlyBirdPlacesLeft,
-  mockStartCheckout,
+  startCheckout,
 } from '../lib/payments/provider'
 import { logDataAction } from '../lib/auditLog'
 import { en } from '../i18n/en'
+import { inactivityWarningDays, isInactive24Months } from '../lib/inactivity'
 import {
   applyPaymentFailure,
   earliestClock,
@@ -31,7 +32,7 @@ import {
   resumeOrCancelClocks,
   upsertClock,
 } from '../lib/retention'
-import { loadState, saveState } from '../lib/storage'
+import { clearAllState, loadState, saveState } from '../lib/storage'
 import type {
   AdSpendEntry,
   AnalysisResult,
@@ -151,6 +152,8 @@ interface AppContextValue {
   signInEmail: (email: string, password: string) => void
   signInGoogle: (emailVerified: boolean) => void
   verifyEmail: () => void
+  requestVerificationEmail: () => Promise<{ ok: boolean; message: string; debugToken?: string }>
+  applyVerifyToken: (token: string) => Promise<{ ok: boolean; message: string }>
   signOut: () => void
   loadSample: () => void
   /** Remove sample rows only — never uses a Free upload (v16.3 E2). */
@@ -170,10 +173,14 @@ interface AppContextValue {
   feeMathsNotes: string[]
   updateCost: (sku: string, patch: Partial<ProductCostRow>) => void
   setAdTotalManual: (amount: number) => void
-  unlockProDemo: (billingCountry: string) => { ok: boolean; message: string }
+  unlockProDemo: (billingCountry: string) => Promise<{ ok: boolean; message: string }>
   /** Demo: delayed payment failed — delete past-due Free data (v16.4 F8.14 / K11). */
   failDelayedPayment: () => { ok: boolean; message: string }
   switchToFree: () => void
+  /** §10.2.8 — delete account and all local shop data. */
+  deleteAccount: (confirmEmail: string) => { ok: boolean; message: string }
+  inactivityNotice: string | null
+  dismissInactivityNotice: () => void
   createScenario: () => void
   updateScenario: (id: string, patch: Partial<Scenario>) => void
   removeScenario: (id: string) => void
@@ -234,6 +241,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
   const [keptProData, setKeptProData] = useState<KeptProData | null>(saved?.keptProData ?? null)
   const [paymentPending, setPaymentPending] = useState(saved?.paymentPending ?? false)
+  const [inactivityNotice, setInactivityNotice] = useState<string | null>(null)
   const [nowTick, setNowTick] = useState(() => Date.now())
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
@@ -291,6 +299,62 @@ export function AppProvider({ children }: { children: ReactNode }) {
       'Your Free data was deleted after 24 hours. Upload again, or upgrade to Pro to keep your data.',
     )
   }, [nowTick, plan, freeClocks])
+
+  // K8 / F9 — 24-month inactivity deletes uploaded order data (and kept ex-Pro orders)
+  useEffect(() => {
+    if (!user) return
+    const anchor = user.lastSignInAt
+    if (isInactive24Months(anchor, nowTick)) {
+      setLines((prev) => prev.filter((l) => l.isSample))
+      setKeptProData((prev) =>
+        prev
+          ? {
+              ...prev,
+              lines: [],
+              costs: prev.costs,
+              ads: [],
+              savedDatasets: [],
+              scenarios: [],
+            }
+          : prev,
+      )
+      setFreeClocks([])
+      setInactivityNotice(
+        'Order data was deleted after 24 months of inactivity. Your account and settings remain.',
+      )
+      return
+    }
+    const warn = inactivityWarningDays(anchor, nowTick)
+    if (warn) {
+      setInactivityNotice(
+        `Your uploaded order data will be deleted in about ${warn} days under the 24-month inactivity rule. Sign in again or export your data.`,
+      )
+    }
+  }, [user, nowTick])
+
+  // Email verification + Stripe return deep links
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('verify')
+    if (token) {
+      void marginosAuthProvider.verifyEmail(token).then((res) => {
+        if (res.ok) {
+          setUser((u) => (u ? { ...u, emailVerified: true, lastSignInAt: new Date().toISOString() } : u))
+        }
+        params.delete('verify')
+        const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
+        window.history.replaceState({}, '', next)
+      })
+    }
+    if (params.get('checkout') === 'success') {
+      setPlan('pro')
+      setPaymentPending(false)
+      setFreeClocks([])
+      params.delete('checkout')
+      const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
+      window.history.replaceState({}, '', next)
+    }
+  }, [])
 
   useEffect(() => {
     const state: AppPersistedState = {
@@ -423,6 +487,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     earliestFreeClock,
     freeDataDeletedNotice,
     dismissFreeDataDeletedNotice: () => setFreeDataDeletedNotice(null),
+    inactivityNotice,
+    dismissInactivityNotice: () => setInactivityNotice(null),
     keptProData,
     paymentPending,
     setPaymentPending,
@@ -435,7 +501,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTargetMarginPct,
     setMonthlyOverheads,
     signInEmail: (email, password) => {
-      void demoAuthProvider.signInEmail(email, password).then((res) => {
+      void marginosAuthProvider.signInEmail(email, password).then((res) => {
         if (!res.ok || !res.session) return
         const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
         setUser({
@@ -452,7 +518,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })
     },
     signInGoogle: (emailVerified) => {
-      void demoAuthProvider
+      void marginosAuthProvider
         .signInGoogle({
           sub: 'demo-google-sub',
           email: 'seller@gmail.com',
@@ -476,9 +542,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })
     },
     verifyEmail: () => {
-      void demoAuthProvider.verifyEmail('demo').then(() => {
-        setUser((u) => (u ? { ...u, emailVerified: true } : u))
+      if (!user) return
+      void marginosAuthProvider.requestEmailVerification(user.id, user.email).then((res) => {
+        if (res.debugToken) {
+          void marginosAuthProvider.verifyEmail(res.debugToken).then((v) => {
+            if (v.ok) setUser((u) => (u ? { ...u, emailVerified: true } : u))
+          })
+          return
+        }
+        // Strict / SES path: wait for ?verify= link
       })
+    },
+    requestVerificationEmail: async () => {
+      if (!user) return { ok: false, message: 'Sign in first.' }
+      return marginosAuthProvider.requestEmailVerification(user.id, user.email)
+    },
+    applyVerifyToken: async (token) => {
+      const res = await marginosAuthProvider.verifyEmail(token)
+      if (res.ok) setUser((u) => (u ? { ...u, emailVerified: true } : u))
+      return res
     },
     signOut: () => setUser(null),
     loadSample: () => {
@@ -789,13 +871,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         },
       ])
     },
-    unlockProDemo: (billingCountry) => {
+    unlockProDemo: async (billingCountry) => {
       if (!user) {
         setAuthOpen(true)
         return { ok: false, message: 'Sign in to buy Pro.' }
       }
-      const res = mockStartCheckout({
+      const res = await startCheckout({
         accountId: user.id,
+        email: user.email,
         emailVerified: user.emailVerified,
         billingCountry,
         currency,
@@ -803,6 +886,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         paymentPending,
         earlyBirdSold,
       })
+      if (res.checkoutUrl) {
+        window.location.assign(res.checkoutUrl)
+        return res
+      }
       if (res.ok) {
         setPlan('pro')
         if (res.earlyBirdSold != null) setEarlyBirdSold(res.earlyBirdSold)
@@ -862,6 +949,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSelectedSku(null)
       setFreeClocks([])
       setPlan('free')
+    },
+    deleteAccount: (confirmEmail) => {
+      if (!user) return { ok: false, message: 'Sign in first.' }
+      if (confirmEmail.trim().toLowerCase() !== user.email.trim().toLowerCase()) {
+        return { ok: false, message: 'Type your account email to confirm deletion.' }
+      }
+      logDataAction({
+        eventType: 'account deleted',
+        at: new Date().toISOString(),
+        accountId: user.id,
+        plan,
+        deleted: {
+          orderLines: lines.length,
+          costRows: costs.length,
+          adRows: ads.length,
+          savedDatasets: savedDatasets.length,
+          scenarios: scenarios.length,
+          overheadsCleared: monthlyOverheads > 0,
+        },
+      })
+      clearAllState()
+      setUser(null)
+      setPlan('free')
+      setLines([])
+      setCosts([])
+      setAds([])
+      setScenarios(defaultScenarios())
+      setSavedDatasets([])
+      setMonthlyOverheads(0)
+      setKeptProData(null)
+      setFreeClocks([])
+      setFreeDataDeletedNotice(null)
+      setPaymentPending(false)
+      setSelectedSku(null)
+      setAuthOpen(false)
+      return { ok: true, message: 'Account deleted from this browser. This cannot be undone.' }
     },
     createScenario: () => {
       if (plan !== 'pro') {

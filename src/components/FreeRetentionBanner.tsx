@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import {
+  effectiveExpiresAt,
   formatDeletionTime,
   formatDurationLeft,
   msLeft,
@@ -48,7 +49,9 @@ export function FreeRetentionBanner() {
 
   const left = msLeft(earliestFreeClock, now)
   const lastHour = left > 0 && left < 60 * 60 * 1000
-  const deletedAt = formatDeletionTime(earliestFreeClock.expiresAt, tz)
+  const effectiveIso = new Date(effectiveExpiresAt(earliestFreeClock, now)).toISOString()
+  const deletedAt = formatDeletionTime(effectiveIso, tz)
+  const paused = earliestFreeClock.pausedAt != null
 
   const download = () => {
     const blob = new Blob([exportDataCsv()], { type: 'text/csv' })
@@ -69,9 +72,11 @@ export function FreeRetentionBanner() {
       }`}
     >
       <p className="font-medium">
-        {lastHour
-          ? `Less than 1 hour left — Free data is deleted at ${deletedAt} (${tz}).`
-          : `Deleted in ${formatDurationLeft(left)} · ${deletedAt} (${tz})`}
+        {paused
+          ? `Deletion paused while payment is pending · ${formatDurationLeft(left)} remaining (${tz})`
+          : lastHour
+            ? `Less than 1 hour left — Free data is deleted at ${deletedAt} (${tz}).`
+            : `Deleted in ${formatDurationLeft(left)} · ${deletedAt} (${tz})`}
       </p>
       <p className="mt-1 opacity-90">
         Free uploads are deleted after 24 hours. Upgrade to Pro to keep your data.

@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import type { HomeCurrency } from '../lib/types'
 import { StartFreshButton } from './ConfirmActions'
-import { Card, Input, SectionHeading } from './ui'
+import { Button, Card, ConfirmDialog, Input, SectionHeading } from './ui'
 import { ProGate } from './ProGate'
 
 const CURRENCIES: HomeCurrency[] = ['GBP', 'EUR', 'USD', 'CAD', 'AUD']
@@ -19,7 +20,12 @@ export function SettingsBar() {
     user,
     keptProData,
     setUpgradeOpen,
+    deleteAccount,
+    setAuthOpen,
   } = useApp()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmEmail, setConfirmEmail] = useState('')
+  const [deleteMsg, setDeleteMsg] = useState<string | null>(null)
 
   const downloadCsv = () => {
     const blob = new Blob([exportDataCsv()], { type: 'text/csv' })
@@ -36,7 +42,7 @@ export function SettingsBar() {
       <SectionHeading
         eyebrow="Settings"
         title="Currency & tax"
-        description="Home currency for Free and Pro. Full tax settings screen is Pro."
+        description="Home currency for Free and Pro. Full tax settings screen is Pro. FX uses ECB reference rates."
       />
       <Card>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -120,13 +126,12 @@ export function SettingsBar() {
                 checked={tax.ukFlatRate}
                 onChange={(e) => setTax({ ukFlatRate: e.target.checked })}
               />
-              UK Flat Rate Scheme
+              UK Flat Rate
             </label>
             <label className="text-sm">
               <span className="mb-1 block text-xs text-subtle">Monthly overheads</span>
               <Input
                 type="number"
-                min={0}
                 value={monthlyOverheads}
                 onChange={(e) => setMonthlyOverheads(Number(e.target.value))}
               />
@@ -182,13 +187,49 @@ export function SettingsBar() {
 
       <Card className="mt-4 border-dashed">
         <p className="mb-1 text-sm font-semibold text-ink">Delete account</p>
-        <p className="text-sm text-subtle">
-          Permanently deleting your account is separate from Start fresh. It removes the account
-          itself (and Pro access) under the account-deletion rules — not available in this demo
-          build.
-          {user ? ` Signed in as ${user.email}.` : ' Sign in first when this ships.'}
+        <p className="mb-3 text-sm text-subtle">
+          Permanently deletes your MarginOS account on this device, including Pro access, orders,
+          costs and kept ex-Pro data. Type your email to confirm.
+          {user ? ` Signed in as ${user.email}.` : ' Sign in first.'}
         </p>
+        {user ? (
+          <Button variant="danger" size="sm" onClick={() => setConfirmOpen(true)}>
+            Delete account
+          </Button>
+        ) : (
+          <Button variant="secondary" size="sm" onClick={() => setAuthOpen(true)}>
+            Sign in to delete account
+          </Button>
+        )}
+        {deleteMsg ? <p className="mt-2 text-xs text-subtle">{deleteMsg}</p> : null}
       </Card>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete your account?"
+        confirmLabel="Delete account"
+        danger
+        onCancel={() => {
+          setConfirmOpen(false)
+          setConfirmEmail('')
+        }}
+        onConfirm={() => {
+          const res = deleteAccount(confirmEmail)
+          setDeleteMsg(res.message)
+          if (res.ok) {
+            setConfirmOpen(false)
+            setConfirmEmail('')
+          }
+        }}
+      >
+        <p>This cannot be undone in this browser. Type your email to confirm.</p>
+        <Input
+          type="email"
+          placeholder={user?.email}
+          value={confirmEmail}
+          onChange={(e) => setConfirmEmail(e.target.value)}
+        />
+      </ConfirmDialog>
     </section>
   )
 }

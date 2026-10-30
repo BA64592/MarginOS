@@ -1,7 +1,8 @@
 /**
  * Payment provider layer. App code only talks to these terms;
- * Stripe Managed Payments lives in an adapter behind this interface.
+ * Stripe Managed Payments lives behind startCheckout / mockStartCheckout.
  */
+import { isLiveStripeEnabled } from '../demoFlags'
 import { formatMoney } from '../format'
 import type { HomeCurrency } from '../types'
 
@@ -45,22 +46,26 @@ export interface CheckoutResult {
   message: string
   licence?: LicenceRecord
   earlyBirdSold?: number
+  /** When set, browser should redirect to Stripe Checkout (Sold through Link). */
+  checkoutUrl?: string
 }
 
 export function priceFor(currency: HomeCurrency, earlyBird: boolean) {
   return earlyBird ? FIXED_PRICES.earlyBird[currency] : FIXED_PRICES.full[currency]
 }
 
-/** Demo checkout — grants Pro immediately (Stripe adapter replaces this at launch). */
-export function mockStartCheckout(args: {
+export type CheckoutArgs = {
   accountId: string
+  email: string
   emailVerified: boolean
   billingCountry: string
   currency: HomeCurrency
   alreadyPro: boolean
   paymentPending: boolean
   earlyBirdSold: number
-}): CheckoutResult {
+}
+
+function validateCheckoutGates(args: CheckoutArgs): CheckoutResult | null {
   if (!args.emailVerified) {
     return { ok: false, message: 'Verify your email before checkout.' }
   }
@@ -73,6 +78,13 @@ export function mockStartCheckout(args: {
   if (args.paymentPending) {
     return { ok: false, message: 'Your payment is processing' }
   }
+  return null
+}
+
+/** Demo checkout — grants Pro immediately when Stripe is not configured. */
+export function mockStartCheckout(args: CheckoutArgs): CheckoutResult {
+  const gate = validateCheckoutGates(args)
+  if (gate) return gate
   const earlyBird = args.earlyBirdSold < EARLY_BIRD_CAP
   const amount = priceFor(args.currency, earlyBird)
   const licence: LicenceRecord = {
@@ -95,6 +107,51 @@ export function mockStartCheckout(args: {
     licence,
     earlyBirdSold: args.earlyBirdSold + (earlyBird ? 1 : 0),
   }
+}
+
+/** Live Stripe SMP path — calls /api/checkout (Vercel). Falls back to clear error if API missing. */
+export async function stripeStartCheckout(args: CheckoutArgs): Promise<CheckoutResult> {
+  const gate = validateCheckoutGates(args)
+  if (gate) return gate
+  const earlyBird = args.earlyBirdSold < EARLY_BIRD_CAP
+  try {
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: args.accountId,
+        email: args.email,
+        currency: args.currency,
+        billingCountry: args.billingCountry,
+        earlyBird,
+        successUrl: `${window.location.origin}/?checkout=success`,
+        cancelUrl: `${window.location.origin}/?checkout=cancel`,
+      }),
+    })
+    const data = (await res.json()) as { ok?: boolean; message?: string; url?: string }
+    if (!res.ok || !data.ok || !data.url) {
+      return {
+        ok: false,
+        message: data.message || 'Stripe Checkout is not available. Complete K4 and set secrets.',
+      }
+    }
+    return {
+      ok: true,
+      message: 'Redirecting to Stripe Checkout (Sold through Link)…',
+      checkoutUrl: data.url,
+    }
+  } catch {
+    return {
+      ok: false,
+      message: 'Could not reach Stripe checkout API. Deploy api/checkout and set STRIPE_SECRET_KEY.',
+    }
+  }
+}
+
+/** Unified entry — live Stripe when configured, otherwise mock (dev/demo). */
+export async function startCheckout(args: CheckoutArgs): Promise<CheckoutResult> {
+  if (isLiveStripeEnabled()) return stripeStartCheckout(args)
+  return mockStartCheckout(args)
 }
 
 export function earlyBirdPlacesLeft(sold: number) {
