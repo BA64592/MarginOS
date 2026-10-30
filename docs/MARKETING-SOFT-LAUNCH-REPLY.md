@@ -32,10 +32,10 @@ Load from **Orders → Demo stores…** (shop must be empty / sample-only). No r
 
 | Store | Platform | Health (typical GBP, 0 overheads) | Story beat |
 |---|---|---|---|
-| **Store A · Shopify** | Shopify | **~96 Strong** | Candles / soap / tote healthy. **Seasonal Gift Box loses money** once packaging + undercharged shipping + fees land — “I thought this was making money.” |
-| **Store B · Amazon** | Amazon FBA | **~11 At risk** | All four SKUs losing; heavy Sponsored Products; clear ranked leaks and fixes. |
-| **Store C · Etsy** | Etsy | **~mid / Needs attention** | Prints + rings win; **Custom Name Mug** (and thin craft economics) show listings that look fine at list price but aren’t after fees/shipping/ads. |
-| **Multi-platform demo** | Shopify + Amazon + Etsy | Mixed | Use for Pro “multi-platform shop view” recording. |
+| **Store A · Shopify** | Shopify | **96 Strong** (verified) | Candles / soap / tote healthy. **Seasonal Gift Box loses money** once packaging + undercharged shipping + fees land — “I thought this was making money.” |
+| **Store B · Amazon** | Amazon FBA | **11 At risk** (verified) | All four SKUs losing; heavy Sponsored Products; clear ranked leaks and fixes. |
+| **Store C · Etsy** | Etsy | **56 Needs attention** (verified) | Rings + prints win; **Custom Name Mug** loses money after fees/shipping/ads — middle-of-the-road shop. |
+| **Multi-platform demo** | Shopify + Amazon + Etsy | Mixed (verified) | Use for Pro “multi-platform shop view” recording. Buttons: Store A / B / C / Multi-platform. |
 
 Also keep **Load sample** for the original blended demo if needed.
 

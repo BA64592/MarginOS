@@ -421,7 +421,8 @@ export function buildStoreC(currency: HomeCurrency = 'GBP') {
     ],
     currency,
   )
-  return { costs, lines, ads: ads(1550, 'Etsy Ads'), label: 'Store C · Etsy' }
+  // Higher ads + mug loss keep Health Score mid-band (“Needs attention”), not Strong.
+  return { costs, lines, ads: ads(2100, 'Etsy Ads'), label: 'Store C · Etsy' }
 }
 
 /** Combined multi-platform shop for Pro recording. */
