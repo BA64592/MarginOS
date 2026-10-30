@@ -20,10 +20,19 @@ export const en = {
   allocated: 'allocated',
   confidence: 'Confidence',
   uploadsLeft: (n: number) => `${n} of 3 uploads left today`,
+  /** Free daily limit exhausted — §10.1.10 / K9 (include midnight reset). */
+  uploadsExhausted:
+    '0 uploads left today. Resets at midnight in your time zone, or upgrade to Pro.',
   verifyEmail: 'Verify your email before your first upload.',
+  googleSignInPendingK6:
+    'Google sign-in arrives after K6 (Google Cloud project). Use email for now.',
   countryBlocked: "MarginOS isn't available in your country yet.",
   alreadyPro: 'You already have Pro',
   paymentProcessing: 'Your payment is processing',
+  paymentFailedPastDueDeleted:
+    'Payment failed — Free data past its 24-hour window was deleted.',
+  paymentFailedClocksResumed:
+    'Payment failed — Free retention clocks resumed with time remaining.',
 } as const
 
 export type MessageKey = keyof typeof en

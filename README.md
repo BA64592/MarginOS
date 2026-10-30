@@ -32,6 +32,9 @@ npm run preview
 | Scenarios / PDF / saved datasets | Pro |
 | Clear sample data / Start fresh (v16.3) | Implemented |
 | Free 24h retention + raw-file deletion (v16.4) | Implemented |
+| Slice A UI parity (B5–B7 handoff) | Template deletion time, upload-limit midnight copy, Shopify PII warnings |
+| Google sign-in | Disabled until K6 (clear copy in auth modal) |
+| K11 payment-fail → past-due delete | Client demo path in Upgrade modal |
 | Digital product mark (manual, K2) | Per-product toggle |
 | Currency GBP/EUR/USD/CAD/AUD | Selector |
 | i18n store + hidden language selector | English only |

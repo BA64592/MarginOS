@@ -1,6 +1,7 @@
 import { Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { en } from '../i18n/en'
 import { SAMPLE_ADS_TEMPLATE, SAMPLE_COST_TEMPLATE, parseCostTemplate } from '../lib/csv/template'
 import { formatMoney, formatPct } from '../lib/format'
 import { proUnlockPaywallCopy } from '../lib/pricing'
@@ -67,7 +68,7 @@ export function ProductWorkspace() {
     }
     if (plan === 'free' && uploadsLeft <= 0) {
       setUpgradeOpen(true)
-      setCsvMsg('0 uploads left today. Resets at midnight in your time zone, or upgrade to Pro.')
+      setCsvMsg(en.uploadsExhausted)
       return
     }
     const text = await file.text()
@@ -81,12 +82,15 @@ export function ProductWorkspace() {
       return
     }
     if (!recordSuccessfulUpload()) return
-    if (parsed.costs.length) replaceTemplate(parsed.costs, parsed.ads.length ? parsed.ads : undefined)
-    else if (parsed.ads.length) replaceTemplate(costs, parsed.ads)
+    const applied = parsed.costs.length
+      ? replaceTemplate(parsed.costs, parsed.ads.length ? parsed.ads : undefined)
+      : replaceTemplate(costs, parsed.ads)
     setCsvMsg(
       [
         parsed.costs.length ? `${parsed.costs.length} cost rows imported.` : null,
         parsed.ads.length ? `${parsed.ads.length} ad rows imported.` : null,
+        'Original file deleted after import.',
+        applied.deletionNote,
         parsed.errors.length ? `Skipped: ${parsed.errors.join('; ')}` : null,
       ]
         .filter(Boolean)

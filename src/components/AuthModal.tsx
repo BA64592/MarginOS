@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { en } from '../i18n/en'
 import { Button, Input, Modal } from './ui'
+
+/** Google OIDC stays disabled until Akthar completes K6 (v16.2 / A5). */
+const GOOGLE_SIGN_IN_ENABLED = false
 
 export function AuthModal() {
   const { authOpen, setAuthOpen, signInEmail, signInGoogle, verifyEmail, user, signOut } = useApp()
@@ -41,9 +45,20 @@ export function AuthModal() {
           <Button className="w-full" onClick={() => signInEmail(email, password)}>
             Continue with email
           </Button>
-          <Button variant="secondary" className="w-full" onClick={() => signInGoogle(true)}>
+          <Button
+            variant="secondary"
+            className="w-full"
+            disabled={!GOOGLE_SIGN_IN_ENABLED}
+            onClick={() => {
+              if (!GOOGLE_SIGN_IN_ENABLED) return
+              signInGoogle(true)
+            }}
+          >
             Continue with Google
           </Button>
+          {!GOOGLE_SIGN_IN_ENABLED ? (
+            <p className="text-xs text-subtle">{en.googleSignInPendingK6}</p>
+          ) : null}
         </div>
       )}
     </Modal>
