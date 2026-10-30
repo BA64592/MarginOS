@@ -292,8 +292,12 @@ export interface AppPersistedState {
 /** Privacy-safe audit event for Clear sample data / Start fresh (v16.3 E7). */
 export interface DataActionEvent {
   id: string
-  /** sample data cleared | sample data cleared (automatic) | start fresh */
-  eventType: 'sample data cleared' | 'sample data cleared (automatic)' | 'start fresh'
+  /** sample data cleared | sample data cleared (automatic) | start fresh | account deleted */
+  eventType:
+    | 'sample data cleared'
+    | 'sample data cleared (automatic)'
+    | 'start fresh'
+    | 'account deleted'
   at: string
   accountId: string | null
   plan: Plan

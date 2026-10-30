@@ -11,6 +11,7 @@ import {
   parseAmount,
   parseCsv,
   parseDateLoose,
+  personalDataStripWarning,
   requireColumns,
 } from './parseUtils'
 
@@ -57,6 +58,10 @@ export function parseEtsyOrdersAndItems(args: {
   if (errors.length) {
     return { lines: [], ads, errors, warnings, summary: { newRows: 0 } }
   }
+  const piiOrders = personalDataStripWarning(orderRows[0])
+  const piiItems = personalDataStripWarning(itemRows[0])
+  if (piiOrders) warnings.push(piiOrders)
+  if (piiItems) warnings.push(piiItems)
 
   type OrderMeta = {
     date: string

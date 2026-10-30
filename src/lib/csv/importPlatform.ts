@@ -1,7 +1,40 @@
+import { convertImportToHomeCurrency } from '../fx/convertOrders'
 import type { AdSpendEntry, HomeCurrency, OrderLine, Platform } from '../types'
 import { parseAmazonTransactionCsv } from './amazon'
 import { parseEtsyOrdersAndItems } from './etsy'
 import { applyShopifyPaymentFees, parseShopifyOrdersCsv } from './shopify'
+
+function withFx(
+  lines: OrderLine[],
+  ads: AdSpendEntry[],
+  home: HomeCurrency,
+  base: Omit<PlatformImportOutput, 'lines' | 'ads'> & { lines?: OrderLine[]; ads?: AdSpendEntry[] },
+): PlatformImportOutput {
+  const fx = convertImportToHomeCurrency(lines, ads, home)
+  if (!fx.lines.length && lines.length) {
+    return {
+      ok: false,
+      lines: [],
+      ads: [],
+      errors: [
+        ...(base.errors ?? []),
+        fx.warnings[0] || 'No orders left after currency conversion.',
+      ],
+      warnings: [...(base.warnings ?? []), ...fx.warnings],
+      mathsNotes: [...(base.mathsNotes ?? []), ...fx.mathsNotes],
+      summary: base.summary ?? {},
+    }
+  }
+  return {
+    ok: true,
+    lines: fx.lines,
+    ads: fx.ads,
+    errors: [],
+    warnings: [...(base.warnings ?? []), ...fx.warnings],
+    mathsNotes: [...(base.mathsNotes ?? []), ...fx.mathsNotes],
+    summary: base.summary ?? {},
+  }
+}
 
 export type PlatformImportInput = {
   platform: Platform
@@ -62,15 +95,13 @@ export function importPlatformFiles(input: PlatformImportInput): PlatformImportO
         'Shopify Payments transactions export not uploaded — payment fees labelled estimated.',
       )
     }
-    return {
+    return withFx(lines, [], input.homeCurrency, {
       ok: true,
-      lines,
-      ads: [],
       errors: [],
       warnings,
       mathsNotes,
       summary: parsed.summary,
-    }
+    })
   }
 
   if (input.platform === 'etsy') {
@@ -102,15 +133,13 @@ export function importPlatformFiles(input: PlatformImportInput): PlatformImportO
         summary: parsed.summary,
       }
     }
-    return {
+    return withFx(parsed.lines, parsed.ads, input.homeCurrency, {
       ok: true,
-      lines: parsed.lines,
-      ads: parsed.ads,
       errors: [],
       warnings: parsed.warnings,
       mathsNotes,
       summary: parsed.summary,
-    }
+    })
   }
 
   if (input.platform === 'amazon') {
@@ -140,15 +169,13 @@ export function importPlatformFiles(input: PlatformImportInput): PlatformImportO
     mathsNotes.push(
       'Amazon dates are posting dates. Payment processing is part of selling fees — one compared fee type (referral).',
     )
-    return {
+    return withFx(parsed.lines, parsed.ads, input.homeCurrency, {
       ok: true,
-      lines: parsed.lines,
-      ads: parsed.ads,
       errors: [],
       warnings: parsed.warnings,
       mathsNotes,
       summary: { ...parsed.summary, overheadHints: parsed.overheadHints },
-    }
+    })
   }
 
   return {

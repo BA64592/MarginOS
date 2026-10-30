@@ -11,8 +11,8 @@ import {
   parseAmount,
   parseCsv,
   parseDateLoose,
+  personalDataStripWarning,
   requireColumns,
-  STRIP_HEADER_HINTS,
 } from './parseUtils'
 
 export interface ShopifyImportResult {
@@ -20,11 +20,6 @@ export interface ShopifyImportResult {
   errors: string[]
   warnings: string[]
   summary: { newRows: number; skipped: number }
-}
-
-function isStripHeader(h: string) {
-  const n = h.toLowerCase()
-  return STRIP_HEADER_HINTS.some((s) => n.includes(s))
 }
 
 export function parseShopifyOrdersCsv(
@@ -46,14 +41,8 @@ export function parseShopifyOrdersCsv(
   }
 
   // Warn if personal-data columns present (they are ignored) — §10.2.1 / A1
-  const strippedHeaders = headers.filter((h) => h.trim() && isStripHeader(h))
-  if (strippedHeaders.length) {
-    const shown = strippedHeaders.slice(0, 8).join(', ')
-    const more = strippedHeaders.length > 8 ? ` (+${strippedHeaders.length - 8} more)` : ''
-    warnings.push(
-      `Personal data columns were removed and not stored: ${shown}${more}.`,
-    )
-  }
+  const pii = personalDataStripWarning(headers)
+  if (pii) warnings.push(pii)
 
   type AccOrder = {
     orderId: string

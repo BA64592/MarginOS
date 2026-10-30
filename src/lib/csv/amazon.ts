@@ -13,6 +13,7 @@ import {
   parseAmount,
   parseCsv,
   parseDateLoose,
+  personalDataStripWarning,
 } from './parseUtils'
 
 const HEADER_MARKERS = [
@@ -77,6 +78,8 @@ export function parseAmazonTransactionCsv(
   }
 
   const idx = headerIndex(rows[headerRow])
+  const pii = personalDataStripWarning(rows[headerRow])
+  if (pii) warnings.push(pii)
   const lines: OrderLine[] = []
 
   for (let r = headerRow + 1; r < rows.length; r++) {

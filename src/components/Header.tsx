@@ -1,6 +1,7 @@
 import { FileDown, Moon, Sparkles, Sun, User } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
+import { isDemoHarnessEnabled } from '../lib/demoFlags'
 import { exportPdfReport } from '../lib/pdf'
 import { proShortCta } from '../lib/pricing'
 import { Badge, Button } from './ui'
@@ -75,11 +76,11 @@ export function Header() {
               <span className="hidden sm:inline">{proShortCta(currency, earlyBirdLeft)}</span>
               <span className="sm:hidden">Pro</span>
             </Button>
-          ) : (
+          ) : isDemoHarnessEnabled() ? (
             <Button size="sm" variant="secondary" onClick={switchToFree}>
               Switch to Free
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
       {user && !user.emailVerified ? (

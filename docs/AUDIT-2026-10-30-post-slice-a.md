@@ -13,7 +13,7 @@
 | | |
 | --- | --- |
 | **Recommendation** | **Needs fixes first — not ready for production deploy** |
-| **Production readiness** | **5 / 10** (was 4/10) |
+| **Production readiness** | **5 / 10** (was 4/10) — see follow-up PR `fix-all-audit-gaps` for B4/B8/B9 + API scaffolding |
 | **Demo UI slice** | **8.5 / 10** (was 7.5/10) |
 | **Slice A** | **Pass** (code + browser verified) |
 

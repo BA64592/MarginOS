@@ -135,3 +135,17 @@ export const STRIP_HEADER_HINTS = [
   'order city',
   'order postal',
 ]
+
+export function isPersonalDataHeader(h: string): boolean {
+  const n = h.toLowerCase()
+  return STRIP_HEADER_HINTS.some((s) => n.includes(s))
+}
+
+/** User-visible warning when personal columns appear in an export (not stored). */
+export function personalDataStripWarning(headers: string[]): string | null {
+  const stripped = headers.filter((h) => h.trim() && isPersonalDataHeader(h))
+  if (!stripped.length) return null
+  const shown = stripped.slice(0, 8).join(', ')
+  const more = stripped.length > 8 ? ` (+${stripped.length - 8} more)` : ''
+  return `Personal data columns were removed and not stored: ${shown}${more}.`
+}

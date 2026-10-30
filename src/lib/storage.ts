@@ -25,3 +25,14 @@ export function saveState(state: AppPersistedState) {
     // ignore
   }
 }
+
+/** Wipe MarginOS local data (account deletion / factory reset of this browser). */
+export function clearAllState() {
+  try {
+    localStorage.removeItem(KEY)
+    for (const k of LEGACY_KEYS) localStorage.removeItem(k)
+    localStorage.removeItem('marginos.verifyTokens')
+  } catch {
+    // ignore
+  }
+}

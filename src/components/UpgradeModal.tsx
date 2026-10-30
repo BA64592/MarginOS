@@ -2,6 +2,7 @@ import { Check } from 'lucide-react'
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
+import { isDemoHarnessEnabled } from '../lib/demoFlags'
 import { ALLOWED_BUYER_COUNTRIES } from '../lib/payments/provider'
 import {
   formatEarlyBirdPrice,
@@ -79,8 +80,7 @@ export function UpgradeModal() {
               setMessage('Sign in with a verified email first.')
               return
             }
-            const res = unlockProDemo(country)
-            setMessage(res.message)
+            void unlockProDemo(country).then((res) => setMessage(res.message))
           }}
         >
           {proCheckoutButtonLabel(currency, earlyBirdLeft)}
@@ -96,7 +96,7 @@ export function UpgradeModal() {
       <p className="mt-2 text-xs text-subtle">
         14-day money-back guarantee. Sold through Link. Bank statements show LINK.COM* MARGINOS.
       </p>
-      {plan === 'free' ? (
+      {plan === 'free' && isDemoHarnessEnabled() ? (
         <div className="mt-4 rounded-lg border border-dashed border-border px-3 py-2">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-subtle">
             Demo · delayed payment (K11)
