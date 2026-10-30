@@ -21,7 +21,9 @@ import {
   mockStartCheckout,
 } from '../lib/payments/provider'
 import { logDataAction } from '../lib/auditLog'
+import { en } from '../i18n/en'
 import {
+  applyPaymentFailure,
   earliestClock,
   formatDeletionTime,
   isExpired,
@@ -160,11 +162,17 @@ interface AppContextValue {
   importPlatformOrders: (
     input: PlatformImportInput,
   ) => { ok: boolean; message: string }
-  replaceTemplate: (costs: ProductCostRow[], ads?: AdSpendEntry[]) => void
+  /** Apply MarginOS cost/ads template; returns Free deletion note when applicable (v16.4 F2). */
+  replaceTemplate: (
+    costs: ProductCostRow[],
+    ads?: AdSpendEntry[],
+  ) => { deletionNote: string | null }
   feeMathsNotes: string[]
   updateCost: (sku: string, patch: Partial<ProductCostRow>) => void
   setAdTotalManual: (amount: number) => void
   unlockProDemo: (billingCountry: string) => { ok: boolean; message: string }
+  /** Demo: delayed payment failed — delete past-due Free data (v16.4 F8.14 / K11). */
+  failDelayedPayment: () => { ok: boolean; message: string }
   switchToFree: () => void
   createScenario: () => void
   updateScenario: (id: string, patch: Partial<Scenario>) => void
@@ -600,7 +608,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (plan === 'free' && uploadsLeft <= 0) {
         setUpgradeOpen(true)
-        return { ok: false, message: '0 uploads left today.' }
+        return { ok: false, message: en.uploadsExhausted }
       }
       const parsed = importPlatformFiles(input)
       if (!parsed.ok) {
@@ -675,9 +683,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const ownCosts = nextCosts.map((c) => ({ ...c, isSample: false as const }))
       setCosts(ownCosts)
       setFreeDataDeletedNotice(null)
-      if (plan === 'free') {
-        setFreeClocks((prev) => upsertClock(prev, 'template'))
-      }
+      // v16.4 F2 / F8.5 — same deletion-time notice as orders import
+      const nextClocks = plan === 'free' ? upsertClock(freeClocks, 'template') : freeClocks
+      if (plan === 'free') setFreeClocks(nextClocks)
+      const templateClock = nextClocks.find((c) => c.kind === 'template') ?? null
       if (hadSample) {
         setLines((prev) => prev.filter((l) => !l.isSample))
         if (nextAds) {
@@ -704,6 +713,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAds(nextAds.map((a) => ({ ...a, isSample: false as const })))
       }
       setSelectedSku(ownCosts[0]?.sku ?? null)
+      const deletionNote =
+        plan === 'free' && templateClock
+          ? `Free data deleted ${formatDeletionTime(templateClock.expiresAt, tz)} (${tz}).`
+          : plan === 'free'
+            ? 'Free uploads are deleted after 24 hours.'
+            : null
+      return { deletionNote }
+    },
+    failDelayedPayment: () => {
+      if (plan !== 'free') {
+        setPaymentPending(false)
+        return { ok: true, message: 'Payment pending cleared.' }
+      }
+      const now = Date.now()
+      const { keep, expiredKinds } = applyPaymentFailure(freeClocks, now)
+      setPaymentPending(false)
+      if (expiredKinds.includes('orders')) {
+        setLines((prev) => prev.filter((l) => l.isSample))
+      }
+      if (expiredKinds.includes('template') || expiredKinds.includes('manual')) {
+        setCosts((prev) => prev.filter((c) => c.isSample))
+        setAds((prev) => prev.filter((a) => a.isSample))
+      }
+      setFreeClocks(keep)
+      if (expiredKinds.length) {
+        setSelectedSku(null)
+        setFreeDataDeletedNotice(
+          'Your Free data was deleted because payment failed after the 24-hour window. Upload again, or upgrade to Pro.',
+        )
+        return { ok: true, message: en.paymentFailedPastDueDeleted }
+      }
+      return { ok: true, message: en.paymentFailedClocksResumed }
     },
     updateCost: (sku, patch) => {
       setCosts((prev) => {

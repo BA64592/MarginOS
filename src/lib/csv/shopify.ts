@@ -45,12 +45,15 @@ export function parseShopifyOrdersCsv(
     return { lines: [], errors: [requiredErr], warnings, summary: { newRows: 0, skipped: 0 } }
   }
 
-  // Warn if personal-data columns present (they are ignored)
-  headers.forEach((h) => {
-    if (isStripHeader(h)) {
-      // stripped — do not store
-    }
-  })
+  // Warn if personal-data columns present (they are ignored) — §10.2.1 / A1
+  const strippedHeaders = headers.filter((h) => h.trim() && isStripHeader(h))
+  if (strippedHeaders.length) {
+    const shown = strippedHeaders.slice(0, 8).join(', ')
+    const more = strippedHeaders.length > 8 ? ` (+${strippedHeaders.length - 8} more)` : ''
+    warnings.push(
+      `Personal data columns were removed and not stored: ${shown}${more}.`,
+    )
+  }
 
   type AccOrder = {
     orderId: string

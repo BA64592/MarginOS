@@ -94,3 +94,32 @@ export function upsertClock(
 ): FreeRetentionClock[] {
   return [...clocks.filter((c) => c.kind !== kind), startFreeClock(kind, now)]
 }
+
+/**
+ * Delayed payment failed (v16.4 F8.14 / K11).
+ * Deletes clocks whose original expiresAt has already passed; resumes the rest.
+ */
+export function applyPaymentFailure(
+  clocks: FreeRetentionClock[],
+  now = Date.now(),
+): { keep: FreeRetentionClock[]; expiredKinds: FreeUploadKind[] } {
+  const expiredKinds: FreeUploadKind[] = []
+  const keep: FreeRetentionClock[] = []
+  for (const c of clocks) {
+    if (new Date(c.expiresAt).getTime() <= now) {
+      expiredKinds.push(c.kind)
+      continue
+    }
+    if (c.pausedAt != null && c.remainingMsWhenPaused != null) {
+      keep.push({
+        ...c,
+        pausedAt: null,
+        remainingMsWhenPaused: null,
+        expiresAt: new Date(now + c.remainingMsWhenPaused).toISOString(),
+      })
+    } else {
+      keep.push(c)
+    }
+  }
+  return { keep, expiredKinds }
+}

@@ -23,7 +23,18 @@ const PERKS = [
 ]
 
 export function UpgradeModal() {
-  const { upgradeOpen, setUpgradeOpen, unlockProDemo, currency, earlyBirdLeft, user } = useApp()
+  const {
+    upgradeOpen,
+    setUpgradeOpen,
+    unlockProDemo,
+    currency,
+    earlyBirdLeft,
+    user,
+    plan,
+    paymentPending,
+    setPaymentPending,
+    failDelayedPayment,
+  } = useApp()
   const [country, setCountry] = useState('GB')
   const [message, setMessage] = useState<string | null>(null)
 
@@ -85,6 +96,40 @@ export function UpgradeModal() {
       <p className="mt-2 text-xs text-subtle">
         14-day money-back guarantee. Sold through Link. Bank statements show LINK.COM* MARGINOS.
       </p>
+      {plan === 'free' ? (
+        <div className="mt-4 rounded-lg border border-dashed border-border px-3 py-2">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-subtle">
+            Demo · delayed payment (K11)
+          </p>
+          <p className="mb-2 text-xs text-subtle">
+            Pending pauses Free 24h clocks. Fail deletes data whose clock would already have ended.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={paymentPending}
+              onClick={() => {
+                setPaymentPending(true)
+                setMessage(en.paymentProcessing)
+              }}
+            >
+              Mark payment pending
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!paymentPending}
+              onClick={() => {
+                const res = failDelayedPayment()
+                setMessage(res.message)
+              }}
+            >
+              Simulate payment failed
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </Modal>
   )
 }

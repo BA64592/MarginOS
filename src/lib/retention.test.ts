@@ -4,6 +4,7 @@
  */
 import {
   FREE_RETENTION_MS,
+  applyPaymentFailure,
   earliestClock,
   formatDurationLeft,
   isExpired,
@@ -47,5 +48,20 @@ assert(cancelled.length === 0, 'upgrade cancels clocks')
 
 assert(formatDurationLeft(90 * 60_000) === '1 h 30 min', 'format h+m')
 assert(formatDurationLeft(45 * 60_000) === '45 min', 'format min')
+
+// K11 / F8.14 — payment fail deletes clocks whose original expiresAt has passed
+const pausedNearEnd = pauseClocks([orders], t0 + FREE_RETENTION_MS - 60_000)
+const failPastDue = applyPaymentFailure(pausedNearEnd, t0 + FREE_RETENTION_MS + 60_000)
+assert(failPastDue.expiredKinds.includes('orders'), 'past-due kind deleted on fail')
+assert(failPastDue.keep.length === 0, 'no clocks kept when past due')
+
+const pausedEarly = pauseClocks([orders], t0 + 60_000)
+const failStillOpen = applyPaymentFailure(pausedEarly, t0 + 120_000)
+assert(failStillOpen.expiredKinds.length === 0, 'still-open not deleted')
+assert(failStillOpen.keep.length === 1 && failStillOpen.keep[0].pausedAt == null, 'resumed on fail')
+assert(
+  Math.abs(msLeft(failStillOpen.keep[0], t0 + 120_000) - (FREE_RETENTION_MS - 60_000)) < 2,
+  'remaining preserved on fail resume',
+)
 
 console.log('retention.test.ts: all assertions passed')
