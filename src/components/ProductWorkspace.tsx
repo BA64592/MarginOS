@@ -2,6 +2,7 @@ import { Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
+import { DEMO_STORES, type DemoStoreId } from '../lib/demo/stores'
 import { SAMPLE_ADS_TEMPLATE, SAMPLE_COST_TEMPLATE, parseCostTemplate } from '../lib/csv/template'
 import { formatMoney, formatPct } from '../lib/format'
 import { proUnlockPaywallCopy } from '../lib/pricing'
@@ -30,6 +31,7 @@ export function ProductWorkspace() {
     setSelectedSku,
     updateCost,
     loadSample,
+    loadDemoStore,
     recordSuccessfulUpload,
     replaceTemplate,
     setAdTotalManual,
@@ -113,9 +115,33 @@ export function ProductWorkspace() {
         action={
           <div className="flex flex-wrap gap-2">
             {!hasOwnData ? (
-              <Button variant="secondary" size="sm" onClick={loadSample}>
-                Load sample
-              </Button>
+              <>
+                <Button variant="secondary" size="sm" onClick={loadSample}>
+                  Load sample
+                </Button>
+                <label className="inline-flex items-center gap-1.5 text-xs text-subtle">
+                  <span className="sr-only">Demo store</span>
+                  <select
+                    className="rounded-md border border-line bg-panel px-2 py-1.5 text-xs text-ink"
+                    defaultValue=""
+                    onChange={(e) => {
+                      const id = e.target.value as DemoStoreId
+                      if (id) loadDemoStore(id)
+                      e.target.value = ''
+                    }}
+                    aria-label="Load demo store"
+                  >
+                    <option value="" disabled>
+                      Demo stores…
+                    </option>
+                    {DEMO_STORES.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
             ) : null}
             <ClearSampleDataButton />
             <Button

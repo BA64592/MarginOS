@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "tsx src/lib/calc/targetPrice.test.ts && tsx src/lib/retention.test.ts && tsx src/lib/csv/shopify.pii.test.ts && tsx src/lib/fx/ecb.test.ts",
+    "test": "tsx src/lib/calc/targetPrice.test.ts && tsx src/lib/retention.test.ts && tsx src/lib/csv/shopify.pii.test.ts && tsx src/lib/fx/ecb.test.ts && tsx src/lib/demo/stores.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

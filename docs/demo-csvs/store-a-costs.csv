@@ -1,0 +1,9 @@
+# costs
+sku,name,unit_cost,packaging_cost,shipping_cost_per_unit,return_cost_per_returned_unit,digital
+SOAP-SET,"Botanical Soap Trio",4.5,0.8,2.2,1.5,false
+CANDLE-LG,"Large Soy Candle",6,1.2,3.5,2,false
+GIFT-BOX,"Seasonal Gift Box",22,4,8,4,false
+TOTE,"Organic Cotton Tote",3.2,0.4,1.8,1,false
+# ads
+channel,amount,start_date,end_date
+Meta,380,2026-09-01,2026-09-30

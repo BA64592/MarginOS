@@ -1,0 +1,9 @@
+# costs
+sku,name,unit_cost,packaging_cost,shipping_cost_per_unit,return_cost_per_returned_unit,digital
+PHONE-CASE,"Clear Phone Case",2.1,0.3,0,1.2,false
+CABLE-USB,"USB-C Cable 2m",1.8,0.2,0,0.8,false
+STAND-ALU,"Aluminium Laptop Stand",22,2,0,5,false
+GADGET-KIT,"Desk Gadget Kit",14,1.5,0,4,false
+# ads
+channel,amount,start_date,end_date
+Sponsored Products,1850,2026-09-01,2026-09-30
