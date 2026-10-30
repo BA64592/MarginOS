@@ -30,6 +30,9 @@ npm run preview
 | Show the maths | On key metrics |
 | Calculators | Break-even ROAS/ACOS, break-even & target price |
 | Scenarios / PDF / saved datasets | Pro |
+| Clear sample data / Start fresh (v16.3) | Implemented |
+| Free 24h retention + raw-file deletion (v16.4) | Implemented |
+| Digital product mark (manual, K2) | Per-product toggle |
 | Currency GBP/EUR/USD/CAD/AUD | Selector |
 | i18n store + hidden language selector | English only |
 | Auth (email + Google) | Demo modal |

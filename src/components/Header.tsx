@@ -18,6 +18,7 @@ export function Header() {
     scenarioResults,
     currency,
     earlyBirdLeft,
+    usingSampleData,
   } = useApp()
 
   return (
@@ -62,7 +63,7 @@ export function Header() {
                 setUpgradeOpen(true)
                 return
               }
-              exportPdfReport({ result, scenarios: scenarioResults, currency })
+              exportPdfReport({ result, scenarios: scenarioResults, currency, usingSampleData })
             }}
           >
             <FileDown className="h-4 w-4" />

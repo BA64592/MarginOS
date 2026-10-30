@@ -6,8 +6,9 @@ export function exportPdfReport(args: {
   result: AnalysisResult
   scenarios: { scenario: Scenario; result: AnalysisResult }[]
   currency: HomeCurrency
+  usingSampleData?: boolean
 }) {
-  const { result, scenarios, currency } = args
+  const { result, scenarios, currency, usingSampleData } = args
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const margin = 48
   let y = margin
@@ -38,6 +39,9 @@ export function exportPdfReport(args: {
     size: 9,
     color: [91, 107, 124],
   })
+  if (usingSampleData) {
+    line('Sample data — not your live shop.', { size: 10, bold: true, color: [180, 83, 9] })
+  }
   y += 6
 
   line('Overview', { size: 14, bold: true })

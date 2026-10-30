@@ -716,6 +716,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         return prev.map((c) => (c.sku === sku ? { ...c, ...patch } : c))
       })
+      // K2: digital is manual — sync requiresShipping on matching order lines
+      if (typeof patch.digital === 'boolean') {
+        setLines((prev) =>
+          prev.map((l) =>
+            l.sku === sku
+              ? {
+                  ...l,
+                  requiresShipping: !patch.digital,
+                  shippingCost: patch.digital ? 0 : l.shippingCost,
+                }
+              : l,
+          ),
+        )
+      }
     },
     setAdTotalManual: (amount) => {
       if (plan === 'free') {

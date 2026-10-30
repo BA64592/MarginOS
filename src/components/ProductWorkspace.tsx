@@ -287,6 +287,7 @@ export function ProductWorkspace() {
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <h3 className="font-display text-lg font-semibold text-ink">{selected.name}</h3>
               <Badge tone={VERDICT_TONE[selected.verdict]}>{selected.verdict}</Badge>
+              {selectedCost?.digital ? <Badge tone="accent">Digital</Badge> : null}
               {selected.costMissing ? <Badge tone="danger">cost missing</Badge> : null}
             </div>
             <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -324,46 +325,69 @@ export function ProductWorkspace() {
             )}
 
             {selectedCost ? (
-              <div className="grid gap-5 sm:grid-cols-2">
-                <SliderField
-                  label="Unit cost"
-                  value={selectedCost.unitCost}
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  suffix={currency}
-                  onChange={(unitCost) => updateCost(selected.sku, { unitCost })}
-                />
-                <SliderField
-                  label="Packaging"
-                  value={selectedCost.packagingCost}
-                  min={0}
-                  max={20}
-                  step={0.1}
-                  suffix={currency}
-                  onChange={(packagingCost) => updateCost(selected.sku, { packagingCost })}
-                />
-                <SliderField
-                  label="Avg shipping cost / unit"
-                  value={selectedCost.shippingCostPerUnit}
-                  min={0}
-                  max={20}
-                  step={0.1}
-                  suffix={currency}
-                  onChange={(shippingCostPerUnit) => updateCost(selected.sku, { shippingCostPerUnit })}
-                  hint="Used when an order line has no shipping cost of its own."
-                />
-                <SliderField
-                  label="Return cost / returned unit"
-                  value={selectedCost.returnCostPerReturnedUnit}
-                  min={0}
-                  max={20}
-                  step={0.1}
-                  suffix={currency}
-                  onChange={(returnCostPerReturnedUnit) =>
-                    updateCost(selected.sku, { returnCostPerReturnedUnit })
-                  }
-                />
+              <div className="space-y-5">
+                <label className="flex items-start gap-2 rounded-xl bg-muted/80 px-3 py-3 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={selectedCost.digital}
+                    onChange={(e) => updateCost(selected.sku, { digital: e.target.checked })}
+                  />
+                  <span>
+                    <span className="font-semibold">Digital product</span>
+                    <span className="mt-0.5 block text-xs text-subtle">
+                      Mark manually if this listing has no physical shipping (Etsy and others do not
+                      auto-detect). Shipping cost is ignored for digital.
+                    </span>
+                  </span>
+                </label>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <SliderField
+                    label="Unit cost"
+                    value={selectedCost.unitCost}
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    suffix={currency}
+                    onChange={(unitCost) => updateCost(selected.sku, { unitCost })}
+                  />
+                  <SliderField
+                    label="Packaging"
+                    value={selectedCost.packagingCost}
+                    min={0}
+                    max={20}
+                    step={0.1}
+                    suffix={currency}
+                    onChange={(packagingCost) => updateCost(selected.sku, { packagingCost })}
+                  />
+                  <SliderField
+                    label="Avg shipping cost / unit"
+                    value={selectedCost.shippingCostPerUnit}
+                    min={0}
+                    max={20}
+                    step={0.1}
+                    suffix={currency}
+                    onChange={(shippingCostPerUnit) =>
+                      updateCost(selected.sku, { shippingCostPerUnit })
+                    }
+                    hint={
+                      selectedCost.digital
+                        ? 'Not used while this product is marked digital.'
+                        : 'Used when an order line has no shipping cost of its own.'
+                    }
+                  />
+                  <SliderField
+                    label="Return cost / returned unit"
+                    value={selectedCost.returnCostPerReturnedUnit}
+                    min={0}
+                    max={20}
+                    step={0.1}
+                    suffix={currency}
+                    onChange={(returnCostPerReturnedUnit) =>
+                      updateCost(selected.sku, { returnCostPerReturnedUnit })
+                    }
+                  />
+                </div>
               </div>
             ) : null}
 
