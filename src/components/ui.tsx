@@ -13,8 +13,9 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50',
-        size === 'sm' ? 'h-9 px-3 text-sm' : 'h-10 px-4 text-sm',
+        // Spec v17 §15.4 — tap targets ≥ 44×44 CSS px
+        'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50',
+        size === 'sm' ? 'px-3 text-sm' : 'px-4 text-sm',
         variant === 'primary' &&
           'bg-accent text-white shadow-sm hover:bg-accent-strong dark:text-slate-950',
         variant === 'secondary' &&
@@ -32,7 +33,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cn(
-        'h-10 w-full rounded-lg border border-border bg-elevated px-3 text-sm text-ink outline-none transition placeholder:text-subtle/70 focus:border-accent focus:ring-2 focus:ring-[var(--ring)]',
+        'min-h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm text-ink outline-none transition placeholder:text-subtle/70 focus:border-accent focus:ring-2 focus:ring-[var(--ring)]',
         className,
       )}
       {...props}

@@ -32,6 +32,7 @@ import {
   resumeOrCancelClocks,
   upsertClock,
 } from '../lib/retention'
+import { buildDemoStore, type DemoStoreId } from '../lib/demo/stores'
 import { clearAllState, loadState, saveState } from '../lib/storage'
 import type {
   AdSpendEntry,
@@ -156,6 +157,8 @@ interface AppContextValue {
   applyVerifyToken: (token: string) => Promise<{ ok: boolean; message: string }>
   signOut: () => void
   loadSample: () => void
+  /** Marketing soft-launch demo shops (synthetic only). */
+  loadDemoStore: (id: DemoStoreId) => void
   /** Remove sample rows only — never uses a Free upload (v16.3 E2). */
   clearSampleData: () => void
   /** Delete all shop data; keep account, Pro and settings (v16.3 E3). */
@@ -583,6 +586,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
           isSample: true,
         },
       ])
+      setSelectedSku(s.costs[0]?.sku ?? null)
+      setSampleClearedNotice(null)
+    },
+    loadDemoStore: (id) => {
+      const hasOwn =
+        lines.some((l) => !l.isSample) ||
+        costs.some((c) => !c.isSample) ||
+        ads.some((a) => !a.isSample)
+      if (hasOwn) return
+      const s = buildDemoStore(id, currency)
+      setLines(s.lines)
+      setCosts(s.costs)
+      setAds(s.ads)
       setSelectedSku(s.costs[0]?.sku ?? null)
       setSampleClearedNotice(null)
     },

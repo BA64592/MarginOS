@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
+import { isInAppBrowser } from '../lib/browserEnv'
 import { Button, Input, Modal } from './ui'
 
-/** Google OIDC stays disabled until Akthar completes K6 (v16.2 / A5). */
+/** Google OIDC stays disabled until Akthar completes K6 (spec §20.3). */
 const GOOGLE_SIGN_IN_ENABLED = false
 
 export function AuthModal() {
@@ -22,6 +23,9 @@ export function AuthModal() {
   const [password, setPassword] = useState('password123')
   const [status, setStatus] = useState<string | null>(null)
   const [manualToken, setManualToken] = useState('')
+  const [inApp] = useState(() =>
+    typeof navigator !== 'undefined' ? isInAppBrowser() : false,
+  )
 
   return (
     <Modal open={authOpen} onClose={() => setAuthOpen(false)} title={user ? 'Account' : 'Sign in'}>
@@ -76,17 +80,31 @@ export function AuthModal() {
         </div>
       ) : (
         <div className="space-y-3">
+          {inApp ? (
+            <p className="rounded-xl bg-warn-soft px-3 py-2 text-xs text-warn">{en.inAppBrowserGoogleHint}</p>
+          ) : null}
           <label className="block text-sm">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-subtle">
               Email
             </span>
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
+            <Input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+            />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-subtle">
               Password
             </span>
-            <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" />
+            <Input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type="password"
+              autoComplete="current-password"
+            />
           </label>
           <Button className="w-full" onClick={() => signInEmail(email, password)}>
             Continue with email
@@ -94,9 +112,9 @@ export function AuthModal() {
           <Button
             variant="secondary"
             className="w-full"
-            disabled={!GOOGLE_SIGN_IN_ENABLED}
+            disabled={!GOOGLE_SIGN_IN_ENABLED || inApp}
             onClick={() => {
-              if (!GOOGLE_SIGN_IN_ENABLED) return
+              if (!GOOGLE_SIGN_IN_ENABLED || inApp) return
               signInGoogle(true)
             }}
           >
@@ -104,6 +122,8 @@ export function AuthModal() {
           </Button>
           {!GOOGLE_SIGN_IN_ENABLED ? (
             <p className="text-xs text-subtle">{en.googleSignInPendingK6}</p>
+          ) : inApp ? (
+            <p className="text-xs text-subtle">{en.inAppBrowserGoogleHint}</p>
           ) : null}
           {/* keep verifyEmail referenced for backwards compatibility */}
           <button type="button" className="hidden" onClick={() => verifyEmail()} aria-hidden>

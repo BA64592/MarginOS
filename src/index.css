@@ -84,20 +84,29 @@
 
 html {
   scroll-behavior: smooth;
+  /* Spec v17 §15.4 / 15.7 — never disable pinch-zoom; no sideways page scroll */
+  overflow-x: clip;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--font-sans);
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  overflow-x: clip;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
+  max-width: 100%;
 }
 
 button,

@@ -26,6 +26,13 @@ export const en = {
   verifyEmail: 'Verify your email before your first upload.',
   googleSignInPendingK6:
     'Google sign-in arrives after K6 (Google Cloud project). Use email for now.',
+  /** Spec v17 §2 / §9 — exact public wording; no date or timeline. */
+  tiktokComingSoon: 'TikTok Shop: coming soon',
+  platformsLaunchLine: 'Shopify, Amazon and Etsy at launch.',
+  etsyMultiFileHint:
+    'On a phone you can add the Orders, Order Items and Statement files one at a time — it still counts as one upload.',
+  inAppBrowserGoogleHint:
+    'If this link opened inside Instagram, Facebook, TikTok or Gmail, use email sign-in here, or open MarginOS in Safari or Chrome for Google sign-in.',
   countryBlocked: "MarginOS isn't available in your country yet.",
   alreadyPro: 'You already have Pro',
   paymentProcessing: 'Your payment is processing',

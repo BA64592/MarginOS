@@ -1,4 +1,5 @@
 import { AuthModal } from './components/AuthModal'
+import { BrowserSupportBanner } from './components/BrowserSupportBanner'
 import { CalculatorsPanel } from './components/CalculatorsPanel'
 import { CostCharts } from './components/CostCharts'
 import { Header } from './components/Header'
@@ -14,11 +15,13 @@ import { ScenarioCompare } from './components/ScenarioCompare'
 import { SettingsBar } from './components/SettingsBar'
 import { UpgradeModal } from './components/UpgradeModal'
 import { AppProvider } from './context/AppContext'
+import { en } from './i18n/en'
 
 export default function App() {
   return (
     <AppProvider>
       <div className="min-h-screen bg-bg text-ink">
+        <BrowserSupportBanner />
         <Header />
         <InactivityBanner />
         <Hero />
@@ -36,9 +39,12 @@ export default function App() {
           <SavedDatasets />
           <SettingsBar />
         </main>
-        <footer className="border-t border-border py-8 text-center text-sm text-subtle">
+        <footer className="border-t border-border px-4 py-8 text-center text-sm text-subtle sm:px-6">
           <p className="font-display text-base font-semibold text-ink">MarginOS</p>
           <p className="mt-1">One price, yours for life.</p>
+          <p className="mt-2">
+            {en.platformsLaunchLine} {en.tiktokComingSoon}.
+          </p>
         </footer>
         <UpgradeModal />
         <AuthModal />

@@ -71,7 +71,8 @@ export function Hero() {
               ? 'No orders loaded yet. Upload a Shopify, Amazon or Etsy export to see true profit and leaks.'
               : usingSampleData
                 ? 'You’re viewing sample data. Upload a Shopify, Amazon or Etsy export to see your real margins.'
-                : 'Upload a Shopify, Amazon or Etsy export anytime to refresh your numbers.'}
+                : 'Upload a Shopify, Amazon or Etsy export anytime to refresh your numbers.'}{' '}
+            {en.tiktokComingSoon}.
           </p>
           <p className="mt-6 flex flex-wrap items-center gap-2 text-sm text-subtle">
             {usingSampleData ? <Badge tone="warn">Sample data</Badge> : null}

@@ -1,5 +1,6 @@
 import { useRef, useState, type RefObject } from 'react'
 import { useApp } from '../context/AppContext'
+import { en } from '../i18n/en'
 import { platformLabel } from '../lib/platforms'
 import type { Platform } from '../lib/types'
 import { FreeUploadPolicyNote } from './FreeRetentionBanner'
@@ -9,6 +10,7 @@ export function PlatformImport() {
   const { currency, importPlatformOrders, user, setAuthOpen, uploadsLeft, plan } = useApp()
   const [platform, setPlatform] = useState<Platform>('shopify')
   const [message, setMessage] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const primaryRef = useRef<HTMLInputElement>(null)
   const secondaryRef = useRef<HTMLInputElement>(null)
   const tertiaryRef = useRef<HTMLInputElement>(null)
@@ -24,39 +26,47 @@ export function PlatformImport() {
       return f ? f.text() : undefined
     }
 
-    if (platform === 'shopify') {
+    setBusy(true)
+    setMessage('Importing…')
+    try {
+      // Yield so the UI can paint progress before sync parse work.
+      await new Promise((r) => window.setTimeout(r, 0))
+      if (platform === 'shopify') {
+        const primaryCsv = await read(primaryRef)
+        const shopifyPaymentsCsv = await read(secondaryRef)
+        const res = importPlatformOrders({
+          platform: 'shopify',
+          homeCurrency: currency,
+          primaryCsv,
+          shopifyPaymentsCsv,
+        })
+        setMessage(res.message)
+        return
+      }
+      if (platform === 'etsy') {
+        const etsyOrdersCsv = await read(primaryRef)
+        const etsyItemsCsv = await read(secondaryRef)
+        const etsyStatementCsv = await read(tertiaryRef)
+        const res = importPlatformOrders({
+          platform: 'etsy',
+          homeCurrency: currency,
+          etsyOrdersCsv,
+          etsyItemsCsv,
+          etsyStatementCsv,
+        })
+        setMessage(res.message)
+        return
+      }
       const primaryCsv = await read(primaryRef)
-      const shopifyPaymentsCsv = await read(secondaryRef)
       const res = importPlatformOrders({
-        platform: 'shopify',
+        platform: 'amazon',
         homeCurrency: currency,
         primaryCsv,
-        shopifyPaymentsCsv,
       })
       setMessage(res.message)
-      return
+    } finally {
+      setBusy(false)
     }
-    if (platform === 'etsy') {
-      const etsyOrdersCsv = await read(primaryRef)
-      const etsyItemsCsv = await read(secondaryRef)
-      const etsyStatementCsv = await read(tertiaryRef)
-      const res = importPlatformOrders({
-        platform: 'etsy',
-        homeCurrency: currency,
-        etsyOrdersCsv,
-        etsyItemsCsv,
-        etsyStatementCsv,
-      })
-      setMessage(res.message)
-      return
-    }
-    const primaryCsv = await read(primaryRef)
-    const res = importPlatformOrders({
-      platform: 'amazon',
-      homeCurrency: currency,
-      primaryCsv,
-    })
-    setMessage(res.message)
   }
 
   return (
@@ -64,7 +74,8 @@ export function PlatformImport() {
       <p className="mb-2 text-sm font-semibold text-ink">Upload platform orders</p>
       <p className="mb-2 text-xs text-subtle">
         Upload Shopify, Amazon or Etsy exports. Buyer personal details are stripped on import.
-        {plan === 'free' ? ` · ${uploadsLeft} of 3 uploads left today.` : ''}
+        {plan === 'free' ? ` · ${uploadsLeft} of 3 uploads left today.` : ''}{' '}
+        {en.tiktokComingSoon}.
       </p>
       <div className="mb-3">
         <FreeUploadPolicyNote />
@@ -104,12 +115,13 @@ export function PlatformImport() {
               Etsy Monthly Statement (optional — actual fees / labels)
               <input ref={tertiaryRef} type="file" accept=".csv,text/csv" className="mt-1 block w-full text-sm" />
             </label>
+            <p className="text-xs text-subtle sm:col-span-2">{en.etsyMultiFileHint}</p>
           </>
         ) : null}
       </div>
       <div className="mt-3">
-        <Button size="sm" onClick={() => void run()}>
-          Import {platformLabel(platform)} CSV
+        <Button size="sm" disabled={busy} onClick={() => void run()}>
+          {busy ? 'Importing…' : `Import ${platformLabel(platform)} CSV`}
         </Button>
       </div>
       {message ? <p className="mt-2 text-sm text-subtle">{message}</p> : null}

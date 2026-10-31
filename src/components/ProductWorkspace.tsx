@@ -2,6 +2,7 @@ import { Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
+import { DEMO_STORES } from '../lib/demo/stores'
 import { SAMPLE_ADS_TEMPLATE, SAMPLE_COST_TEMPLATE, parseCostTemplate } from '../lib/csv/template'
 import { formatMoney, formatPct } from '../lib/format'
 import { proUnlockPaywallCopy } from '../lib/pricing'
@@ -30,6 +31,7 @@ export function ProductWorkspace() {
     setSelectedSku,
     updateCost,
     loadSample,
+    loadDemoStore,
     recordSuccessfulUpload,
     replaceTemplate,
     setAdTotalManual,
@@ -113,9 +115,22 @@ export function ProductWorkspace() {
         action={
           <div className="flex flex-wrap gap-2">
             {!hasOwnData ? (
-              <Button variant="secondary" size="sm" onClick={loadSample}>
-                Load sample
-              </Button>
+              <>
+                <Button variant="secondary" size="sm" onClick={loadSample}>
+                  Load sample
+                </Button>
+                {DEMO_STORES.map((s) => (
+                  <Button
+                    key={s.id}
+                    variant="secondary"
+                    size="sm"
+                    title={s.story}
+                    onClick={() => loadDemoStore(s.id)}
+                  >
+                    {s.label}
+                  </Button>
+                ))}
+              </>
             ) : null}
             <ClearSampleDataButton />
             <Button
@@ -263,14 +278,16 @@ export function ProductWorkspace() {
                     type="button"
                     onClick={() => setSelectedSku(product.sku)}
                     className={cn(
-                      'flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition',
+                      // Spec v17 §15.4–15.5: ≥44px tap; name + verdict + profit always visible
+                      'flex min-h-11 w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition',
                       active ? 'bg-accent-soft text-ink' : 'hover:bg-muted',
                     )}
                   >
-                    <span className="min-w-0">
+                    <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold">{product.name}</span>
                       <span className="block text-xs text-subtle">
-                        {product.unitsSold} units · {formatMoney(product.netProfit, currency)}
+                        {formatMoney(product.netProfit, currency)} · {formatPct(product.netMarginPct)} ·{' '}
+                        {product.unitsSold} units
                       </span>
                     </span>
                     <Badge tone={VERDICT_TONE[product.verdict]}>{product.verdict}</Badge>

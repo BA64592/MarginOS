@@ -14,7 +14,7 @@ export function MathsDisclosure({
     <div className="mt-2">
       <button
         type="button"
-        className="text-xs font-semibold text-accent underline-offset-2 hover:underline"
+        className="inline-flex min-h-11 items-center text-sm font-semibold text-accent underline-offset-2 hover:underline"
         onClick={() => setOpen((v) => !v)}
       >
         {open ? en.hideTheMaths : en.showTheMaths}
