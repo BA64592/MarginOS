@@ -1,4 +1,4 @@
-import { ArrowDownRight } from 'lucide-react'
+import { ArrowDownRight, Lock } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { formatMoney } from '../lib/format'
 import { proUnlockPaywallCopy } from '../lib/pricing'
@@ -7,7 +7,7 @@ import { ProGate } from './ProGate'
 import { MathsDisclosure } from './MathsDisclosure'
 
 export function LeaksPanel() {
-  const { result, plan, currency, setUpgradeOpen } = useApp()
+  const { result, plan, currency, earlyBirdLeft, setUpgradeOpen } = useApp()
   const freeLeaks = result.leaks.slice(0, 3)
   const visible = plan === 'pro' ? result.leaks : freeLeaks
 
@@ -19,7 +19,7 @@ export function LeaksPanel() {
         description={
           plan === 'pro'
             ? 'Every margin leak with monthly impact in your home currency, largest first.'
-            : 'Free shows your top 3 leaks. Monthly £ impact unlocks in Pro.'
+            : 'Free shows your top 3 leaks. Trigger in words and % only — monthly £ impact unlocks in Pro.'
         }
       />
 
@@ -55,11 +55,14 @@ export function LeaksPanel() {
                   <button
                     type="button"
                     onClick={() => setUpgradeOpen(true)}
-                    className="shrink-0 max-w-[14rem] rounded-xl border border-dashed border-border bg-muted/60 px-3 py-2 text-left text-xs text-subtle"
+                    className="inline-flex min-h-11 shrink-0 max-w-[14rem] items-center gap-2 rounded-[10px] border border-dashed border-border bg-muted/60 px-3 py-2 text-left text-xs text-subtle"
                   >
-                    Impact locked
-                    <span className="mt-1 block font-semibold text-accent">
-                      {proUnlockPaywallCopy(currency)}
+                    <Lock className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
+                    <span>
+                      <span className="font-semibold text-ink">Pro · Impact locked</span>
+                      <span className="mt-0.5 block text-accent">
+                        {proUnlockPaywallCopy(currency, earlyBirdLeft)}
+                      </span>
                     </span>
                   </button>
                 )}
@@ -76,8 +79,8 @@ export function LeaksPanel() {
             </Card>
           ))}
 
-          {plan === 'free' && result.leaks.length > 3 ? (
-            <ProGate compact label={`${result.leaks.length - 3} more leaks — Pro`}>
+          {plan === 'free' && result.leaks.length >= 3 ? (
+            <ProGate compact label="More leaks — Pro">
               <Card>
                 <p className="text-sm text-subtle">Additional leaks hidden on Free.</p>
               </Card>

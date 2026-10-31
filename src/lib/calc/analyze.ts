@@ -457,7 +457,7 @@ function detectLeaks(args: {
     leaks.push({
       id: `leak_returns_${p.sku}`,
       leakType: 'high_returns',
-      title: `High returns — ${p.name}`,
+      title: `High returns: ${p.name}`,
       description: `Unit return rate ${(p.unitReturnRate * 100).toFixed(1)}% (target ${(targetRate * 100).toFixed(1)}%).`,
       monthlyImpact: impact,
       recommendation: `Review sizing, photos and descriptions; profit gained at the target rate ≈ ${money(impact, currency, true)} / month.`,
@@ -489,12 +489,13 @@ function detectLeaks(args: {
       leakType: 'loss_making_product',
       title:
         p.verdict === 'No revenue'
-          ? `No revenue — ${p.name}`
-          : `Loss-making product — ${p.name}`,
+          ? `No revenue: ${p.name}`
+          : `Loss-making product: ${p.name}`,
       description:
         p.verdict === 'No revenue'
           ? 'Costs with no revenue in the period (samples/replacements).'
-          : `Net profit ${money(p.netProfit, currency)} (${p.netMarginPct.toFixed(1)}%).`,
+          : // Free trigger is words + % only (K14) — never a £ profit figure here.
+            `Losing money: net margin ${p.netMarginPct.toFixed(1)}%.`,
       monthlyImpact: monthlyLoss,
       recommendation:
         p.verdict === 'No revenue'
@@ -561,7 +562,7 @@ function detectLeaks(args: {
     leaks.push({
       id: `leak_thin_${p.sku}`,
       leakType: 'thin_pricing',
-      title: `Thin pricing — ${p.name}`,
+      title: `Thin pricing: ${p.name}`,
       description: `Net margin ${p.netMarginPct.toFixed(1)}% is below your ${targetMarginPct.toFixed(0)}% target.`,
       monthlyImpact: impact,
       recommendation: raise,

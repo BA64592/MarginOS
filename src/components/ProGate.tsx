@@ -16,7 +16,7 @@ export function ProGate({
   className?: string
   compact?: boolean
 }) {
-  const { plan, setUpgradeOpen, currency } = useApp()
+  const { plan, setUpgradeOpen, currency, earlyBirdLeft } = useApp()
 
   if (plan === 'pro') return <>{children}</>
 
@@ -36,9 +36,13 @@ export function ProGate({
             {label}
           </div>
           {!compact ? (
-            <p className="mb-3 text-sm text-subtle">{proUnlockPaywallCopy(currency)}</p>
+            <p className="mb-3 text-sm text-subtle">
+              {proUnlockPaywallCopy(currency, earlyBirdLeft)}
+            </p>
           ) : (
-            <p className="mb-2 text-xs text-subtle">{proUnlockPaywallCopy(currency)}</p>
+            <p className="mb-2 text-xs text-subtle">
+              {proUnlockPaywallCopy(currency, earlyBirdLeft)}
+            </p>
           )}
           <Button size="sm" onClick={() => setUpgradeOpen(true)}>
             Upgrade to Pro

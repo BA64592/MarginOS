@@ -28,9 +28,12 @@ export function formatFullProPrice(currency: HomeCurrency) {
   return formatMoney(fullProPrice(currency), currency, true)
 }
 
-/** Canonical Pro unlock line for every paywall. */
-export function proUnlockPaywallCopy(currency: HomeCurrency) {
-  return `Unlock with Pro for ${formatEarlyBirdPrice(currency)} early-bird (then ${formatFullProPrice(currency)}) — no subscription`
+/** Canonical Pro unlock line for every paywall (brand K19). */
+export function proUnlockPaywallCopy(currency: HomeCurrency, earlyBirdLeft = EARLY_BIRD_CAP) {
+  if (earlyBirdLeft > 0) {
+    return `Unlock with Pro for ${formatEarlyBirdPrice(currency)} early-bird (then ${formatFullProPrice(currency)}). No subscription.`
+  }
+  return `Unlock with Pro for ${formatFullProPrice(currency)}. No subscription.`
 }
 
 export function proShortCta(currency: HomeCurrency, earlyBirdLeft: number) {
@@ -48,10 +51,11 @@ export function proHeroCta(currency: HomeCurrency, earlyBirdLeft: number) {
 }
 
 export function proModalHeadline(currency: HomeCurrency, earlyBirdLeft: number) {
+  // Brand K19 — avoid "lifetime" in-app until legal clears it (K17).
   if (earlyBirdLeft > 0) {
-    return `Lifetime access — ${formatEarlyBirdPrice(currency)} early-bird (then ${formatFullProPrice(currency)}). Tax-inclusive. No subscription.`
+    return `Pro · ${formatEarlyBirdPrice(currency)} early-bird (then ${formatFullProPrice(currency)}). Tax-inclusive. No subscription.`
   }
-  return `Lifetime access — ${formatFullProPrice(currency)}. Tax-inclusive. No subscription.`
+  return `Pro · ${formatFullProPrice(currency)}. Tax-inclusive. No subscription.`
 }
 
 export function proCheckoutButtonLabel(currency: HomeCurrency, earlyBirdLeft: number) {

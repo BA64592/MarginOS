@@ -15,7 +15,7 @@ import { Button, Input, Modal } from './ui'
 
 const PERKS = [
   'Keep your data, saved datasets and history',
-  'Unlimited uploads, products and saved datasets',
+  'Unlimited uploads (fair use), products and saved datasets',
   'Health Score breakdown by part',
   'Every leak ranked by impact in your currency',
   'Target price for every product',
@@ -42,7 +42,9 @@ export function UpgradeModal() {
   return (
     <Modal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} title="Upgrade to MarginOS Pro">
       <p className="mb-3 text-sm text-subtle">{proModalHeadline(currency, earlyBirdLeft)}</p>
-      <p className="mb-3 text-sm font-medium text-ink">{proUnlockPaywallCopy(currency)}</p>
+      <p className="mb-3 text-sm font-medium text-ink">
+        {proUnlockPaywallCopy(currency, earlyBirdLeft)}
+      </p>
       {earlyBirdLeft > 0 ? (
         <p className="mb-3 text-sm font-medium text-accent">
           {earlyBirdLeft} early-bird places left (first 200 sales). After that,{' '}

@@ -1,6 +1,6 @@
+import { Lock } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { Button, Card, SectionHeading } from './ui'
-import { ProGate } from './ProGate'
+import { Badge, Button, Card, SectionHeading } from './ui'
 
 function Inner() {
   const { savedDatasets, saveDataset } = useApp()
@@ -11,7 +11,8 @@ function Inner() {
       </Button>
       {!savedDatasets.length ? (
         <p className="mt-3 text-sm text-subtle">
-          Saved datasets are named views (date range + platforms) over your Pro shop — not separate row copies.
+          Saved datasets are named views (date range + platforms) over your Pro shop — not separate
+          row copies.
         </p>
       ) : (
         <ul className="mt-3 space-y-2">
@@ -29,6 +30,27 @@ function Inner() {
   )
 }
 
+function FreeLockedPlaceholder() {
+  return (
+    <Card className="border-dashed">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-muted">
+          <Lock className="h-4 w-4 text-ink" aria-hidden />
+        </div>
+        <div>
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-ink">Saved datasets</p>
+            <Badge tone="pro">Pro</Badge>
+          </div>
+          <p className="text-sm text-subtle">
+            Save named views of your shop (date range and platforms) when you upgrade to Pro.
+          </p>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 export function SavedDatasets() {
   const { plan } = useApp()
   return (
@@ -36,9 +58,9 @@ export function SavedDatasets() {
       <SectionHeading
         eyebrow="Datasets"
         title="Saved datasets"
-        description="Reopen a saved view of your shop. Score history over time is a later update."
+        description="Reopen a saved view of your shop."
       />
-      {plan === 'pro' ? <Inner /> : <ProGate label="Saved datasets — Pro"><Inner /></ProGate>}
+      {plan === 'pro' ? <Inner /> : <FreeLockedPlaceholder />}
     </section>
   )
 }

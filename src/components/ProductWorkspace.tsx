@@ -38,6 +38,7 @@ export function ProductWorkspace() {
     ads,
     uploadsLeft,
     setUpgradeOpen,
+    earlyBirdLeft,
     user,
     setAuthOpen,
     warnings,
@@ -286,8 +287,9 @@ export function ProductWorkspace() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold">{product.name}</span>
                       <span className="block text-xs text-subtle">
-                        {formatMoney(product.netProfit, currency)} · {formatPct(product.netMarginPct)} ·{' '}
-                        {product.unitsSold} units
+                        {plan === 'free'
+                          ? `${formatPct(product.netMarginPct)} · ${product.unitsSold} units`
+                          : `${formatMoney(product.netProfit, currency)} · ${formatPct(product.netMarginPct)} · ${product.unitsSold} units`}
                       </span>
                     </span>
                     <Badge tone={VERDICT_TONE[product.verdict]}>{product.verdict}</Badge>
@@ -312,12 +314,20 @@ export function ProductWorkspace() {
               {selected.costMissing ? <Badge tone="danger">cost missing</Badge> : null}
             </div>
             <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[
-                ['True profit', formatMoney(selected.netProfit, currency)],
-                ['Margin', formatPct(selected.netMarginPct)],
-                ['Revenue', formatMoney(selected.revenue, currency)],
-                ['Return rate', formatPct(selected.unitReturnRate * 100)],
-              ].map(([label, value]) => (
+              {(plan === 'free'
+                ? [
+                    ['Margin', formatPct(selected.netMarginPct)],
+                    ['Revenue', formatMoney(selected.revenue, currency)],
+                    ['Return rate', formatPct(selected.unitReturnRate * 100)],
+                    ['Verdict', selected.verdict],
+                  ]
+                : [
+                    ['True profit', formatMoney(selected.netProfit, currency)],
+                    ['Margin', formatPct(selected.netMarginPct)],
+                    ['Revenue', formatMoney(selected.revenue, currency)],
+                    ['Return rate', formatPct(selected.unitReturnRate * 100)],
+                  ]
+              ).map(([label, value]) => (
                 <div key={label} className="rounded-xl bg-muted/80 px-3 py-2">
                   <p className="text-[11px] uppercase tracking-wide text-subtle">{label}</p>
                   <p className="font-display text-lg font-semibold text-ink">{value}</p>
@@ -340,7 +350,7 @@ export function ProductWorkspace() {
               <p className="mb-4 text-sm text-subtle">
                 Target price for every product is included with Pro.{' '}
                 <button type="button" className="font-semibold text-accent" onClick={() => setUpgradeOpen(true)}>
-                  {proUnlockPaywallCopy(currency)}
+                  {proUnlockPaywallCopy(currency, earlyBirdLeft)}
                 </button>
               </p>
             )}

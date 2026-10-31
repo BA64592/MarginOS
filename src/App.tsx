@@ -40,8 +40,9 @@ export default function App() {
           <SettingsBar />
         </main>
         <footer className="border-t border-border px-4 py-8 text-center text-sm text-subtle sm:px-6">
-          <p className="font-display text-base font-semibold text-ink">MarginOS</p>
-          <p className="mt-1">One price, yours for life.</p>
+          <p className="font-display text-base font-bold text-navy dark:text-white">MarginOS</p>
+          {/* Lifetime line withheld from app footer until legal clears it (brand K17). */}
+          <p className="mt-1">{en.tagline}</p>
           <p className="mt-2">
             {en.platformsLaunchLine} {en.tiktokComingSoon}.
           </p>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none" role="img" aria-label="MarginOS">
+  <!-- Spec v17.1 §22.6  white M on brand teal #34726B -->
+  <rect width="128" height="128" rx="28" fill="#34726B"/>
+  <path
+    fill="#FFFFFF"
+    d="M28 96V32h16.8l19.2 36.8L83.2 32H100v64H86.4V54.4L68.8 88H59.2L41.6 54.4V96H28z"
+  />
+</svg>
