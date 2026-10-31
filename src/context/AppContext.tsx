@@ -33,6 +33,7 @@ import {
   upsertClock,
 } from '../lib/retention'
 import { buildDemoStore, type DemoStoreId } from '../lib/demo/stores'
+import { sanitizeResultForFree } from '../lib/leaks/freeView'
 import { clearAllState, loadState, saveState } from '../lib/storage'
 import type {
   AdSpendEntry,
@@ -420,21 +421,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [lines])
   const overheadsForPeriod = (monthlyOverheads * periodDays) / 30
 
-  const result = useMemo(
-    () =>
-      analyzeStore({
-        lines,
-        costs,
-        adSpendTotal,
-        overheadsForPeriod: plan === 'pro' ? overheadsForPeriod : 0,
-        conversionFees: 0,
-        currency,
-        targetMarginPct,
-        feesComparable: feeCmp.comparable,
-        feesExcessPp: feeCmp.excessPp,
-      }),
-    [lines, costs, adSpendTotal, overheadsForPeriod, currency, targetMarginPct, feeCmp, plan],
-  )
+  const result = useMemo(() => {
+    const full = analyzeStore({
+      lines,
+      costs,
+      adSpendTotal,
+      overheadsForPeriod: plan === 'pro' ? overheadsForPeriod : 0,
+      conversionFees: 0,
+      currency,
+      targetMarginPct,
+      feesComparable: feeCmp.comparable,
+      feesExcessPp: feeCmp.excessPp,
+    })
+    // Free session must not carry leak £ impact fields (v17.1 / 10.1 criteria 4, 15, 16).
+    return plan === 'free' ? sanitizeResultForFree(full) : full
+  }, [lines, costs, adSpendTotal, overheadsForPeriod, currency, targetMarginPct, feeCmp, plan])
 
   const scenarioResults = useMemo(() => {
     if (plan !== 'pro') return []
