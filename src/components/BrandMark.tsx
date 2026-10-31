@@ -1,6 +1,6 @@
 import { cn } from '../lib/cn'
 
-/** Spec v17.1 §22.6 — app icon: white M on brand teal. Phone header uses icon at 28px. */
+/** Spec v17.1 §22.6 — official mark (bars + rising arrow) on brand teal. Header uses 28px. */
 export function BrandMark({
   size = 28,
   className,
@@ -10,11 +10,12 @@ export function BrandMark({
 }) {
   return (
     <img
-      src="/brand/icon.svg"
+      src="/brand/icon.png"
+      srcSet="/brand/icon.png 1x, /brand/icon-192.png 2x"
       width={size}
       height={size}
       alt=""
-      className={cn('shrink-0', className)}
+      className={cn('shrink-0 rounded-[6px]', className)}
       style={{ width: size, height: size }}
     />
   )
