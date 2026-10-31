@@ -13,11 +13,11 @@ export function Button({
   return (
     <button
       className={cn(
-        // Spec v17 §15.4 — tap targets ≥ 44×44 CSS px
-        'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50',
+        // Spec v17 §15.4 + brand §22: ≥44px, radius 10, never a pill; teal buttons stay #34726B
+        'inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50',
         size === 'sm' ? 'px-3 text-sm' : 'px-4 text-sm',
         variant === 'primary' &&
-          'bg-accent text-white shadow-sm hover:bg-accent-strong dark:text-slate-950',
+          'bg-accent text-white shadow-sm hover:bg-[var(--accent-hover)] active:bg-[var(--accent-pressed)]',
         variant === 'secondary' &&
           'border border-border bg-elevated text-ink hover:bg-muted',
         variant === 'ghost' && 'text-subtle hover:bg-muted hover:text-ink',
@@ -33,7 +33,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cn(
-        'min-h-11 w-full rounded-lg border border-border bg-elevated px-3 text-sm text-ink outline-none transition placeholder:text-subtle/70 focus:border-accent focus:ring-2 focus:ring-[var(--ring)]',
+        'min-h-11 w-full rounded-[10px] border border-border bg-elevated px-3 text-sm text-ink outline-none transition placeholder:text-subtle/70 focus:border-accent focus:ring-2 focus:ring-[var(--ring)]',
         className,
       )}
       {...props}
@@ -104,13 +104,14 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold',
-        tone === 'neutral' && 'bg-muted text-subtle',
-        tone === 'accent' && 'bg-accent-soft text-accent',
-        tone === 'ok' && 'bg-ok-soft text-ok',
-        tone === 'warn' && 'bg-warn-soft text-warn',
-        tone === 'danger' && 'bg-danger-soft text-danger',
-        tone === 'pro' && 'bg-ink text-elevated dark:bg-accent dark:text-slate-950',
+        // Verdict/band chips: pill ≤28px; plan Pro chip is navy (neutral), outside logo clear space
+        'inline-flex max-h-7 items-center px-2 py-0.5 text-xs font-semibold',
+        tone === 'neutral' && 'rounded-md bg-muted text-subtle',
+        tone === 'accent' && 'rounded-md bg-accent-soft text-accent',
+        tone === 'ok' && 'rounded-full border border-ok/30 bg-ok-soft text-ok',
+        tone === 'warn' && 'rounded-full border border-warn/30 bg-warn-soft text-warn',
+        tone === 'danger' && 'rounded-full border border-danger/30 bg-danger-soft text-danger',
+        tone === 'pro' && 'rounded-md bg-navy text-white dark:bg-white dark:text-[#061F45]',
       )}
     >
       {children}

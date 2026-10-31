@@ -4,6 +4,7 @@ import { en } from '../i18n/en'
 import { isDemoHarnessEnabled } from '../lib/demoFlags'
 import { exportPdfReport } from '../lib/pdf'
 import { proShortCta } from '../lib/pricing'
+import { BrandLockup } from './BrandMark'
 import { Badge, Button } from './ui'
 
 export function Header() {
@@ -26,20 +27,11 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-border/80 bg-bg/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-sm font-bold text-white dark:text-slate-950">
-            M
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-lg font-semibold tracking-tight text-ink sm:text-xl">
-                {en.brand}
-              </h1>
-              <Badge tone={plan === 'pro' ? 'pro' : 'neutral'}>
-                {plan === 'pro' ? en.pro : en.free}
-              </Badge>
-            </div>
-            <p className="hidden truncate text-xs text-subtle sm:block">{en.positioning}</p>
-          </div>
+          {/* Brand lock-up: icon + wordmark. Plan badge outside clear space (guidelines §3 / K17). */}
+          <BrandLockup />
+          <Badge tone={plan === 'pro' ? 'pro' : 'neutral'}>
+            {plan === 'pro' ? en.pro : en.free}
+          </Badge>
         </div>
 
         <div className="flex items-center gap-2">

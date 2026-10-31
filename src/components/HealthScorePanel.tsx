@@ -40,7 +40,11 @@ export function HealthScorePanel() {
                     r={RADIUS}
                     fill="none"
                     stroke={
-                      tone === 'ok' ? 'var(--ok)' : tone === 'warn' ? 'var(--warn)' : 'var(--danger)'
+                      tone === 'ok'
+                        ? 'var(--score-strong)'
+                        : tone === 'warn'
+                          ? 'var(--score-attention)'
+                          : 'var(--score-risk)'
                     }
                     strokeWidth="12"
                     strokeLinecap="round"

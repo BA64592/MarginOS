@@ -2,12 +2,17 @@
 export const en = {
   brand: 'MarginOS',
   tagline: 'Find where your margin leaks and what each leak costs you.',
+  /** Lifetime half pending legal — do not use in app header/footer/logo (brand K17). */
   positioning: 'One price, yours for life.',
-  /** K10 sales wording (v16.4) — privacy line pending legal review. */
+  /** K10 / brand §9 Free column — exact. */
   freeTryLine: 'Try it on one file, results in minutes. Your data is deleted after 24 hours.',
+  /** Brand §9 Pro headline benefit — exact. */
   proDataBenefit: 'Keep your data, saved datasets and history',
+  /** Pending legal — pricing/FAQ/privacy only once cleared; not default app chrome. */
   privacyRetentionLine:
     'Free uploads are deleted after 24 hours, and original files are deleted as soon as they\'re imported.',
+  /** Brand K20 upload area. */
+  freeUploadPolicy: 'Free uploads are deleted after 24 hours. Upgrade to Pro to keep your data.',
   showTheMaths: 'Show the maths',
   hideTheMaths: 'Hide the maths',
   trueProfit: 'True profit',

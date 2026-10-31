@@ -132,8 +132,8 @@ export function FreeUploadPolicyNote() {
   }
   return (
     <p className="text-xs text-subtle">
-      Free uploads are deleted after 24 hours. Upgrade to Pro to keep your data. Original files are
-      deleted as soon as they&apos;re imported.
+      {/* Brand K20 — exact app upload copy */}
+      Free uploads are deleted after 24 hours. Upgrade to Pro to keep your data.
     </p>
   )
 }

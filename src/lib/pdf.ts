@@ -31,7 +31,7 @@ export function exportPdfReport(args: {
   }
 
   line('MarginOS Report', { size: 20, bold: true, color: [15, 118, 110] })
-  line('Find where your margin leaks and what each leak costs you. One price, yours for life.', {
+  line('Find where your margin leaks and what each leak costs you.', {
     size: 10,
     color: [91, 107, 124],
   })

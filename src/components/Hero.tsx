@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
 import { formatMoney } from '../lib/format'
 import { proHeroCta } from '../lib/pricing'
+import { BrandMark } from './BrandMark'
 import { ClearSampleDataButton } from './ConfirmActions'
 import { Badge, Button } from './ui'
 
@@ -24,6 +25,15 @@ export function Hero() {
     isEmptyShop,
   } = useApp()
 
+  const scoreTone =
+    result.health.band === 'Strong'
+      ? 'text-ok'
+      : result.health.band === 'Needs attention'
+        ? 'text-warn'
+        : result.health.band === 'At risk'
+          ? 'text-danger'
+          : 'text-ink'
+
   return (
     <section
       className="relative overflow-hidden border-b border-border"
@@ -31,23 +41,27 @@ export function Hero() {
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 w-full max-w-xl opacity-80 sm:w-1/2"
+        className="pointer-events-none absolute inset-y-0 right-0 w-full max-w-xl opacity-90 sm:w-1/2"
         style={{
           background:
-            'radial-gradient(ellipse 80% 70% at 70% 40%, color-mix(in oklab, var(--accent) 22%, transparent), transparent 70%)',
+            'radial-gradient(ellipse 80% 70% at 70% 40%, color-mix(in oklab, var(--accent) 18%, transparent), transparent 70%)',
         }}
       />
       <div className="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20">
         <div className="animate-fade-up max-w-2xl">
-          <p className="font-display text-5xl font-semibold tracking-tight text-ink sm:text-6xl lg:text-7xl">
-            {en.brand}
-          </p>
-          <h2 className="mt-4 max-w-xl text-lg font-medium leading-snug text-ink sm:text-xl">
+          <div className="mb-5 flex items-center gap-3">
+            <BrandMark size={56} />
+            <p className="font-display text-5xl font-bold tracking-tight text-navy dark:text-white sm:text-6xl lg:text-7xl">
+              {en.brand}
+            </p>
+          </div>
+          {/* Lifetime half of headline pending legal — app uses first sentence only (K17). */}
+          <h2 className="mt-2 max-w-xl font-display text-xl font-semibold leading-snug text-navy dark:text-white sm:text-2xl">
             {en.tagline}
           </h2>
           <p className="mt-3 max-w-lg text-sm text-subtle sm:text-base">
-            True profit after product cost, shipping, ads, platform fees and returns —{' '}
-            {en.positioning.toLowerCase()}
+            True profit after product cost, shipping, ads, platform fees and returns — with the maths
+            shown.
           </p>
           {plan === 'free' ? (
             <p className="mt-2 max-w-lg text-sm text-subtle">{en.freeTryLine}</p>
@@ -80,11 +94,16 @@ export function Hero() {
               <span className="font-medium text-ink">Empty shop — upload to get started</span>
             ) : (
               <span>
-                <span className="font-semibold text-ink">
+                <span className="font-semibold tabular-nums text-navy dark:text-white">
                   {formatMoney(result.totals.trueProfit, currency)}
                 </span>{' '}
                 true profit · score{' '}
-                <span className="font-semibold text-ink">{result.health.score ?? '—'}</span>
+                <span className={`font-semibold tabular-nums ${scoreTone}`}>
+                  {result.health.score ?? '—'}
+                </span>
+                {result.health.band ? (
+                  <span className="text-subtle"> · {result.health.band}</span>
+                ) : null}
                 {earlyBirdLeft > 0 && plan === 'free' ? (
                   <span className="ml-2 text-accent">· {earlyBirdLeft} early-bird places left</span>
                 ) : null}

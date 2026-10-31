@@ -38,6 +38,7 @@ export function ProductWorkspace() {
     ads,
     uploadsLeft,
     setUpgradeOpen,
+    earlyBirdLeft,
     user,
     setAuthOpen,
     warnings,
@@ -340,7 +341,7 @@ export function ProductWorkspace() {
               <p className="mb-4 text-sm text-subtle">
                 Target price for every product is included with Pro.{' '}
                 <button type="button" className="font-semibold text-accent" onClick={() => setUpgradeOpen(true)}>
-                  {proUnlockPaywallCopy(currency)}
+                  {proUnlockPaywallCopy(currency, earlyBirdLeft)}
                 </button>
               </p>
             )}

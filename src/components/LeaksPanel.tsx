@@ -7,7 +7,7 @@ import { ProGate } from './ProGate'
 import { MathsDisclosure } from './MathsDisclosure'
 
 export function LeaksPanel() {
-  const { result, plan, currency, setUpgradeOpen } = useApp()
+  const { result, plan, currency, earlyBirdLeft, setUpgradeOpen } = useApp()
   const freeLeaks = result.leaks.slice(0, 3)
   const visible = plan === 'pro' ? result.leaks : freeLeaks
 
@@ -59,7 +59,7 @@ export function LeaksPanel() {
                   >
                     Impact locked
                     <span className="mt-1 block font-semibold text-accent">
-                      {proUnlockPaywallCopy(currency)}
+                      {proUnlockPaywallCopy(currency, earlyBirdLeft)}
                     </span>
                   </button>
                 )}
