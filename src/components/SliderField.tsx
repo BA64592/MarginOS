@@ -26,7 +26,8 @@ export function SliderField({
         <div className="flex items-center gap-1">
           <Input
             type="number"
-            className="h-8 w-24 px-2 text-right tabular-nums"
+            inputMode="decimal"
+            className="min-h-11 w-24 px-2 text-right tabular-nums"
             value={Number.isFinite(value) ? value : 0}
             min={min}
             max={max}

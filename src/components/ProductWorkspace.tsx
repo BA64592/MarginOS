@@ -278,14 +278,16 @@ export function ProductWorkspace() {
                     type="button"
                     onClick={() => setSelectedSku(product.sku)}
                     className={cn(
-                      'flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition',
+                      // Spec v17 §15.4–15.5: ≥44px tap; name + verdict + profit always visible
+                      'flex min-h-11 w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition',
                       active ? 'bg-accent-soft text-ink' : 'hover:bg-muted',
                     )}
                   >
-                    <span className="min-w-0">
+                    <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold">{product.name}</span>
                       <span className="block text-xs text-subtle">
-                        {product.unitsSold} units · {formatMoney(product.netProfit, currency)}
+                        {formatMoney(product.netProfit, currency)} · {formatPct(product.netMarginPct)} ·{' '}
+                        {product.unitsSold} units
                       </span>
                     </span>
                     <Badge tone={VERDICT_TONE[product.verdict]}>{product.verdict}</Badge>
