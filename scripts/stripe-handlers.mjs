@@ -3,6 +3,8 @@
  * Spec: v16 §12.10 / docs/checklists/stripe-smp.md
  */
 import Stripe from 'stripe'
+import { setUserPlan, setUserPlanByEmail } from './auth-handlers.mjs'
+import { dbConfigured, query } from './db.mjs'
 
 const ALLOWED = new Set([
   'GB',
@@ -135,8 +137,45 @@ export async function createCheckoutSession(body) {
   }
 }
 
-/** In-memory event de-dupe for single instance (replace with DB for multi-instance). */
+/** Fallback in-memory de-dupe when DB is unavailable. */
 const seenEvents = new Set()
+
+async function alreadyProcessed(eventId) {
+  if (dbConfigured()) {
+    const { rows } = await query(`SELECT 1 FROM stripe_events WHERE id = $1`, [eventId])
+    return rows.length > 0
+  }
+  return seenEvents.has(eventId)
+}
+
+async function markProcessed(eventId, type) {
+  if (dbConfigured()) {
+    await query(
+      `INSERT INTO stripe_events (id, type) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
+      [eventId, type],
+    )
+    return
+  }
+  seenEvents.add(eventId)
+}
+
+async function applyCheckoutCompleted(session) {
+  const accountId =
+    session.client_reference_id ||
+    session.metadata?.marginos_account_id ||
+    ''
+  const email = session.customer_details?.email || session.customer_email || ''
+  if (accountId) await setUserPlan(accountId, 'pro', 'active')
+  else if (email) await setUserPlanByEmail(email, 'pro', 'active')
+}
+
+async function applyRefundOrDispute(object) {
+  // K8: keep data export-only — mark licence removed but do not delete shop rows (client-held).
+  const email = object.billing_details?.email || object.receipt_email || ''
+  const metaAccount = object.metadata?.marginos_account_id
+  if (metaAccount) await setUserPlan(metaAccount, 'free', 'removed_full_refund')
+  else if (email) await setUserPlanByEmail(email, 'free', 'removed_full_refund')
+}
 
 export async function handleStripeWebhook(rawBody, signature) {
   const stripe = stripeClient()
@@ -161,16 +200,28 @@ export async function handleStripeWebhook(rawBody, signature) {
     }
   }
 
-  if (seenEvents.has(event.id)) {
+  if (await alreadyProcessed(event.id)) {
     return { status: 200, body: { received: true, id: event.id, duplicate: true } }
   }
-  seenEvents.add(event.id)
-  if (seenEvents.size > 5000) {
-    const first = seenEvents.values().next().value
-    seenEvents.delete(first)
+
+  try {
+    if (event.type === 'checkout.session.completed') {
+      await applyCheckoutCompleted(event.data.object)
+    } else if (event.type === 'charge.refunded') {
+      await applyRefundOrDispute(event.data.object)
+    } else if (event.type === 'charge.dispute.closed') {
+      const d = event.data.object
+      if (d.status === 'lost') await applyRefundOrDispute(d)
+    }
+  } catch (err) {
+    console.error('[stripe-webhook] handler error', err)
+    return {
+      status: 500,
+      body: { ok: false, message: err instanceof Error ? err.message : 'Webhook handler failed' },
+    }
   }
 
-  // Licence persistence needs a durable store (B3). Log for operators until then.
+  await markProcessed(event.id, event.type)
   console.info('[stripe-webhook]', event.type, event.id)
   return { status: 200, body: { received: true, id: event.id, type: event.type } }
 }
