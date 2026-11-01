@@ -1,0 +1,15 @@
+# DigitalOcean App Platform — MarginOS (Vite SPA)
+# Prefer Static Site. Web Service config included if you keep the current component type.
+name: marginos
+region: lon
+static_sites:
+  - name: marginos
+    github:
+      repo: BA64592/MarginOS
+      branch: main
+      deploy_on_push: true
+    build_command: npm ci && npm run build
+    output_dir: dist
+    catchall_document: index.html
+    routes:
+      - path: /
