@@ -151,7 +151,7 @@ interface AppContextValue {
   setTax: (patch: Partial<TaxSettings>) => void
   setTargetMarginPct: (n: number) => void
   setMonthlyOverheads: (n: number) => void
-  signInEmail: (email: string, password: string) => void
+  signInEmail: (email: string, password: string) => Promise<{ ok: boolean; message: string }>
   signInGoogle: (emailVerified: boolean) => void
   verifyEmail: () => void
   requestVerificationEmail: () => Promise<{ ok: boolean; message: string; debugToken?: string }>
@@ -582,39 +582,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTax: (patch) => setTaxState((t) => ({ ...t, ...patch })),
     setTargetMarginPct,
     setMonthlyOverheads,
-    signInEmail: (email, password) => {
-      void marginosAuthProvider.signInEmail(email, password).then((res) => {
-        if (!res.ok || !res.session) return
-        const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
-        setUser({
-          id: res.session.accountId,
-          email: res.session.email,
-          emailVerified: res.session.emailVerified,
-          authProvider: 'email',
-          createdAt: new Date().toISOString(),
-          lastSignInAt: new Date().toISOString(),
-          timeZone: tzGuess,
-          timeZoneChangedAt: null,
-        })
-        if (res.session.plan === 'pro') {
-          setPlan('pro')
-          setFreeClocks([])
-        } else {
-          // Restore Pro from a prior Stripe purchase tied to this email
-          void marginosAuthProvider.syncLicence().then((sync) => {
-            if (sync.ok && sync.session?.plan === 'pro') {
-              setPlan('pro')
-              setFreeClocks([])
-              setUser((u) =>
-                u
-                  ? { ...u, emailVerified: sync.session!.emailVerified, id: sync.session!.accountId }
-                  : u,
-              )
-            }
-          })
-        }
-        setAuthOpen(false)
+    signInEmail: async (email, password) => {
+      const res = await marginosAuthProvider.signInEmail(email, password)
+      if (!res.ok || !res.session) {
+        return { ok: false, message: res.message || 'Sign-in failed.' }
+      }
+      const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
+      setUser({
+        id: res.session.accountId,
+        email: res.session.email,
+        emailVerified: res.session.emailVerified,
+        authProvider: 'email',
+        createdAt: new Date().toISOString(),
+        lastSignInAt: new Date().toISOString(),
+        timeZone: tzGuess,
+        timeZoneChangedAt: null,
       })
+      if (res.session.plan === 'pro') {
+        setPlan('pro')
+        setFreeClocks([])
+      } else {
+        // Restore Pro from a prior Stripe purchase tied to this email
+        void marginosAuthProvider.syncLicence().then((sync) => {
+          if (sync.ok && sync.session?.plan === 'pro') {
+            setPlan('pro')
+            setFreeClocks([])
+            setUser((u) =>
+              u
+                ? { ...u, emailVerified: sync.session!.emailVerified, id: sync.session!.accountId }
+                : u,
+            )
+          }
+        })
+      }
+      setAuthOpen(false)
+      return { ok: true, message: res.message || 'Signed in.' }
     },
     signInGoogle: (emailVerified) => {
       void marginosAuthProvider

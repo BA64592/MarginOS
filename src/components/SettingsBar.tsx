@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import type { HomeCurrency } from '../lib/types'
 import { StartFreshButton } from './ConfirmActions'
@@ -26,6 +26,17 @@ export function SettingsBar() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmEmail, setConfirmEmail] = useState('')
   const [deleteMsg, setDeleteMsg] = useState<string | null>(null)
+  const [overheadsText, setOverheadsText] = useState(() =>
+    monthlyOverheads === 0 ? '' : String(monthlyOverheads),
+  )
+
+  useEffect(() => {
+    setOverheadsText((prev) => {
+      const parsed = prev.trim() === '' ? 0 : Number(prev)
+      if (Number.isFinite(parsed) && parsed === monthlyOverheads) return prev
+      return monthlyOverheads === 0 ? '' : String(monthlyOverheads)
+    })
+  }, [monthlyOverheads])
 
   const downloadCsv = () => {
     const blob = new Blob([exportDataCsv()], { type: 'text/csv' })
@@ -132,8 +143,21 @@ export function SettingsBar() {
               <span className="mb-1 block text-xs text-subtle">Monthly overheads</span>
               <Input
                 type="number"
-                value={monthlyOverheads}
-                onChange={(e) => setMonthlyOverheads(Number(e.target.value))}
+                inputMode="decimal"
+                min={0}
+                step="any"
+                placeholder="0"
+                value={overheadsText}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  setOverheadsText(raw)
+                  if (raw.trim() === '') {
+                    setMonthlyOverheads(0)
+                    return
+                  }
+                  const n = Number(raw)
+                  if (Number.isFinite(n)) setMonthlyOverheads(n)
+                }}
               />
             </label>
           </div>

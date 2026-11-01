@@ -33,7 +33,7 @@ export const en = {
     'Google sign-in arrives after K6 (Google Cloud project). Use email for now.',
   /** Spec v17 §2 / §9 — exact public wording; no date or timeline. */
   tiktokComingSoon: 'TikTok Shop: coming soon',
-  platformsLaunchLine: 'Shopify, Amazon and Etsy at launch.',
+  platformsLaunchLine: 'Shopify, Amazon and Etsy.',
   etsyMultiFileHint:
     'On a phone you can add the Orders, Order Items and Statement files one at a time — it still counts as one upload.',
   inAppBrowserGoogleHint:
