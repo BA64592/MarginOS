@@ -1,16 +1,16 @@
 # Stripe Managed Payments — developer checklist (v16.1 A4)
 
-**Blocked until Akthar completes K4** (create Stripe account, invite Developer role, identity/business checks, UK GBP bank, SMP eligibility, tax-inclusive defaults, Adaptive Pricing, support email, statement descriptor).
+**K4 status:** Stripe account created by Akthar. Engineering wires DigitalOcean `/api/checkout` + webhook; owner finishes Dashboard identity/bank/SMP eligibility.
 
-Once access exists:
+Once test keys exist:
 
-1. Own Stripe user with Developer role; sandbox keys first; secrets only in host secret store; restricted key.
+1. Own Stripe user with Developer role; **test** keys first; secrets only in DigitalOcean / host secret store.
 2. Pin API version `2025-03-31.basil` or later.
-3. Product “MarginOS Pro”, tax code `txcd_10103001`; prices £59 / £39 with currency_options per §12.5; `tax_behavior = inclusive` on every price.
-4. Checkout Session: `mode=payment`, `managed_payments[enabled]=true`, `client_reference_id` = MarginOS account ID, 30‑minute expiry; allowed-country check first.
-5. Webhook: events in §12.10; verify signatures; process each event ID once; fetch latest Charge/Dispute before deciding.
-6. Pass full §12.10 test-mode matrix + Adaptive Pricing + receipt/descriptor check.
+3. Product “MarginOS Pro”, tax code `txcd_10103001`; prices £59 / £39 with currency_options — run `scripts/stripe-bootstrap-products.mjs` or create in Dashboard.
+4. Checkout Session via `POST /api/checkout`: `mode=payment`, `managed_payments[enabled]=true` when eligible (falls back without), `client_reference_id` = MarginOS account ID, 30‑minute expiry; allowed-country check first.
+5. Webhook `https://marginos.online/api/webhooks/stripe`: events in §12.10; verify signatures; de-dupe event IDs (in-memory until B3 DB).
+6. Pass §12.10 test-mode matrix + Adaptive Pricing + receipt/descriptor check.
 7. Ask Stripe whether SMP can block buyer countries server-side; log answer here.
 8. Go live only after K4 + legal/accountant checks: live prices, live webhook, one real purchase+refund, alerts + daily reconciliation.
 
-This app’s payment code stays behind `src/lib/payments/provider.ts` until a Stripe adapter is added.
+App entry: `src/lib/payments/provider.ts` → `/api/checkout` when `VITE_PAYMENTS_MODE=stripe` + publishable key. See `docs/STRIPE-SETUP.md`.

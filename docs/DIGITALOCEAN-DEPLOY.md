@@ -48,6 +48,16 @@ Redeploy after setting secrets. Check `GET /api/health` → `{ "sesConfigured": 
 
 Static Site cannot send SES mail; `/api/*` falls through to `index.html`.
 
+## Stripe (K4)
+
+Also served by `scripts/server.mjs`:
+
+- `POST /api/checkout`
+- `POST /api/webhooks/stripe`
+- Health includes `stripeConfigured`
+
+See `docs/STRIPE-SETUP.md`. `VITE_PAYMENTS_MODE` / `VITE_STRIPE_PUBLISHABLE_KEY` are **build-time** on App Platform.
+
 ## Note on Vercel `/api/*`
 
 The `api/` handlers also work on Vercel. On DigitalOcean, the Web Service `scripts/server.mjs` is the supported path.

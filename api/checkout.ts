@@ -1,10 +1,11 @@
 /**
  * Stripe Managed Payments Checkout Session (v16 §12.10).
- * Deploy on Vercel. Requires STRIPE_SECRET_KEY + price price IDs from K4 setup.
+ * Vercel serverless entry — same behaviour as DigitalOcean `scripts/stripe-handlers.mjs`.
  *
  * POST body: { accountId, email, currency, billingCountry, earlyBird, successUrl, cancelUrl }
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import Stripe from 'stripe'
 
 const ALLOWED = new Set([
   'GB', 'US', 'CA', 'AU', 'IE', 'FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'SE', 'DK', 'FI', 'PL', 'NZ', 'CH', 'NO',
@@ -40,33 +41,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  try {
-    const params = new URLSearchParams()
-    params.set('mode', 'payment')
-    params.set('client_reference_id', String(body.accountId || ''))
-    params.set('customer_email', String(body.email || ''))
-    params.set('success_url', String(body.successUrl || 'https://example.com/?checkout=success'))
-    params.set('cancel_url', String(body.cancelUrl || 'https://example.com/?checkout=cancel'))
-    params.set('line_items[0][price]', priceId)
-    params.set('line_items[0][quantity]', '1')
-    params.set('managed_payments[enabled]', 'true')
-    params.set('expires_at', String(Math.floor(Date.now() / 1000) + 30 * 60))
+  const stripe = new Stripe(secret, {
+    apiVersion: (process.env.STRIPE_API_VERSION as Stripe.LatestApiVersion) || '2025-03-31.basil',
+  })
 
-    const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${secret}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Stripe-Version': process.env.STRIPE_API_VERSION || '2025-03-31.basil',
-      },
-      body: params,
-    })
-    const session = (await stripeRes.json()) as { id?: string; url?: string; error?: { message?: string } }
-    if (!stripeRes.ok || !session.url) {
-      res.status(502).json({
-        ok: false,
-        message: session.error?.message || 'Stripe Checkout Session failed.',
+  const base = {
+    mode: 'payment' as const,
+    client_reference_id: String(body.accountId || ''),
+    customer_email: String(body.email || '') || undefined,
+    success_url: String(body.successUrl || 'https://marginos.online/?checkout=success'),
+    cancel_url: String(body.cancelUrl || 'https://marginos.online/?checkout=cancel'),
+    line_items: [{ price: priceId, quantity: 1 }],
+    expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+    metadata: {
+      marginos_account_id: String(body.accountId || ''),
+      early_bird: body.earlyBird ? '1' : '0',
+      billing_country: country,
+    },
+  }
+
+  try {
+    let session: Stripe.Checkout.Session
+    try {
+      session = await stripe.checkout.sessions.create({
+        ...base,
+        managed_payments: { enabled: true },
       })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ''
+      if (!msg.toLowerCase().includes('managed_payments')) throw err
+      session = await stripe.checkout.sessions.create(base)
+    }
+    if (!session.url) {
+      res.status(502).json({ ok: false, message: 'Stripe Checkout Session failed.' })
       return
     }
     res.status(200).json({ ok: true, url: session.url, sessionId: session.id })

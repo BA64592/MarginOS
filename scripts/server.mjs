@@ -1,5 +1,6 @@
 /**
- * DigitalOcean App Platform runtime: static SPA + /api/auth/send-verification.
+ * DigitalOcean App Platform runtime:
+ * static SPA + SES verification + Stripe checkout/webhook.
  * Listens on 0.0.0.0:$PORT (default 8080).
  */
 import http from 'node:http'
@@ -7,6 +8,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2'
+import {
+  createCheckoutSession,
+  handleStripeWebhook,
+  stripeConfigured,
+} from './stripe-handlers.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
@@ -96,11 +102,11 @@ async function sendVerification(email, verifyUrl) {
   }
 }
 
-function readBody(req) {
+function readBodyBuffer(req) {
   return new Promise((resolve, reject) => {
     const chunks = []
     req.on('data', (c) => chunks.push(c))
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    req.on('end', () => resolve(Buffer.concat(chunks)))
     req.on('error', reject)
   })
 }
@@ -140,8 +146,10 @@ async function serveStatic(req, res) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.method === 'POST' && req.url?.startsWith('/api/auth/send-verification')) {
-      const raw = await readBody(req)
+    const url = req.url?.split('?')[0] || '/'
+
+    if (req.method === 'POST' && url === '/api/auth/send-verification') {
+      const raw = (await readBodyBuffer(req)).toString('utf8')
       let body = {}
       try {
         body = raw ? JSON.parse(raw) : {}
@@ -163,13 +171,39 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
-    if (req.method === 'GET' && req.url?.startsWith('/api/health')) {
+    if (req.method === 'POST' && url === '/api/checkout') {
+      const raw = (await readBodyBuffer(req)).toString('utf8')
+      let body = {}
+      try {
+        body = raw ? JSON.parse(raw) : {}
+      } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, message: 'Invalid JSON' }))
+        return
+      }
+      const result = await createCheckoutSession(body)
+      res.writeHead(result.status, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify(result.body))
+      return
+    }
+
+    if (req.method === 'POST' && url === '/api/webhooks/stripe') {
+      const rawBuf = await readBodyBuffer(req)
+      const sig = req.headers['stripe-signature']
+      const result = await handleStripeWebhook(rawBuf, Array.isArray(sig) ? sig[0] : sig)
+      res.writeHead(result.status, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify(result.body))
+      return
+    }
+
+    if (req.method === 'GET' && url === '/api/health') {
       const cfg = sesConfig()
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(
         JSON.stringify({
           ok: true,
           sesConfigured: !('error' in cfg),
+          stripeConfigured: stripeConfigured(),
           region: process.env.AWS_SES_REGION || process.env.AWS_REGION || 'eu-north-1',
         }),
       )
