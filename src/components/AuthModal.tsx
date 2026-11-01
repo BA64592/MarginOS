@@ -1,34 +1,67 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { en } from '../i18n/en'
-import { isInAppBrowser } from '../lib/browserEnv'
 import { Button, Input, Modal } from './ui'
 
-/** Google OIDC stays disabled until Akthar completes K6 (spec §20.3). */
-const GOOGLE_SIGN_IN_ENABLED = false
+type AuthMode = 'signIn' | 'create'
 
 export function AuthModal() {
   const {
     authOpen,
     setAuthOpen,
     signInEmail,
-    signInGoogle,
     verifyEmail,
     requestVerificationEmail,
     applyVerifyToken,
     user,
     signOut,
   } = useApp()
-  const [email, setEmail] = useState('seller@example.com')
-  const [password, setPassword] = useState('password123')
+  const [mode, setMode] = useState<AuthMode>('signIn')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [status, setStatus] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const [manualToken, setManualToken] = useState('')
-  const [inApp] = useState(() =>
-    typeof navigator !== 'undefined' ? isInAppBrowser() : false,
-  )
+
+  const resetFeedback = () => {
+    setError(null)
+    setStatus(null)
+  }
+
+  const submit = async () => {
+    resetFeedback()
+    const trimmed = email.trim()
+    if (!trimmed || !trimmed.includes('@')) {
+      setError('Enter a valid email address.')
+      return
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      return
+    }
+    setBusy(true)
+    try {
+      const res = await signInEmail(trimmed, password)
+      if (!res.ok) {
+        setError(res.message || (mode === 'create' ? 'Could not create account.' : 'Sign-in failed.'))
+        return
+      }
+      setStatus(res.message)
+      setPassword('')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
-    <Modal open={authOpen} onClose={() => setAuthOpen(false)} title={user ? 'Account' : 'Sign in'}>
+    <Modal
+      open={authOpen}
+      onClose={() => {
+        setAuthOpen(false)
+        resetFeedback()
+      }}
+      title={user ? 'Account' : mode === 'create' ? 'Create account' : 'Sign in'}
+    >
       {user ? (
         <div className="space-y-3 text-sm">
           <p className="text-ink">
@@ -41,11 +74,14 @@ export function AuthModal() {
             <>
               <Button
                 onClick={() => {
+                  resetFeedback()
                   void requestVerificationEmail().then((res) => {
-                    setStatus(res.message)
+                    if (!res.ok) setError(res.message)
+                    else setStatus(res.message)
                     if (res.debugToken) {
                       void applyVerifyToken(res.debugToken).then((v) => {
-                        setStatus(v.message)
+                        if (!v.ok) setError(v.message)
+                        else setStatus(v.message)
                       })
                     }
                   })
@@ -66,33 +102,71 @@ export function AuthModal() {
               <Button
                 variant="secondary"
                 onClick={() => {
-                  void applyVerifyToken(manualToken).then((v) => setStatus(v.message))
+                  resetFeedback()
+                  void applyVerifyToken(manualToken).then((v) => {
+                    if (!v.ok) setError(v.message)
+                    else setStatus(v.message)
+                  })
                 }}
               >
                 Verify with token
               </Button>
             </>
           ) : null}
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
           {status ? <p className="text-xs text-subtle">{status}</p> : null}
           <Button variant="secondary" onClick={signOut}>
             Sign out
           </Button>
         </div>
       ) : (
-        <div className="space-y-3">
-          {inApp ? (
-            <p className="rounded-xl bg-warn-soft px-3 py-2 text-xs text-warn">{en.inAppBrowserGoogleHint}</p>
-          ) : null}
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void submit()
+          }}
+        >
+          <div className="flex gap-2 rounded-[10px] bg-muted p-1">
+            <button
+              type="button"
+              className={`min-h-10 flex-1 rounded-[8px] text-sm font-medium transition ${
+                mode === 'signIn' ? 'bg-elevated text-ink shadow-sm' : 'text-subtle hover:text-ink'
+              }`}
+              onClick={() => {
+                setMode('signIn')
+                resetFeedback()
+              }}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              className={`min-h-10 flex-1 rounded-[8px] text-sm font-medium transition ${
+                mode === 'create' ? 'bg-elevated text-ink shadow-sm' : 'text-subtle hover:text-ink'
+              }`}
+              onClick={() => {
+                setMode('create')
+                resetFeedback()
+              }}
+            >
+              Create account
+            </button>
+          </div>
           <label className="block text-sm">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-subtle">
               Email
             </span>
             <Input
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                resetFeedback()
+              }}
               type="email"
               autoComplete="email"
               inputMode="email"
+              placeholder="you@example.com"
             />
           </label>
           <label className="block text-sm">
@@ -101,35 +175,29 @@ export function AuthModal() {
             </span>
             <Input
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                resetFeedback()
+              }}
               type="password"
-              autoComplete="current-password"
+              autoComplete={mode === 'create' ? 'new-password' : 'current-password'}
+              placeholder="At least 8 characters"
             />
           </label>
-          <Button className="w-full" onClick={() => signInEmail(email, password)}>
-            Continue with email
-          </Button>
-          <Button
-            variant="secondary"
-            className="w-full"
-            disabled={!GOOGLE_SIGN_IN_ENABLED || inApp}
-            onClick={() => {
-              if (!GOOGLE_SIGN_IN_ENABLED || inApp) return
-              signInGoogle(true)
-            }}
-          >
-            Continue with Google
-          </Button>
-          {!GOOGLE_SIGN_IN_ENABLED ? (
-            <p className="text-xs text-subtle">{en.googleSignInPendingK6}</p>
-          ) : inApp ? (
-            <p className="text-xs text-subtle">{en.inAppBrowserGoogleHint}</p>
+          {error ? (
+            <p className="rounded-[10px] bg-danger-soft px-3 py-2 text-sm text-danger" role="alert">
+              {error}
+            </p>
           ) : null}
+          {status ? <p className="text-sm text-subtle">{status}</p> : null}
+          <Button className="w-full" type="submit" disabled={busy}>
+            {busy ? 'Please wait…' : mode === 'create' ? 'Create account' : 'Sign in'}
+          </Button>
           {/* keep verifyEmail referenced for backwards compatibility */}
           <button type="button" className="hidden" onClick={() => verifyEmail()} aria-hidden>
             verify
           </button>
-        </div>
+        </form>
       )}
     </Modal>
   )

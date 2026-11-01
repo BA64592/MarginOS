@@ -11,7 +11,34 @@ import {
   proModalHeadline,
   proUnlockPaywallCopy,
 } from '../lib/pricing'
-import { Button, Input, Modal } from './ui'
+import { Button, Modal } from './ui'
+
+const BUYER_COUNTRY_LABELS: Record<string, string> = {
+  GB: 'United Kingdom',
+  US: 'United States',
+  CA: 'Canada',
+  AU: 'Australia',
+  IE: 'Ireland',
+  FR: 'France',
+  DE: 'Germany',
+  ES: 'Spain',
+  IT: 'Italy',
+  NL: 'Netherlands',
+  BE: 'Belgium',
+  AT: 'Austria',
+  PT: 'Portugal',
+  SE: 'Sweden',
+  DK: 'Denmark',
+  FI: 'Finland',
+  PL: 'Poland',
+  NZ: 'New Zealand',
+  CH: 'Switzerland',
+  NO: 'Norway',
+}
+
+const BUYER_COUNTRY_OPTIONS = [...ALLOWED_BUYER_COUNTRIES].sort((a, b) =>
+  (BUYER_COUNTRY_LABELS[a] ?? a).localeCompare(BUYER_COUNTRY_LABELS[b] ?? b),
+)
 
 const PERKS = [
   'Keep your data, saved datasets and history',
@@ -68,7 +95,17 @@ export function UpgradeModal() {
         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-subtle">
           Billing country
         </span>
-        <Input value={country} onChange={(e) => setCountry(e.target.value.toUpperCase())} maxLength={2} />
+        <select
+          className="min-h-11 w-full rounded-[10px] border border-border bg-elevated px-3 text-sm text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-[var(--ring)]"
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+        >
+          {BUYER_COUNTRY_OPTIONS.map((code) => (
+            <option key={code} value={code}>
+              {BUYER_COUNTRY_LABELS[code] ?? code}
+            </option>
+          ))}
+        </select>
         {!ALLOWED_BUYER_COUNTRIES.has(country.toUpperCase()) ? (
           <span className="mt-1 block text-xs text-danger">{en.countryBlocked}</span>
         ) : null}
@@ -95,9 +132,7 @@ export function UpgradeModal() {
         Free uploads are deleted after 24 hours, and original files are deleted as soon as they&apos;re
         imported. Upgrading within 24 hours keeps your Free data in Pro.
       </p>
-      <p className="mt-2 text-xs text-subtle">
-        14-day money-back guarantee. Sold through Link. Bank statements show LINK.COM* MARGINOS.
-      </p>
+      <p className="mt-2 text-xs text-subtle">14-day money-back guarantee.</p>
       {plan === 'free' && isDemoHarnessEnabled() ? (
         <div className="mt-4 rounded-lg border border-dashed border-border px-3 py-2">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-subtle">
