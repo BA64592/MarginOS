@@ -43,7 +43,12 @@ export function AuthModal() {
     try {
       const res = await signInEmail(trimmed, password)
       if (!res.ok) {
-        setError(res.message || (mode === 'create' ? 'Could not create account.' : 'Sign-in failed.'))
+        const msg = (res.message || '').trim()
+        if (mode === 'create' && (!msg || /sign-?in failed/i.test(msg))) {
+          setError('Could not create account. Try again, or sign in if you already have one.')
+        } else {
+          setError(msg || (mode === 'create' ? 'Could not create account.' : 'Sign-in failed.'))
+        }
         return
       }
       setStatus(res.message)
