@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "test": "tsx src/lib/calc/targetPrice.test.ts && tsx src/lib/retention.test.ts && tsx src/lib/csv/shopify.pii.test.ts && tsx src/lib/fx/ecb.test.ts && tsx src/lib/demo/stores.test.ts && tsx src/lib/browserEnv.test.ts && tsx src/lib/leaks/freeView.test.ts",
     "preview": "vite preview",
-    "start": "node scripts/start.mjs"
+    "start": "node scripts/start.mjs",
+    "stripe:bootstrap": "node scripts/stripe-bootstrap-products.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1161.0",
@@ -22,6 +23,7 @@
     "react-dom": "^19.3.1",
     "recharts": "^3.10.1",
     "serve": "^14.2.6",
+    "stripe": "^19.3.0",
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
