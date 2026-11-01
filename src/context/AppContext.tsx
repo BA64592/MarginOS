@@ -338,20 +338,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Restore server session (verified email + Pro licence) across devices / sign-ins
   useEffect(() => {
-    void marginosAuthProvider.fetchSession().then((session) => {
+    void marginosAuthProvider.fetchSession().then(async (session) => {
       if (!session) return
+      let current = session
+      if (current.plan !== 'pro') {
+        const sync = await marginosAuthProvider.syncLicence()
+        if (sync.ok && sync.session) current = sync.session
+      }
       const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
       setUser({
-        id: session.accountId,
-        email: session.email,
-        emailVerified: session.emailVerified,
+        id: current.accountId,
+        email: current.email,
+        emailVerified: current.emailVerified,
         authProvider: 'email',
         createdAt: new Date().toISOString(),
         lastSignInAt: new Date().toISOString(),
         timeZone: tzGuess,
         timeZoneChangedAt: null,
       })
-      if (session.plan === 'pro') {
+      if (current.plan === 'pro') {
         setPlan('pro')
         setFreeClocks([])
       }
@@ -594,6 +599,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (res.session.plan === 'pro') {
           setPlan('pro')
           setFreeClocks([])
+        } else {
+          // Restore Pro from a prior Stripe purchase tied to this email
+          void marginosAuthProvider.syncLicence().then((sync) => {
+            if (sync.ok && sync.session?.plan === 'pro') {
+              setPlan('pro')
+              setFreeClocks([])
+              setUser((u) =>
+                u
+                  ? { ...u, emailVerified: sync.session!.emailVerified, id: sync.session!.accountId }
+                  : u,
+              )
+            }
+          })
         }
         setAuthOpen(false)
       })

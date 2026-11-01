@@ -11,6 +11,7 @@ import {
   handleAuthLogoutDestroy,
   handleAuthMe,
   handleSendVerification,
+  handleSyncLicence,
   handleVerifyToken,
 } from './auth-handlers.mjs'
 import { dbConfigured, migrate } from './db.mjs'
@@ -122,6 +123,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && url === '/api/auth/logout') {
       const result = await handleAuthLogoutDestroy(req)
       json(res, result.status, result.body, result.headers || {})
+      return
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/sync-licence') {
+      const result = await handleSyncLicence(req)
+      json(res, result.status, result.body)
       return
     }
 

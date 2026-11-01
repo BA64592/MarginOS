@@ -315,4 +315,41 @@ export async function setUserPlanByEmail(email, plan, licenceState = 'active') {
   )
 }
 
+/** Reconcile Pro from completed Stripe Checkout sessions for this account email. */
+export async function handleSyncLicence(req) {
+  if (!dbConfigured()) {
+    return { status: 503, body: { ok: false, message: 'Auth database is not configured.' } }
+  }
+  const user = await userFromRequest(req)
+  if (!user) return { status: 401, body: { ok: false, message: 'Sign in first.' } }
+  const secret = process.env.STRIPE_SECRET_KEY
+  if (!secret) {
+    return { status: 503, body: { ok: false, message: 'Stripe is not configured.' } }
+  }
+  const Stripe = (await import('stripe')).default
+  const stripe = new Stripe(secret, {
+    apiVersion: process.env.STRIPE_API_VERSION || '2025-03-31.basil',
+  })
+  const sessions = await stripe.checkout.sessions.list({ limit: 40, status: 'complete' })
+  const email = user.email.toLowerCase()
+  const hit = sessions.data.find((s) => {
+    const e = (s.customer_details?.email || s.customer_email || '').toLowerCase()
+    const ref = s.client_reference_id || s.metadata?.marginos_account_id || ''
+    return e === email || ref === user.id
+  })
+  if (!hit) {
+    const refreshed = await query(`SELECT * FROM users WHERE id = $1`, [user.id])
+    return {
+      status: 200,
+      body: { ok: true, user: publicUser(refreshed.rows[0]), message: 'No completed Checkout found.' },
+    }
+  }
+  await setUserPlan(user.id, 'pro', 'active')
+  const refreshed = await query(`SELECT * FROM users WHERE id = $1`, [user.id])
+  return {
+    status: 200,
+    body: { ok: true, user: publicUser(refreshed.rows[0]), message: 'Pro licence restored from Stripe.' },
+  }
+}
+
 export { COOKIE, sessionCookie }

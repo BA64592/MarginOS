@@ -36,6 +36,7 @@ export interface AuthProvider {
   requestPasswordReset(email: string): Promise<{ ok: boolean; message: string }>
   resetPassword(token: string, newPassword: string): Promise<{ ok: boolean; message: string }>
   fetchSession(): Promise<AuthSession | null>
+  syncLicence(): Promise<{ ok: boolean; session?: AuthSession; message: string }>
   signOut(): Promise<void>
 }
 
@@ -191,6 +192,9 @@ const localAuthProvider: AuthProvider = {
   async fetchSession() {
     return null
   },
+  async syncLicence() {
+    return { ok: false, message: 'Server auth required.' }
+  },
   async signOut() {
     // local only
   },
@@ -281,6 +285,25 @@ const serverAuthProvider: AuthProvider = {
       return sessionFromApi(data.user)
     } catch {
       return null
+    }
+  },
+  async syncLicence() {
+    try {
+      const { okHttp, data } = await apiJson<{
+        ok?: boolean
+        message?: string
+        user?: ApiUser
+      }>('/api/auth/sync-licence', { method: 'POST', body: '{}' })
+      if (!okHttp || !data.ok || !data.user) {
+        return { ok: false, message: data.message || 'Could not sync licence.' }
+      }
+      return {
+        ok: true,
+        session: sessionFromApi(data.user),
+        message: data.message || 'Licence synced.',
+      }
+    } catch {
+      return { ok: false, message: 'Could not reach licence sync API.' }
     }
   },
   async signOut() {
