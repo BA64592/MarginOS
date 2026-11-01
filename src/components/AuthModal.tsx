@@ -54,8 +54,8 @@ export function AuthModal() {
                 Resend verification email
               </Button>
               <p className="text-xs text-subtle">
-                In production, open the 24-hour link from your email (SES London). In local demo,
-                resend verifies immediately when SES is not configured.
+                Open the 24-hour link from your email on any device — verification is saved to your
+                account. You can also paste the token below.
               </p>
               <label className="block text-xs">
                 <span className="mb-1 block font-semibold uppercase tracking-wide text-subtle">

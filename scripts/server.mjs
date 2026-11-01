@@ -1,13 +1,19 @@
 /**
  * DigitalOcean App Platform runtime:
- * static SPA + SES verification + Stripe checkout/webhook.
- * Listens on 0.0.0.0:$PORT (default 8080).
+ * static SPA + auth + SES + Stripe checkout/webhook.
  */
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2'
+import {
+  handleAuthContinue,
+  handleAuthLogoutDestroy,
+  handleAuthMe,
+  handleSendVerification,
+  handleVerifyToken,
+} from './auth-handlers.mjs'
+import { dbConfigured, migrate } from './db.mjs'
 import {
   createCheckoutSession,
   handleStripeWebhook,
@@ -36,72 +42,6 @@ const MIME = {
   '.txt': 'text/plain; charset=utf-8',
 }
 
-function sesConfig() {
-  const region = process.env.AWS_SES_REGION || process.env.AWS_REGION || 'eu-north-1'
-  const from = process.env.SES_FROM_ADDRESS || process.env.SES_FROM_EMAIL || ''
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID || ''
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || ''
-  if (!from || !accessKeyId || !secretAccessKey) {
-    return {
-      error:
-        'SES is not configured. Set SES_FROM_ADDRESS (or SES_FROM_EMAIL) and AWS credentials (K5).',
-    }
-  }
-  return { region, from, accessKeyId, secretAccessKey }
-}
-
-async function sendVerification(email, verifyUrl) {
-  const config = sesConfig()
-  if (config.error) return { status: 503, body: { ok: false, message: config.error } }
-
-  const client = new SESv2Client({
-    region: config.region,
-    credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey,
-    },
-  })
-
-  const subject = 'Verify your MarginOS email'
-  const text = [
-    'Verify your MarginOS email address.',
-    '',
-    'Open this link within 24 hours:',
-    verifyUrl,
-    '',
-    'If you did not create a MarginOS account, you can ignore this email.',
-  ].join('\n')
-  const html = `<p>Verify your MarginOS email address.</p>
-<p><a href="${verifyUrl}">Confirm email</a></p>
-<p style="color:#555;font-size:14px">Or paste this link into your browser (valid 24 hours):<br/>${verifyUrl}</p>
-<p style="color:#777;font-size:12px">If you did not create a MarginOS account, you can ignore this email.</p>`
-
-  try {
-    const out = await client.send(
-      new SendEmailCommand({
-        FromEmailAddress: config.from,
-        Destination: { ToAddresses: [email] },
-        Content: {
-          Simple: {
-            Subject: { Data: subject, Charset: 'UTF-8' },
-            Body: {
-              Text: { Data: text, Charset: 'UTF-8' },
-              Html: { Data: html, Charset: 'UTF-8' },
-            },
-          },
-        },
-      }),
-    )
-    return {
-      status: 200,
-      body: { ok: true, message: 'Verification email sent.', messageId: out.MessageId },
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'SES send failed'
-    return { status: 502, body: { ok: false, message } }
-  }
-}
-
 function readBodyBuffer(req) {
   return new Promise((resolve, reject) => {
     const chunks = []
@@ -109,6 +49,12 @@ function readBodyBuffer(req) {
     req.on('end', () => resolve(Buffer.concat(chunks)))
     req.on('error', reject)
   })
+}
+
+function json(res, status, body, headers = {}) {
+  const out = { 'Content-Type': 'application/json', ...headers }
+  res.writeHead(status, out)
+  res.end(JSON.stringify(body))
 }
 
 function safeJoin(base, reqPath) {
@@ -137,53 +83,99 @@ async function serveStatic(req, res) {
   }
 
   if (trySend(filePath)) return
-  // SPA fallback
   const index = path.join(dist, 'index.html')
   if (trySend(index)) return
   res.writeHead(404)
   res.end('Not found')
 }
 
+async function parseJson(req) {
+  const raw = (await readBodyBuffer(req)).toString('utf8')
+  if (!raw) return {}
+  return JSON.parse(raw)
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = req.url?.split('?')[0] || '/'
+    const qs = new URL(req.url || '/', 'http://localhost').searchParams
 
-    if (req.method === 'POST' && url === '/api/auth/send-verification') {
-      const raw = (await readBodyBuffer(req)).toString('utf8')
+    if (req.method === 'POST' && url === '/api/auth/continue') {
       let body = {}
       try {
-        body = raw ? JSON.parse(raw) : {}
+        body = await parseJson(req)
       } catch {
-        res.writeHead(400, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ ok: false, message: 'Invalid JSON' }))
+        json(res, 400, { ok: false, message: 'Invalid JSON' })
         return
       }
-      const email = String(body.email || '')
-      const verifyUrl = String(body.verifyUrl || '')
-      if (!email || !verifyUrl) {
-        res.writeHead(400, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ ok: false, message: 'email and verifyUrl required' }))
+      const result = await handleAuthContinue(body, req)
+      json(res, result.status, result.body, result.headers || {})
+      return
+    }
+
+    if (req.method === 'GET' && url === '/api/auth/me') {
+      const result = await handleAuthMe(req)
+      json(res, result.status, result.body)
+      return
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/logout') {
+      const result = await handleAuthLogoutDestroy(req)
+      json(res, result.status, result.body, result.headers || {})
+      return
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/send-verification') {
+      let body = {}
+      try {
+        body = await parseJson(req)
+      } catch {
+        body = {}
+      }
+      // Prefer authenticated session path; fall back to legacy body for old clients
+      const result = await handleSendVerification(req, body)
+      if (result.status !== 401 || !body.email || !body.verifyUrl) {
+        json(res, result.status, result.body)
         return
       }
-      const result = await sendVerification(email, verifyUrl)
-      res.writeHead(result.status, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify(result.body))
+      json(res, result.status, result.body)
+      return
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/verify') {
+      let body = {}
+      try {
+        body = await parseJson(req)
+      } catch {
+        json(res, 400, { ok: false, message: 'Invalid JSON' })
+        return
+      }
+      const result = await handleVerifyToken(body.token)
+      json(res, result.status, result.body)
+      return
+    }
+
+    if (req.method === 'GET' && url === '/api/auth/verify') {
+      const result = await handleVerifyToken(qs.get('token'))
+      if (result.status === 200) {
+        res.writeHead(302, { Location: '/?verified=1' })
+        res.end()
+        return
+      }
+      json(res, result.status, result.body)
       return
     }
 
     if (req.method === 'POST' && url === '/api/checkout') {
-      const raw = (await readBodyBuffer(req)).toString('utf8')
       let body = {}
       try {
-        body = raw ? JSON.parse(raw) : {}
+        body = await parseJson(req)
       } catch {
-        res.writeHead(400, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ ok: false, message: 'Invalid JSON' }))
+        json(res, 400, { ok: false, message: 'Invalid JSON' })
         return
       }
       const result = await createCheckoutSession(body)
-      res.writeHead(result.status, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify(result.body))
+      json(res, result.status, result.body)
       return
     }
 
@@ -191,22 +183,22 @@ const server = http.createServer(async (req, res) => {
       const rawBuf = await readBodyBuffer(req)
       const sig = req.headers['stripe-signature']
       const result = await handleStripeWebhook(rawBuf, Array.isArray(sig) ? sig[0] : sig)
-      res.writeHead(result.status, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify(result.body))
+      json(res, result.status, result.body)
       return
     }
 
     if (req.method === 'GET' && url === '/api/health') {
-      const cfg = sesConfig()
-      res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(
-        JSON.stringify({
-          ok: true,
-          sesConfigured: !('error' in cfg),
-          stripeConfigured: stripeConfigured(),
-          region: process.env.AWS_SES_REGION || process.env.AWS_REGION || 'eu-north-1',
-        }),
-      )
+      json(res, 200, {
+        ok: true,
+        dbConfigured: dbConfigured(),
+        stripeConfigured: stripeConfigured(),
+        sesConfigured: Boolean(
+          (process.env.SES_FROM_ADDRESS || process.env.SES_FROM_EMAIL) &&
+            process.env.AWS_ACCESS_KEY_ID &&
+            process.env.AWS_SECRET_ACCESS_KEY,
+        ),
+        region: process.env.AWS_SES_REGION || process.env.AWS_REGION || 'eu-north-1',
+      })
       return
     }
 
@@ -219,11 +211,21 @@ const server = http.createServer(async (req, res) => {
     res.end()
   } catch (err) {
     console.error(err)
-    res.writeHead(500, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ ok: false, message: 'Internal error' }))
+    json(res, 500, { ok: false, message: 'Internal error' })
   }
 })
 
-server.listen(port, '0.0.0.0', () => {
-  console.info(`[marginos] listening on 0.0.0.0:${port}`)
-})
+migrate()
+  .then((ok) => {
+    if (ok) console.info('[marginos] database migrated')
+    else console.warn('[marginos] DATABASE_URL missing — auth API disabled')
+    server.listen(port, '0.0.0.0', () => {
+      console.info(`[marginos] listening on 0.0.0.0:${port}`)
+    })
+  })
+  .catch((err) => {
+    console.error('[marginos] migrate failed', err)
+    server.listen(port, '0.0.0.0', () => {
+      console.info(`[marginos] listening on 0.0.0.0:${port} (auth migrate failed)`)
+    })
+  })

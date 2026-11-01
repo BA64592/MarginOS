@@ -336,6 +336,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [user, nowTick])
 
+  // Restore server session (verified email + Pro licence) across devices / sign-ins
+  useEffect(() => {
+    void marginosAuthProvider.fetchSession().then((session) => {
+      if (!session) return
+      const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
+      setUser({
+        id: session.accountId,
+        email: session.email,
+        emailVerified: session.emailVerified,
+        authProvider: 'email',
+        createdAt: new Date().toISOString(),
+        lastSignInAt: new Date().toISOString(),
+        timeZone: tzGuess,
+        timeZoneChangedAt: null,
+      })
+      if (session.plan === 'pro') {
+        setPlan('pro')
+        setFreeClocks([])
+      }
+    })
+  }, [])
+
   // Email verification + Stripe return deep links
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -343,17 +365,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (token) {
       void marginosAuthProvider.verifyEmail(token).then((res) => {
         if (res.ok) {
-          setUser((u) => (u ? { ...u, emailVerified: true, lastSignInAt: new Date().toISOString() } : u))
+          setUser((u) => {
+            if (u) {
+              return { ...u, emailVerified: true, lastSignInAt: new Date().toISOString() }
+            }
+            if (res.session) {
+              return {
+                id: res.session.accountId,
+                email: res.session.email,
+                emailVerified: true,
+                authProvider: 'email',
+                createdAt: new Date().toISOString(),
+                lastSignInAt: new Date().toISOString(),
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London',
+                timeZoneChangedAt: null,
+              }
+            }
+            return u
+          })
+          if (res.session?.plan === 'pro') {
+            setPlan('pro')
+            setFreeClocks([])
+          }
         }
         params.delete('verify')
         const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
         window.history.replaceState({}, '', next)
       })
     }
+    if (params.get('verified') === '1') {
+      void marginosAuthProvider.fetchSession().then((session) => {
+        if (!session) return
+        setUser({
+          id: session.accountId,
+          email: session.email,
+          emailVerified: session.emailVerified,
+          authProvider: 'email',
+          createdAt: new Date().toISOString(),
+          lastSignInAt: new Date().toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London',
+          timeZoneChangedAt: null,
+        })
+        if (session.plan === 'pro') setPlan('pro')
+      })
+      params.delete('verified')
+      const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
+      window.history.replaceState({}, '', next)
+    }
     if (params.get('checkout') === 'success') {
       setPlan('pro')
       setPaymentPending(false)
       setFreeClocks([])
+      // Refresh licence from server (Stripe webhook may have written plan=pro)
+      void marginosAuthProvider.fetchSession().then((session) => {
+        if (session?.plan === 'pro') setPlan('pro')
+        if (session) {
+          setUser((u) =>
+            u
+              ? { ...u, emailVerified: session.emailVerified, id: session.accountId, email: session.email }
+              : u,
+          )
+        }
+      })
       params.delete('checkout')
       const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
       window.history.replaceState({}, '', next)
@@ -518,6 +591,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           timeZone: tzGuess,
           timeZoneChangedAt: null,
         })
+        if (res.session.plan === 'pro') {
+          setPlan('pro')
+          setFreeClocks([])
+        }
         setAuthOpen(false)
       })
     },
@@ -563,10 +640,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     applyVerifyToken: async (token) => {
       const res = await marginosAuthProvider.verifyEmail(token)
-      if (res.ok) setUser((u) => (u ? { ...u, emailVerified: true } : u))
+      if (res.ok) {
+        setUser((u) => {
+          const base = u
+            ? { ...u, emailVerified: true }
+            : res.session
+              ? {
+                  id: res.session.accountId,
+                  email: res.session.email,
+                  emailVerified: true,
+                  authProvider: 'email' as const,
+                  createdAt: new Date().toISOString(),
+                  lastSignInAt: new Date().toISOString(),
+                  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London',
+                  timeZoneChangedAt: null,
+                }
+              : null
+          return base
+        })
+        if (res.session?.plan === 'pro') {
+          setPlan('pro')
+          setFreeClocks([])
+        }
+      }
       return res
     },
-    signOut: () => setUser(null),
+    signOut: () => {
+      void marginosAuthProvider.signOut()
+      setUser(null)
+    },
     loadSample: () => {
       // Loading sample is not an upload (v16.3 E1). Only when the shop is empty / sample-only.
       const hasOwn =
