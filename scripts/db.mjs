@@ -13,11 +13,16 @@ export function dbConfigured() {
 }
 
 function connectionConfig() {
-  const connectionString = process.env.DATABASE_URL
-  if (!connectionString) return null
-  // DigitalOcean managed Postgres presents a chain that Node rejects unless we relax TLS verify.
+  const raw = process.env.DATABASE_URL
+  if (!raw) return null
+  // Parse URI so we can force TLS settings DigitalOcean managed PG accepts from Node.
+  const u = new URL(raw)
   return {
-    connectionString,
+    host: u.hostname,
+    port: Number(u.port || 5432),
+    user: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+    database: u.pathname.replace(/^\//, '') || 'defaultdb',
     ssl: { rejectUnauthorized: false },
     max: 5,
   }
