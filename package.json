@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "tsx src/lib/calc/targetPrice.test.ts && tsx src/lib/retention.test.ts && tsx src/lib/csv/shopify.pii.test.ts && tsx src/lib/fx/ecb.test.ts && tsx src/lib/demo/stores.test.ts && tsx src/lib/browserEnv.test.ts && tsx src/lib/leaks/freeView.test.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node scripts/start.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
@@ -19,6 +20,7 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "recharts": "^3.10.1",
+    "serve": "^14.2.6",
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
