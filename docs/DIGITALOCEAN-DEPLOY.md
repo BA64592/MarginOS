@@ -10,34 +10,44 @@ Log lines:
 - `when there is no default process a command is required`
 - readiness probe `dial tcp …:8080: connection refused`
 
-## Fix A — Static Site (recommended)
+## Current recommended setup — Web Service (SPA + SES API)
 
-In App Platform → your app → **Settings** / recreate component:
+Verification email needs a Node runtime for `POST /api/auth/send-verification`.
 
 | Setting | Value |
 |---|---|
-| Component type | **Static Site** (not Web Service) |
+| Component type | **Web Service** |
 | Source | `BA64592/MarginOS` · branch `main` |
+| Build command | `npm ci && npm run build` |
+| Run command | `npm start` |
+| HTTP port | `8080` |
+
+`npm start` runs `scripts/server.mjs`: serves `dist/` (SPA fallback) and the SES verification API.
+
+### Runtime secrets / env
+
+| Key | Notes |
+|---|---|
+| `AWS_ACCESS_KEY_ID` | SECRET |
+| `AWS_SECRET_ACCESS_KEY` | SECRET |
+| `AWS_REGION` | `eu-north-1` |
+| `AWS_SES_REGION` | `eu-north-1` (alias; either works) |
+| `SES_FROM_EMAIL` | `noreply@marginos.online` |
+| `SES_FROM_ADDRESS` | same (code accepts either) |
+
+Redeploy after setting secrets. Check `GET /api/health` → `{ "sesConfigured": true }`.
+
+## Static Site only (no email API)
+
+| Setting | Value |
+|---|---|
+| Component type | **Static Site** |
 | Build command | `npm ci && npm run build` |
 | Output directory | `dist` |
 | Catch-all / SPA | `index.html` |
 
-Or apply `.do/app.yaml` from this repo.
+Static Site cannot send SES mail; `/api/*` falls through to `index.html`.
 
-## Fix B — Keep Web Service
+## Note on Vercel `/api/*`
 
-| Setting | Value |
-|---|---|
-| Build command | `npm ci && npm run build` |
-| Run / start command | `npm start` |
-| HTTP port | `8080` (or leave as App Platform default `$PORT`) |
-
-`npm start` runs `serve -s dist` on `0.0.0.0:$PORT` (default 8080).
-
-## After changing settings
-
-Redeploy. Health checks should pass once the static files are served (or `serve` is listening).
-
-## Note on `/api/*`
-
-Vercel serverless routes under `api/` are **not** wired on DigitalOcean Static Site. Soft launch with demo auth/checkout works without them; live Stripe/SES needs Functions or a separate service later.
+The `api/` handlers also work on Vercel. On DigitalOcean, the Web Service `scripts/server.mjs` is the supported path.
