@@ -12,14 +12,21 @@ export function dbConfigured() {
   return Boolean(process.env.DATABASE_URL)
 }
 
+function connectionConfig() {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) return null
+  // DigitalOcean managed Postgres presents a chain that Node rejects unless we relax TLS verify.
+  return {
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    max: 5,
+  }
+}
+
 export function getPool() {
   if (!dbConfigured()) return null
   if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false },
-      max: 5,
-    })
+    pool = new Pool(connectionConfig())
   }
   return pool
 }
