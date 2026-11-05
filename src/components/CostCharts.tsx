@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useApp } from '../context/AppContext'
+import { hasPaidAccess } from '../lib/plans'
 import { formatMoney, formatPct } from '../lib/format'
 import { Card, SectionHeading } from './ui'
 
@@ -27,7 +28,7 @@ const CATEGORY_COLORS = [
 ]
 
 export function CostCharts() {
-  const { result, currency, usingSampleData, isEmptyShop, plan } = useApp()
+  const { access, result, currency, usingSampleData, isEmptyShop } = useApp()
   if (isEmptyShop) return null
   const t = result.totals
   const breakdown = [
@@ -42,7 +43,7 @@ export function CostCharts() {
   const byProduct = result.products.slice(0, 10).map((p) => ({
     name: p.name,
     // Free: net margin % only (v17.1 recommendation — avoid per-product £ that reveals leak impact).
-    value: plan === 'free' ? Math.round(p.netMarginPct * 10) / 10 : Math.round(p.netProfit),
+    value: !hasPaidAccess(access) ? Math.round(p.netMarginPct * 10) / 10 : Math.round(p.netProfit),
   }))
 
   const moneyTick = (value: number) => formatMoney(value, currency, true)
@@ -51,7 +52,7 @@ export function CostCharts() {
     .map((d) => `${d.name}: ${formatMoney(d.value, currency)}`)
     .join('; ')
   const productAlt =
-    plan === 'free'
+    !hasPaidAccess(access)
       ? byProduct.map((d) => `${d.name}: ${formatPct(d.value)}`).join('; ')
       : byProduct.map((d) => `${d.name}: ${formatMoney(d.value, currency)}`).join('; ')
 
@@ -63,7 +64,7 @@ export function CostCharts() {
         description={
           usingSampleData
             ? 'Sample data — cost mix and true profit by product for the demo period.'
-            : plan === 'free'
+            : !hasPaidAccess(access)
               ? 'Cost mix and net margin % by product. Per-product £ unlocks in Pro.'
               : 'Cost mix and true profit by product for the current period.'
         }
@@ -118,7 +119,7 @@ export function CostCharts() {
         </Card>
         <Card className="h-[400px]">
           <p className="mb-3 text-sm font-semibold text-ink">
-            {plan === 'free' ? 'Net margin % by product' : 'True profit by product'}
+            {!hasPaidAccess(access) ? 'Net margin % by product' : 'True profit by product'}
           </p>
           <p className="sr-only">Product chart text alternative: {productAlt || 'No products.'}</p>
           <ResponsiveContainer width="100%" height="90%">
@@ -134,13 +135,13 @@ export function CostCharts() {
               />
               <YAxis
                 tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
-                tickFormatter={plan === 'free' ? pctTick : moneyTick}
+                tickFormatter={!hasPaidAccess(access) ? pctTick : moneyTick}
                 width={72}
               />
               <ReferenceLine y={0} stroke="var(--text-muted)" strokeDasharray="4 4" />
               <Tooltip
                 formatter={(value) =>
-                  plan === 'free'
+                  !hasPaidAccess(access)
                     ? formatPct(Number(value))
                     : formatMoney(Number(value), currency, true)
                 }
@@ -153,7 +154,7 @@ export function CostCharts() {
               />
               <Bar
                 dataKey="value"
-                name={plan === 'free' ? 'Net margin %' : 'True profit'}
+                name={!hasPaidAccess(access) ? 'Net margin %' : 'True profit'}
                 radius={[8, 8, 0, 0]}
                 fill="#34726B"
               />

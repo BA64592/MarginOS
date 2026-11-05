@@ -2,7 +2,8 @@ import { Upload } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
 import { formatMoney } from '../lib/format'
-import { proHeroCta } from '../lib/pricing'
+import { hasPaidAccess } from '../lib/plans'
+import { heroCta } from '../lib/pricing'
 import { BrandMark } from './BrandMark'
 import { ClearSampleDataButton } from './ConfirmActions'
 import { Badge, Button } from './ui'
@@ -15,15 +16,7 @@ function scrollToUpload() {
 }
 
 export function Hero() {
-  const {
-    result,
-    setUpgradeOpen,
-    plan,
-    currency,
-    earlyBirdLeft,
-    usingSampleData,
-    isEmptyShop,
-  } = useApp()
+  const { result, setUpgradeOpen, access, currency, usingSampleData, isEmptyShop } = useApp()
 
   const scoreTone =
     result.health.band === 'Strong'
@@ -33,6 +26,8 @@ export function Hero() {
         : result.health.band === 'At risk'
           ? 'text-danger'
           : 'text-ink'
+
+  const subscribed = hasPaidAccess(access)
 
   return (
     <section
@@ -51,28 +46,22 @@ export function Hero() {
         <div className="animate-fade-up max-w-2xl">
           <div className="mb-5 flex items-center gap-3">
             <BrandMark size={56} />
-            <p className="font-display text-5xl font-bold tracking-tight text-navy dark:text-white sm:text-6xl lg:text-7xl">
+            <p className="font-display text-5xl font-bold tracking-tight text-navy sm:text-6xl lg:text-7xl">
               {en.brand}
             </p>
           </div>
-          {/* Lifetime half of headline pending legal — app uses first sentence only (K17). */}
-          <h2 className="mt-2 max-w-xl font-display text-xl font-semibold leading-snug text-navy dark:text-white sm:text-2xl">
+          <h2 className="mt-2 max-w-xl font-display text-xl font-semibold leading-snug text-navy sm:text-2xl">
             {en.tagline}
           </h2>
-          <p className="mt-3 max-w-lg text-sm text-subtle sm:text-base">
-            True profit after product cost, shipping, ads, platform fees and returns — with the maths
-            shown.
-          </p>
-          {plan === 'free' ? (
-            <p className="mt-2 max-w-lg text-sm text-subtle">{en.freeTryLine}</p>
+          <p className="mt-3 max-w-lg text-sm text-subtle sm:text-base">{en.positioning}</p>
+          {!subscribed ? (
+            <p className="mt-2 max-w-lg text-sm text-subtle">{en.trialLine}</p>
           ) : null}
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            {plan === 'free' ? (
-              <Button onClick={() => setUpgradeOpen(true)}>
-                {proHeroCta(currency, earlyBirdLeft)}
-              </Button>
+            {!subscribed ? (
+              <Button onClick={() => setUpgradeOpen(true)}>{heroCta()}</Button>
             ) : (
-              <Button variant="secondary">Pro unlocked</Button>
+              <Button variant="secondary">Plan active</Button>
             )}
             <Button variant="secondary" onClick={scrollToUpload}>
               <Upload className="h-4 w-4" />
@@ -82,11 +71,11 @@ export function Hero() {
           </div>
           <p className="mt-4 max-w-lg text-sm text-subtle">
             {isEmptyShop
-              ? 'No orders loaded yet. Upload a Shopify, Amazon or Etsy export to see true profit and leaks.'
+              ? 'No orders loaded yet. Upload a Shopify, Amazon, Etsy or TikTok Shop UK export.'
               : usingSampleData
-                ? 'You’re viewing sample data. Upload a Shopify, Amazon or Etsy export to see your real margins.'
-                : 'Upload a Shopify, Amazon or Etsy export anytime to refresh your numbers.'}{' '}
-            {en.tiktokComingSoon}.
+                ? 'You’re viewing sample data. Upload a platform export to see your real margins.'
+                : 'Upload a platform export anytime to refresh your numbers.'}{' '}
+            {en.tiktokBeta}.
           </p>
           <p className="mt-6 flex flex-wrap items-center gap-2 text-sm text-subtle">
             {usingSampleData ? <Badge tone="warn">Sample data</Badge> : null}
@@ -94,7 +83,7 @@ export function Hero() {
               <span className="font-medium text-ink">Empty shop — upload to get started</span>
             ) : (
               <span>
-                <span className="font-semibold tabular-nums text-navy dark:text-white">
+                <span className="font-semibold tabular-nums text-navy">
                   {formatMoney(result.totals.trueProfit, currency)}
                 </span>{' '}
                 true profit · score{' '}
@@ -103,9 +92,6 @@ export function Hero() {
                 </span>
                 {result.health.band ? (
                   <span className="text-subtle"> · {result.health.band}</span>
-                ) : null}
-                {earlyBirdLeft > 0 && plan === 'free' ? (
-                  <span className="ml-2 text-accent">· {earlyBirdLeft} early-bird places left</span>
                 ) : null}
               </span>
             )}

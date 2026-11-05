@@ -1,13 +1,13 @@
 import { CopyPlus, Trash2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { hasFeature } from '../lib/plans'
 import { formatMoney, formatPct } from '../lib/format'
 import { SliderField } from './SliderField'
 import { Button, Card, Input, SectionHeading } from './ui'
 import { ProGate } from './ProGate'
 
 function ScenarioInner() {
-  const {
-    scenarios,
+  const { scenarios,
     scenarioResults,
     createScenario,
     updateScenario,
@@ -108,7 +108,7 @@ export function ScenarioCompare() {
         title="Scenario comparison"
         description="At least two side-by-side scenarios — price, cost, ads, returns, shipping charge, discount."
       />
-      {plan === 'pro' ? (
+      {hasFeature(plan, 'scenarios') ? (
         <ScenarioInner />
       ) : (
         <ProGate label="Scenario comparison — Pro">

@@ -1,10 +1,11 @@
 import { Lightbulb } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { hasPaidAccess } from '../lib/plans'
 import { Card, SectionHeading } from './ui'
 import { ProGate } from './ProGate'
 
 export function RecommendationsPanel() {
-  const { result, plan } = useApp()
+  const { access, result } = useApp()
 
   return (
     <section>
@@ -12,7 +13,7 @@ export function RecommendationsPanel() {
         eyebrow="Recommendations"
         title="What to fix next"
         description={
-          plan === 'pro'
+          hasPaidAccess(access)
             ? 'A clear next step for every leak, with the figures behind it.'
             : 'Free includes one headline action naming the product to fix first.'
         }
@@ -30,7 +31,7 @@ export function RecommendationsPanel() {
           </div>
         </div>
       </Card>
-      {plan === 'pro' ? (
+      {hasPaidAccess(access) ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {result.leaks.map((leak) => (
             <Card key={leak.id}>

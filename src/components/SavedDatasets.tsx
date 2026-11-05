@@ -1,5 +1,6 @@
 import { Lock } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+import { hasPaidAccess } from '../lib/plans'
 import { Badge, Button, Card, SectionHeading } from './ui'
 
 function Inner() {
@@ -52,7 +53,7 @@ function FreeLockedPlaceholder() {
 }
 
 export function SavedDatasets() {
-  const { plan } = useApp()
+  const { access } = useApp()
   return (
     <section>
       <SectionHeading
@@ -60,7 +61,7 @@ export function SavedDatasets() {
         title="Saved datasets"
         description="Reopen a saved view of your shop."
       />
-      {plan === 'pro' ? <Inner /> : <FreeLockedPlaceholder />}
+      {hasPaidAccess(access) ? <Inner /> : <FreeLockedPlaceholder />}
     </section>
   )
 }

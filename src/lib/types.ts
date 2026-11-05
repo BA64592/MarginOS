@@ -1,6 +1,12 @@
-export type Plan = 'free' | 'pro'
+import type { AccessKind, BillingInterval, PlanId } from './plans'
+
+/** @deprecated Prefer PlanId + AccessKind (v18). Kept for migration of persisted free/pro. */
+export type LegacyPlan = 'free' | 'pro'
+/** Active subscription tier, none, or legacy lifetime. */
+export type Plan = PlanId | 'none' | 'legacy'
+export type { AccessKind, BillingInterval, PlanId }
 export type HomeCurrency = 'GBP' | 'EUR' | 'USD' | 'CAD' | 'AUD'
-export type Platform = 'shopify' | 'amazon' | 'etsy' | 'manual'
+export type Platform = 'shopify' | 'amazon' | 'etsy' | 'tiktok' | 'manual'
 export type Confidence = 'High' | 'Medium' | 'Low'
 export type ScoreBand = 'Strong' | 'Needs attention' | 'At risk'
 export type ProductVerdict = 'Losing money' | 'Thin' | 'Healthy' | 'No revenue'
@@ -258,9 +264,16 @@ export interface KeptProData {
 }
 
 export interface AppPersistedState {
-  version: 5
+  version: 6
   plan: Plan
-  theme: 'light' | 'dark'
+  access: AccessKind
+  billingInterval: BillingInterval | null
+  trialEndsAt: string | null
+  accessEndsAt: string | null
+  foundingEligible: boolean
+  foundingSold: number
+  /** Force light UI (v18 — dark mode retired). */
+  theme: 'light'
   currency: HomeCurrency
   user: AuthUser | null
   tax: TaxSettings
@@ -273,20 +286,23 @@ export interface AppPersistedState {
   lines: OrderLine[]
   scenarios: Scenario[]
   savedDatasets: SavedDataset[]
-  uploadDay: UploadDayState
-  earlyBirdSold: number
+  /** Unique-order usage for the current billing month (v18 §12.4). */
+  usageMonthKey: string
+  usageUniqueOrderIds: string[]
+  /** @deprecated v17 daily upload counter — retained for migration only. */
+  uploadDay?: UploadDayState
+  /** @deprecated v17 early-bird counter. */
+  earlyBirdSold?: number
   licenceActive: boolean
   digitalListingSkus: string[]
   /** True when any built-in sample rows are still loaded (v16.3). */
   usingSampleData?: boolean
-  /** Free upload retention clocks (v16.4). Empty for Pro / sample. */
+  /** @deprecated v17 Free 24h clocks — retired by K39. */
   freeClocks?: FreeRetentionClock[]
-  /** Shown once after Free 24h deletion (v16.4 F2). */
   freeDataDeletedNotice?: string | null
-  /** Ex-Pro kept shop for CSV export only (K8). */
   keptProData?: KeptProData | null
-  /** Delayed payment pending — clocks paused (K11). */
   paymentPending?: boolean
+  trialUsed?: boolean
 }
 
 /** Privacy-safe audit event for Clear sample data / Start fresh (v16.3 E7). */

@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { hasPaidAccess } from '../lib/plans'
 import { calcBreakEvenPrice, calcTargetPrice } from '../lib/calc/targetPrice'
 import { formatMoney, formatPct } from '../lib/format'
 import { Card, Input, SectionHeading } from './ui'
 import { MathsDisclosure } from './MathsDisclosure'
 
 export function CalculatorsPanel() {
-  const { result, currency, targetMarginPct, setTargetMarginPct, plan } = useApp()
+  const { access, result, currency, targetMarginPct, setTargetMarginPct } = useApp()
   const [sku, setSku] = useState(result.products[0]?.sku ?? '')
   const product = result.products.find((p) => p.sku === sku) ?? result.products[0]
 
@@ -63,7 +64,7 @@ export function CalculatorsPanel() {
               value={product.sku}
               onChange={(e) => setSku(e.target.value)}
             >
-              {(plan === 'pro' ? result.products : result.products.slice(0, 10)).map((p) => (
+              {(hasPaidAccess(access) ? result.products : result.products.slice(0, 10)).map((p) => (
                 <option key={p.sku} value={p.sku}>
                   {p.name}
                 </option>
@@ -72,7 +73,7 @@ export function CalculatorsPanel() {
           </label>
           <label className="block text-sm">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-subtle">
-              Target margin % {plan === 'pro' ? '(Pro editable)' : '(default 10%)'}
+              Target margin % {hasPaidAccess(access) ? '(Pro editable)' : '(default 10%)'}
             </span>
             <Input
               type="number"
@@ -80,7 +81,7 @@ export function CalculatorsPanel() {
               max={80}
               step={0.5}
               value={targetMarginPct}
-              disabled={plan !== 'pro'}
+              disabled={!hasPaidAccess(access)}
               onChange={(e) => setTargetMarginPct(Number(e.target.value))}
             />
           </label>
