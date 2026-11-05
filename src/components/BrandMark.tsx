@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '../lib/brand'
 import { cn } from '../lib/cn'
 
 /** Spec v17.1 §22.6 — official mark (bars + rising arrow) on brand teal. Header uses 28px. */
@@ -34,11 +35,11 @@ export function BrandLockup({
       <BrandMark size={28} />
       <span
         className={cn(
-          'font-display text-lg font-bold tracking-tight text-navy dark:text-white sm:text-xl',
+          'font-display text-lg font-bold tracking-tight text-navy sm:text-xl',
           titleClassName,
         )}
       >
-        MarginOS
+        {PRODUCT_NAME}
       </span>
     </div>
   )

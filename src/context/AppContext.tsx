@@ -63,7 +63,7 @@ import type {
   TaxSettings,
 } from '../lib/types'
 
-type AppRoute = 'app' | 'pricing' | 'home' | 'legal'
+type AppRoute = 'home' | 'pricing' | 'sample' | 'app' | 'legal'
 
 function normalizePlan(raw: Plan | 'free' | undefined | null): Plan {
   if (!raw || raw === 'free') return 'none'
@@ -294,7 +294,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [usageUniqueOrderIds, setUsageUniqueOrderIds] = useState<string[]>(
     saved?.usageUniqueOrderIds ?? [],
   )
-  const [route, setRoute] = useState<AppRoute>('app')
+  const [route, setRoute] = useState<AppRoute>('home')
   const [sampleClearedNotice, setSampleClearedNotice] = useState<string | null>(null)
   const [freeClocks, setFreeClocks] = useState<FreeRetentionClock[]>(
     hasPaidAccess(initialAccess) ? [] : (saved?.freeClocks ?? []),
