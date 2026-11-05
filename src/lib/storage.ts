@@ -26,7 +26,7 @@ function migrate(raw: Record<string, unknown>): AppPersistedState | null {
   return {
     ...(raw as unknown as AppPersistedState),
     version: 6,
-    plan: plan === 'free' ? 'none' : plan,
+    plan: plan,
     access,
     billingInterval: (raw.billingInterval as AppPersistedState['billingInterval']) ?? null,
     trialEndsAt: (raw.trialEndsAt as string | null) ?? null,

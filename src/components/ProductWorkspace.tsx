@@ -1,6 +1,7 @@
 import { Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { hasPaidAccess } from '../lib/plans'
 import { en } from '../i18n/en'
 import { DEMO_STORES } from '../lib/demo/stores'
 import { SAMPLE_ADS_TEMPLATE, SAMPLE_COST_TEMPLATE, parseCostTemplate } from '../lib/csv/template'
@@ -25,6 +26,7 @@ export function ProductWorkspace() {
   const {
     result,
     plan,
+    access,
     currency,
     costs,
     selectedSku,
@@ -38,7 +40,6 @@ export function ProductWorkspace() {
     ads,
     uploadsLeft,
     setUpgradeOpen,
-    earlyBirdLeft,
     user,
     setAuthOpen,
     warnings,
@@ -53,8 +54,8 @@ export function ProductWorkspace() {
   const hasOwnData = lines.some((l) => !l.isSample) || costs.some((c) => !c.isSample)
 
   const freeTop = result.products.filter((p) => p.revenue > 0).slice(0, 10)
-  const visibleProducts = plan === 'pro' ? result.products : freeTop
-  const hiddenCount = plan === 'free' ? Math.max(0, result.products.length - freeTop.length) : 0
+  const visibleProducts = hasPaidAccess(access) ? result.products : freeTop
+  const hiddenCount = plan === 'none' ? Math.max(0, result.products.length - freeTop.length) : 0
   const selected = visibleProducts.find((p) => p.sku === selectedSku) ?? visibleProducts[0]
   const selectedCost = costs.find((c) => c.sku === selected?.sku)
 
@@ -69,7 +70,7 @@ export function ProductWorkspace() {
       setCsvMsg('Verify your email before your first upload.')
       return
     }
-    if (plan === 'free' && uploadsLeft <= 0) {
+    if (plan === 'none' && uploadsLeft <= 0) {
       setUpgradeOpen(true)
       setCsvMsg(en.uploadsExhausted)
       return
@@ -138,7 +139,7 @@ export function ProductWorkspace() {
               variant="secondary"
               size="sm"
               onClick={() => {
-                if (plan === 'free' && uploadsLeft <= 0) setUpgradeOpen(true)
+                if (plan === 'none' && uploadsLeft <= 0) setUpgradeOpen(true)
                 else fileRef.current?.click()
               }}
             >
@@ -163,7 +164,7 @@ export function ProductWorkspace() {
 
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-subtle">
         {usingSampleData ? <Badge tone="warn">Sample data</Badge> : null}
-        {plan === 'free' ? (
+        {plan === 'none' ? (
           <Badge tone={uploadsLeft === 0 ? 'danger' : 'warn'}>
             {uploadsLeft} of 3 uploads left today
           </Badge>
@@ -260,7 +261,7 @@ export function ProductWorkspace() {
           suffix={currency}
           onChange={setAdTotalManual}
           hint={
-            plan === 'pro'
+            hasPaidAccess(access)
               ? 'Pro can split ads by channel and match spend to the revenue those ads drove.'
               : 'Enter your total ad spend for the period. Pro can split spend by channel.'
           }
@@ -287,7 +288,7 @@ export function ProductWorkspace() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold">{product.name}</span>
                       <span className="block text-xs text-subtle">
-                        {plan === 'free'
+                        {plan === 'none'
                           ? `${formatPct(product.netMarginPct)} · ${product.unitsSold} units`
                           : `${formatMoney(product.netProfit, currency)} · ${formatPct(product.netMarginPct)} · ${product.unitsSold} units`}
                       </span>
@@ -298,7 +299,7 @@ export function ProductWorkspace() {
               )
             })}
           </ul>
-          {plan === 'free' ? (
+          {plan === 'none' ? (
             <p className="mt-2 px-2 text-xs text-subtle">
               Free shows Losing money / Thin / Healthy on your top 10 products by revenue.
             </p>
@@ -314,7 +315,7 @@ export function ProductWorkspace() {
               {selected.costMissing ? <Badge tone="danger">cost missing</Badge> : null}
             </div>
             <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {(plan === 'free'
+              {(plan === 'none'
                 ? [
                     ['Margin', formatPct(selected.netMarginPct)],
                     ['Revenue', formatMoney(selected.revenue, currency)],
@@ -335,7 +336,7 @@ export function ProductWorkspace() {
               ))}
             </div>
 
-              {plan === 'pro' ? (
+              {hasPaidAccess(access) ? (
               <div className="mb-5 rounded-xl border border-accent/20 bg-accent-soft/40 px-3 py-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-accent">Target price</p>
                 <p className="mt-1 font-display text-xl font-semibold text-ink">
@@ -350,7 +351,7 @@ export function ProductWorkspace() {
               <p className="mb-4 text-sm text-subtle">
                 Target price for every product is included with Pro.{' '}
                 <button type="button" className="font-semibold text-accent" onClick={() => setUpgradeOpen(true)}>
-                  {proUnlockPaywallCopy(currency, earlyBirdLeft)}
+                  {proUnlockPaywallCopy()}
                 </button>
               </p>
             )}
@@ -430,7 +431,7 @@ export function ProductWorkspace() {
                 selected.maths.fees,
               ].filter(Boolean)}
             />
-            {plan === 'pro' ? (
+            {hasPaidAccess(access) ? (
               <p className="mt-3 text-sm text-subtle">
                 Return cost {formatMoney(selected.returnCost, currency)}
                 {selected.refundUnitsEstimated ? ' (estimated from refund amount)' : ''}.

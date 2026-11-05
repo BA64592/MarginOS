@@ -1,26 +1,18 @@
-import { ArrowDownRight, Lock } from 'lucide-react'
+import { ArrowDownRight } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { formatMoney } from '../lib/format'
-import { proUnlockPaywallCopy } from '../lib/pricing'
 import { Badge, Card, SectionHeading } from './ui'
-import { ProGate } from './ProGate'
 import { MathsDisclosure } from './MathsDisclosure'
 
 export function LeaksPanel() {
-  const { result, plan, currency, earlyBirdLeft, setUpgradeOpen } = useApp()
-  const freeLeaks = result.leaks.slice(0, 3)
-  const visible = plan === 'pro' ? result.leaks : freeLeaks
+  const { result, currency } = useApp()
 
   return (
     <section>
       <SectionHeading
         eyebrow="Margin leaks"
         title="Ranked by monthly impact"
-        description={
-          plan === 'pro'
-            ? 'Every margin leak with monthly impact in your home currency, largest first.'
-            : 'Free shows your top 3 leaks. Trigger in words and % only — monthly £ impact unlocks in Pro.'
-        }
+        description="Every margin leak with monthly impact in your home currency, largest first. Included on every plan."
       />
 
       {!result.leaks.length ? (
@@ -29,7 +21,7 @@ export function LeaksPanel() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {visible.map((leak, index) => (
+          {result.leaks.map((leak, index) => (
             <Card key={leak.id} interactive>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
@@ -41,51 +33,23 @@ export function LeaksPanel() {
                   <h3 className="font-display text-lg font-semibold text-ink">{leak.title}</h3>
                   <p className="mt-1 text-sm text-subtle">{leak.description}</p>
                 </div>
-                {plan === 'pro' ? (
-                  <div className="shrink-0 rounded-xl bg-danger-soft px-3 py-2 text-right">
-                    <p className="flex items-center justify-end gap-1 text-xs font-semibold uppercase tracking-wide text-danger">
-                      <ArrowDownRight className="h-3.5 w-3.5" />
-                      Monthly impact
-                    </p>
-                    <p className="font-display text-xl font-semibold text-danger">
-                      {formatMoney(leak.monthlyImpact, currency, true)}
-                    </p>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setUpgradeOpen(true)}
-                    className="inline-flex min-h-11 shrink-0 max-w-[14rem] items-center gap-2 rounded-[10px] border border-dashed border-border bg-muted/60 px-3 py-2 text-left text-xs text-subtle"
-                  >
-                    <Lock className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
-                    <span>
-                      <span className="font-semibold text-ink">Pro · Impact locked</span>
-                      <span className="mt-0.5 block text-accent">
-                        {proUnlockPaywallCopy(currency, earlyBirdLeft)}
-                      </span>
-                    </span>
-                  </button>
-                )}
-              </div>
-              {plan === 'pro' ? (
-                <>
-                  <p className="mt-3 rounded-xl bg-accent-soft/70 px-3 py-2 text-sm text-ink">
-                    <span className="font-semibold text-accent">Action: </span>
-                    {leak.recommendation}
+                <div className="shrink-0 rounded-xl bg-danger-soft px-3 py-2 text-right">
+                  <p className="flex items-center justify-end gap-1 text-xs font-semibold uppercase tracking-wide text-danger">
+                    <ArrowDownRight className="h-3.5 w-3.5" />
+                    Monthly impact
                   </p>
-                  <MathsDisclosure lines={leak.maths} />
-                </>
-              ) : null}
+                  <p className="font-display text-xl font-semibold text-danger">
+                    {formatMoney(leak.monthlyImpact, currency, true)}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 rounded-xl bg-accent-soft/70 px-3 py-2 text-sm text-ink">
+                <span className="font-semibold text-accent">Action: </span>
+                {leak.recommendation}
+              </p>
+              <MathsDisclosure lines={leak.maths} />
             </Card>
           ))}
-
-          {plan === 'free' && result.leaks.length >= 3 ? (
-            <ProGate compact label="More leaks — Pro">
-              <Card>
-                <p className="text-sm text-subtle">Additional leaks hidden on Free.</p>
-              </Card>
-            </ProGate>
-          ) : null}
         </div>
       )}
     </section>

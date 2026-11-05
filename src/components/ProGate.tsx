@@ -2,23 +2,27 @@ import { Lock } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useApp } from '../context/AppContext'
 import { cn } from '../lib/cn'
-import { proUnlockPaywallCopy } from '../lib/pricing'
+import { hasFeature, type PlanFeature } from '../lib/plans'
+import { trialPaywallCopy } from '../lib/pricing'
 import { Button } from './ui'
 
+/** Tier-gated panel. Keeps export name ProGate for existing imports. */
 export function ProGate({
   children,
-  label = 'Pro feature',
+  label = 'Paid plan feature',
   className,
   compact = false,
+  feature = 'overheads',
 }: {
   children: ReactNode
   label?: string
   className?: string
   compact?: boolean
+  feature?: PlanFeature
 }) {
-  const { plan, setUpgradeOpen, currency, earlyBirdLeft } = useApp()
+  const { plan, setUpgradeOpen } = useApp()
 
-  if (plan === 'pro') return <>{children}</>
+  if (hasFeature(plan, feature)) return <>{children}</>
 
   return (
     <div className={cn('relative overflow-hidden rounded-2xl', className)}>
@@ -35,17 +39,11 @@ export function ProGate({
             <Lock className="h-3.5 w-3.5" />
             {label}
           </div>
-          {!compact ? (
-            <p className="mb-3 text-sm text-subtle">
-              {proUnlockPaywallCopy(currency, earlyBirdLeft)}
-            </p>
-          ) : (
-            <p className="mb-2 text-xs text-subtle">
-              {proUnlockPaywallCopy(currency, earlyBirdLeft)}
-            </p>
-          )}
+          <p className={cn('text-subtle', compact ? 'mb-2 text-xs' : 'mb-3 text-sm')}>
+            {trialPaywallCopy('growth', 'month')}
+          </p>
           <Button size="sm" onClick={() => setUpgradeOpen(true)}>
-            Upgrade to Pro
+            View plans
           </Button>
         </div>
       </div>

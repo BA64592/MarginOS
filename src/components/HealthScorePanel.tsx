@@ -1,4 +1,5 @@
 import { useApp } from '../context/AppContext'
+import { hasPaidAccess } from '../lib/plans'
 import { cn } from '../lib/cn'
 import { Card, SectionHeading } from './ui'
 import { ProGate } from './ProGate'
@@ -8,7 +9,7 @@ const RADIUS = 54
 const CIRC = 2 * Math.PI * RADIUS
 
 export function HealthScorePanel() {
-  const { result, plan } = useApp()
+  const { access, result } = useApp()
   const score = result.health.score ?? 0
   const tone =
     result.health.band === 'Strong'
@@ -75,7 +76,7 @@ export function HealthScorePanel() {
           <MathsDisclosure lines={result.health.maths.concat(result.health.confidenceReasons)} />
         </Card>
 
-        {plan === 'free' ? (
+        {!hasPaidAccess(access) ? (
           <ProGate label="Score breakdown by part — Pro">
             <Breakdown parts={result.health.parts} />
           </ProGate>

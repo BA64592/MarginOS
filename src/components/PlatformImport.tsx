@@ -74,7 +74,7 @@ export function PlatformImport() {
       <p className="mb-2 text-sm font-semibold text-ink">Upload platform orders</p>
       <p className="mb-2 text-xs text-subtle">
         Upload Shopify, Amazon or Etsy exports. Buyer personal details are stripped on import.
-        {plan === 'free' ? ` · ${uploadsLeft} of 3 uploads left today.` : ''}{' '}
+        {plan === 'none' ? ` · ${uploadsLeft} of 3 uploads left today.` : ''}{' '}
         {en.tiktokComingSoon}.
       </p>
       <div className="mb-3">

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { PRODUCT_NAME } from '../lib/brand'
+import { hasFeature, hasPaidAccess } from '../lib/plans'
 import type { HomeCurrency } from '../lib/types'
 import { StartFreshButton } from './ConfirmActions'
 import { Button, Card, ConfirmDialog, Input, SectionHeading } from './ui'
@@ -16,6 +18,7 @@ export function SettingsBar() {
     monthlyOverheads,
     setMonthlyOverheads,
     plan,
+    access,
     exportDataCsv,
     user,
     keptProData,
@@ -52,8 +55,8 @@ export function SettingsBar() {
     <section>
       <SectionHeading
         eyebrow="Settings"
-        title="Currency & tax"
-        description="Home currency for Free and Pro. Full tax settings screen is Pro. FX uses ECB reference rates."
+        title="Profile, plan and data"
+        description="Three areas: profile & sign-in, plan & billing (via plans modal), and data & privacy. FX uses ECB reference rates."
       />
       <Card>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -96,7 +99,7 @@ export function SettingsBar() {
         </div>
       </Card>
 
-      {plan === 'pro' ? (
+      {hasFeature(plan, 'fullTax') || hasFeature(plan, 'overheads') ? (
         <Card className="mt-4">
           <p className="mb-3 text-sm font-semibold text-ink">Tax settings (estimates, not tax advice)</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -164,7 +167,7 @@ export function SettingsBar() {
         </Card>
       ) : (
         <div className="mt-4">
-          <ProGate label="Tax settings & overheads — Pro">
+          <ProGate label="Tax & overheads — Growth+" feature="overheads">
             <Card>
               <p className="text-sm text-subtle">Business country, OSS/IOSS, Flat Rate, US states, overheads.</p>
             </Card>
@@ -172,57 +175,43 @@ export function SettingsBar() {
         </div>
       )}
 
-      {keptProData && plan === 'free' ? (
-        <Card className="mt-4 border-accent/30 bg-accent-soft/30">
-          <p className="mb-1 text-sm font-semibold text-ink">Previous Pro data kept (export only)</p>
-          <p className="mb-3 text-sm text-subtle">
-            After a refund or chargeback your Pro shop is held until you Start fresh or delete the
-            account. It does not appear in results while you&apos;re on Free. Re-activate Pro to
-            restore it unchanged.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="text-sm font-semibold text-accent underline-offset-2 hover:underline"
-              onClick={downloadCsv}
-            >
-              Download kept data (CSV)
-            </button>
-            <button
-              type="button"
-              className="text-sm font-semibold text-accent underline-offset-2 hover:underline"
-              onClick={() => setUpgradeOpen(true)}
-            >
-              Restore with Pro
-            </button>
-          </div>
-        </Card>
-      ) : null}
+      <Card className="mt-4">
+        <p className="mb-1 text-sm font-semibold text-ink">Plan &amp; billing</p>
+        <p className="mb-3 text-sm text-subtle">
+          {hasPaidAccess(access)
+            ? 'Manage trial, subscription, invoices and cancellation in Stripe customer portal (wired at live Stripe).'
+            : 'Start a 14-day free trial on any plan. Card required. Cancel before the trial ends to pay nothing.'}
+        </p>
+        <Button size="sm" onClick={() => setUpgradeOpen(true)}>
+          {hasPaidAccess(access) ? 'Change plan' : 'View plans & start trial'}
+        </Button>
+      </Card>
 
       <Card className="mt-4">
         <p className="mb-1 text-sm font-semibold text-ink">Start fresh</p>
         <p className="mb-3 text-sm text-subtle">
           Delete all orders, costs, ads, overheads, scenarios and saved datasets from this shop
-          {keptProData ? ', including any kept ex-Pro data' : ''}. Your account, sign-in
-          {plan === 'pro' ? ', Pro licence' : ''} and settings stay. This is not account deletion.
+          {keptProData ? ', including any kept legacy data' : ''}. Your account and sign-in stay.
+          Subscription cancellation is separate and schedules product-data deletion at access end.
         </p>
         <StartFreshButton />
       </Card>
 
       <Card className="mt-4 border-dashed">
-        <p className="mb-1 text-sm font-semibold text-ink">Delete account</p>
+        <p className="mb-1 text-sm font-semibold text-ink">Close account</p>
         <p className="mb-3 text-sm text-subtle">
-          Permanently deletes your MarginOS account on this device, including Pro access, orders,
-          costs and kept ex-Pro data. Type your email to confirm.
+          Account closure is a verified email request completed within 7 days and removes login too
+          (separate from cancelling a subscription). For this browser demo you can still wipe the local
+          {PRODUCT_NAME} session below.
           {user ? ` Signed in as ${user.email}.` : ' Sign in first.'}
         </p>
         {user ? (
           <Button variant="danger" size="sm" onClick={() => setConfirmOpen(true)}>
-            Delete account
+            Wipe local account session
           </Button>
         ) : (
           <Button variant="secondary" size="sm" onClick={() => setAuthOpen(true)}>
-            Sign in to delete account
+            Sign in
           </Button>
         )}
         {deleteMsg ? <p className="mt-2 text-xs text-subtle">{deleteMsg}</p> : null}

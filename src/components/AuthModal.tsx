@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { en } from '../i18n/en'
+import { isInAppBrowser } from '../lib/browserEnv'
 import { Button, Input, Modal } from './ui'
+
+/** Google OIDC enabled once K6 / §20.3 complete. */
+const GOOGLE_SIGN_IN_ENABLED = false
 
 type AuthMode = 'signIn' | 'create'
 
@@ -9,6 +14,7 @@ export function AuthModal() {
     authOpen,
     setAuthOpen,
     signInEmail,
+    signInGoogle,
     verifyEmail,
     requestVerificationEmail,
     applyVerifyToken,
@@ -22,6 +28,9 @@ export function AuthModal() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [manualToken, setManualToken] = useState('')
+  const [inApp] = useState(() =>
+    typeof navigator !== 'undefined' ? isInAppBrowser() : false,
+  )
 
   const resetFeedback = () => {
     setError(null)
@@ -35,8 +44,8 @@ export function AuthModal() {
       setError('Enter a valid email address.')
       return
     }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+    if (password.length < 15) {
+      setError('Password must be at least 15 characters.')
       return
     }
     setBusy(true)
@@ -132,6 +141,26 @@ export function AuthModal() {
             void submit()
           }}
         >
+          {inApp ? (
+            <p className="rounded-xl bg-warn-soft px-3 py-2 text-xs text-warn">{en.inAppBrowserGoogleHint}</p>
+          ) : null}
+          <Button
+            className="w-full"
+            type="button"
+            disabled={!GOOGLE_SIGN_IN_ENABLED || inApp}
+            onClick={() => {
+              if (!GOOGLE_SIGN_IN_ENABLED || inApp) return
+              signInGoogle(true)
+            }}
+          >
+            Continue with Google
+          </Button>
+          {!GOOGLE_SIGN_IN_ENABLED ? (
+            <p className="text-xs text-subtle">{en.googleSignInPendingK6}</p>
+          ) : null}
+          <div className="relative py-1 text-center text-xs text-subtle">
+            <span className="bg-elevated px-2">or continue with email</span>
+          </div>
           <div className="flex gap-2 rounded-[10px] bg-muted p-1">
             <button
               type="button"
@@ -186,7 +215,7 @@ export function AuthModal() {
               }}
               type="password"
               autoComplete={mode === 'create' ? 'new-password' : 'current-password'}
-              placeholder="At least 8 characters"
+              placeholder="At least 15 characters"
             />
           </label>
           {error ? (
@@ -196,9 +225,8 @@ export function AuthModal() {
           ) : null}
           {status ? <p className="text-sm text-subtle">{status}</p> : null}
           <Button className="w-full" type="submit" disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'create' ? 'Create account' : 'Sign in'}
+            {busy ? 'Please wait…' : mode === 'create' ? 'Create account' : 'Continue with email'}
           </Button>
-          {/* keep verifyEmail referenced for backwards compatibility */}
           <button type="button" className="hidden" onClick={() => verifyEmail()} aria-hidden>
             verify
           </button>

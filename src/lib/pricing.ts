@@ -1,64 +1,96 @@
 /**
- * Single source for Pro prices and paywall copy.
- * Amounts come from FIXED_PRICES (tax-inclusive local prices).
+ * v18 public pricing + checkout copy (GBP approved; OD6 non-GBP undecided).
  */
-import { formatMoney } from './format'
+import { PRODUCT_NAME } from './brand'
 import {
-  EARLY_BIRD_CAP,
-  FIXED_PRICES,
-  earlyBirdPlacesLeft,
-} from './payments/provider'
-import type { HomeCurrency } from './types'
+  FOUNDING_CAP,
+  PLANS,
+  PLAN_ORDER,
+  TRIAL_DAYS,
+  formatGbp,
+  planPriceLabel,
+  type BillingInterval,
+  type PlanId,
+} from './plans'
 
-export { EARLY_BIRD_CAP, FIXED_PRICES, earlyBirdPlacesLeft }
-
-export function earlyBirdPrice(currency: HomeCurrency) {
-  return FIXED_PRICES.earlyBird[currency]
+export {
+  FOUNDING_CAP,
+  PLANS,
+  PLAN_ORDER,
+  TRIAL_DAYS,
+  formatGbp,
+  planPriceLabel,
 }
 
-export function fullProPrice(currency: HomeCurrency) {
-  return FIXED_PRICES.full[currency]
+/** @deprecated v17 early-bird — kept so old imports compile during migration. */
+export const EARLY_BIRD_CAP = 0
+export const FIXED_PRICES = {
+  full: { GBP: 129, USD: 129, EUR: 129, CAD: 129, AUD: 129 },
+  earlyBird: { GBP: 129, USD: 129, EUR: 129, CAD: 129, AUD: 129 },
+} as const
+
+export function earlyBirdPlacesLeft(_sold = 0) {
+  return 0
 }
 
-export function formatEarlyBirdPrice(currency: HomeCurrency) {
-  return formatMoney(earlyBirdPrice(currency), currency, true)
+export function formatEarlyBirdPrice() {
+  return formatGbp(PLANS.growth.foundingMonthlyGbp)
 }
 
-export function formatFullProPrice(currency: HomeCurrency) {
-  return formatMoney(fullProPrice(currency), currency, true)
+export function formatFullProPrice() {
+  return formatGbp(PLANS.pro.monthlyGbp)
 }
 
-/** Canonical Pro unlock line for every paywall (brand K19). */
-export function proUnlockPaywallCopy(currency: HomeCurrency, earlyBirdLeft = EARLY_BIRD_CAP) {
-  if (earlyBirdLeft > 0) {
-    return `Unlock with Pro for ${formatEarlyBirdPrice(currency)} early-bird (then ${formatFullProPrice(currency)}). No subscription.`
-  }
-  return `Unlock with Pro for ${formatFullProPrice(currency)}. No subscription.`
+export function earlyBirdPrice() {
+  return PLANS.growth.foundingMonthlyGbp
 }
 
-export function proShortCta(currency: HomeCurrency, earlyBirdLeft: number) {
-  if (earlyBirdLeft > 0) {
-    return `Pro · ${formatEarlyBirdPrice(currency)} early-bird`
-  }
-  return `Pro · ${formatFullProPrice(currency)}`
+export function fullProPrice() {
+  return PLANS.pro.monthlyGbp
 }
 
-export function proHeroCta(currency: HomeCurrency, earlyBirdLeft: number) {
-  if (earlyBirdLeft > 0) {
-    return `Get Pro · ${formatEarlyBirdPrice(currency)} early-bird`
-  }
-  return `Get Pro · ${formatFullProPrice(currency)}`
+export function positioningLine() {
+  return `Find where your margin leaks and what each leak costs you. Plans from ${formatGbp(PLANS.starter.monthlyGbp)} a month, including VAT. Cancel any time.`
 }
 
-export function proModalHeadline(currency: HomeCurrency, earlyBirdLeft: number) {
-  // Brand K19 — avoid "lifetime" in-app until legal clears it (K17).
-  if (earlyBirdLeft > 0) {
-    return `Pro · ${formatEarlyBirdPrice(currency)} early-bird (then ${formatFullProPrice(currency)}). Tax-inclusive. No subscription.`
-  }
-  return `Pro · ${formatFullProPrice(currency)}. Tax-inclusive. No subscription.`
+export function trialPaywallCopy(plan: PlanId = 'growth', interval: BillingInterval = 'month') {
+  const def = PLANS[plan]
+  const price = interval === 'year' ? def.annualGbp : def.monthlyGbp
+  return `Try ${def.name} free for ${TRIAL_DAYS} days. Card required. Then ${formatGbp(price)}${interval === 'year' ? ' / year' : ' / month'} including VAT unless you cancel.`
 }
 
-export function proCheckoutButtonLabel(currency: HomeCurrency, earlyBirdLeft: number) {
-  const amount = earlyBirdLeft > 0 ? earlyBirdPrice(currency) : fullProPrice(currency)
-  return `Unlock Pro · ${formatMoney(amount, currency, true)}`
+export function planShortCta(plan: PlanId = 'growth') {
+  const def = PLANS[plan]
+  return def.mostPopular
+    ? `${def.name} · ${formatGbp(def.monthlyGbp)}/mo`
+    : `Plans from ${formatGbp(PLANS.starter.monthlyGbp)}`
+}
+
+export function heroCta() {
+  return `Start ${TRIAL_DAYS}-day free trial`
+}
+
+export function upgradeModalHeadline() {
+  return `${PRODUCT_NAME} plans — ${TRIAL_DAYS}-day free trial on every tier. Card required. Cancel before the trial ends to pay nothing.`
+}
+
+/** @deprecated v17 names — map to growth trial CTA. */
+export function proUnlockPaywallCopy() {
+  return trialPaywallCopy('growth', 'month')
+}
+
+export function proShortCta() {
+  return planShortCta('growth')
+}
+
+export function proHeroCta() {
+  return heroCta()
+}
+
+export function proModalHeadline() {
+  return upgradeModalHeadline()
+}
+
+export function proCheckoutButtonLabel() {
+  return `Start ${TRIAL_DAYS}-day free trial`
 }
