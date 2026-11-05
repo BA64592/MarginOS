@@ -217,6 +217,10 @@ textarea {
   animation: mkt-rise 0.85s 0.15s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.mkt-showcase-panel {
+  animation: mkt-rise 0.8s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .slider {
   -webkit-appearance: none;
   appearance: none;
@@ -255,7 +259,8 @@ textarea {
   .animate-pulse-soft,
   .mkt-hero-copy,
   .mkt-hero-visual,
-  .mkt-preview-panel {
+  .mkt-preview-panel,
+  .mkt-showcase-panel {
     animation: none;
   }
 }
