@@ -164,6 +164,31 @@ export function PricingPage() {
               places left).
             </p>
           ) : null}
+
+          <div className="mt-8 grid gap-4 rounded-[14px] border border-navy/15 bg-elevated/90 p-5 sm:grid-cols-[1.2fr_0.8fr] sm:items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-navy">Pro command centre</p>
+              <p className="mt-2 font-display text-xl font-semibold text-navy">
+                Pro · {formatGbp(interval === 'year' ? PLANS.pro.annualGbp : founding ? PLANS.pro.foundingMonthlyGbp : PLANS.pro.monthlyGbp)}
+                {interval === 'year' ? '/year' : '/month'}
+              </p>
+              <p className="mt-2 text-sm text-subtle">
+                5,000 unique orders · all 4 platforms · 24 months history · 2 seats · unlimited scenarios ·
+                priority support. Built for multi-channel merchants who live in the control room daily.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              <Button onClick={() => setUpgradeOpen(true)}>Start Pro trial</Button>
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  document.getElementById('plan-comparison')?.scrollIntoView({ behavior: 'smooth' })
+                }
+              >
+                Compare all tiers
+              </Button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -177,11 +202,16 @@ export function PricingPage() {
                 : founding
                   ? def.foundingMonthlyGbp
                   : def.monthlyGbp
+            const isPro = id === 'pro'
             return (
               <div
                 key={id}
                 className={`flex flex-col border bg-elevated p-5 ${
-                  def.mostPopular ? 'border-accent ring-1 ring-accent/30' : 'border-border'
+                  def.mostPopular
+                    ? 'border-accent ring-1 ring-accent/30'
+                    : isPro
+                      ? 'border-navy/40 ring-1 ring-navy/15'
+                      : 'border-border'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -189,6 +219,10 @@ export function PricingPage() {
                   {def.mostPopular ? (
                     <span className="rounded-[6px] bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
                       Most popular
+                    </span>
+                  ) : isPro ? (
+                    <span className="rounded-[6px] bg-navy px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                      Command centre
                     </span>
                   ) : null}
                 </div>
@@ -214,7 +248,7 @@ export function PricingPage() {
                 </ul>
                 <Button
                   className="mt-6 w-full"
-                  variant={def.mostPopular ? 'primary' : 'secondary'}
+                  variant={def.mostPopular || isPro ? 'primary' : 'secondary'}
                   onClick={() => setUpgradeOpen(true)}
                 >
                   Start {TRIAL_DAYS}-day trial
@@ -225,7 +259,7 @@ export function PricingPage() {
         </div>
       </section>
 
-      <section className="border-y border-border bg-elevated px-4 py-14 sm:px-6">
+      <section id="plan-comparison" className="scroll-mt-28 border-y border-border bg-elevated px-4 py-14 sm:px-6">
         <div className="mx-auto max-w-6xl overflow-x-auto">
           <h2 className="font-[family-name:var(--font-marketing)] text-3xl font-semibold text-navy">
             Full comparison

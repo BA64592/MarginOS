@@ -15,7 +15,13 @@ function planBadgeLabel(plan: string) {
   return 'Sample'
 }
 
-export function Header() {
+export function Header({
+  sticky = true,
+  compact = false,
+}: {
+  sticky?: boolean
+  compact?: boolean
+}) {
   const {
     plan,
     access,
@@ -29,8 +35,12 @@ export function Header() {
   const subscribed = hasPaidAccess(access)
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-bg/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <header
+      className={`${sticky ? 'sticky top-0 z-40' : ''} ${compact ? '' : 'border-b border-border/80 bg-bg/80 backdrop-blur-xl'}`}
+    >
+      <div
+        className={`mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 ${compact ? 'py-2.5' : 'py-3'}`}
+      >
         <div className="flex min-w-0 items-center gap-3">
           <button type="button" className="min-w-0" onClick={() => setRoute('app')} aria-label={PRODUCT_NAME}>
             <BrandLockup />

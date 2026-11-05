@@ -10,12 +10,14 @@ import {
 } from 'lucide-react'
 import {
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
 import { useApp } from '../../context/AppContext'
+import { useScrollSpy } from '../../hooks/useScrollSpy'
 import { cn } from '../../lib/cn'
 import { platformLabel } from '../../lib/platforms'
 import type { Platform } from '../../lib/types'
@@ -32,23 +34,7 @@ export type DashSection =
   | 'scenarios'
   | 'settings'
 
-type FilterContextValue = {
-  platforms: Platform[]
-  selected: Set<Platform>
-  togglePlatform: (p: Platform) => void
-  selectAll: () => void
-  allSelected: boolean
-  section: DashSection
-  setSection: (s: DashSection) => void
-}
-
-const DashboardFilterContext = createContext<FilterContextValue | null>(null)
-
-export function useDashboardFilters() {
-  return useContext(DashboardFilterContext)
-}
-
-const NAV: { id: DashSection; label: string; icon: typeof LayoutDashboard }[] = [
+export const DASH_SECTIONS: { id: DashSection; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'workspace', label: 'Upload', icon: Upload },
   { id: 'leaks', label: 'Leaks', icon: ListOrdered },
@@ -58,6 +44,27 @@ const NAV: { id: DashSection; label: string; icon: typeof LayoutDashboard }[] = 
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
+export function dashDomId(id: DashSection) {
+  return `dash-${id}`
+}
+
+type FilterContextValue = {
+  platforms: Platform[]
+  selected: Set<Platform>
+  togglePlatform: (p: Platform) => void
+  selectAll: () => void
+  allSelected: boolean
+  section: DashSection
+  setSection: (s: DashSection) => void
+  scrollToSection: (s: DashSection) => void
+}
+
+const DashboardFilterContext = createContext<FilterContextValue | null>(null)
+
+export function useDashboardFilters() {
+  return useContext(DashboardFilterContext)
+}
+
 function FilterBar() {
   const { result, usingSampleData, isEmptyShop, currency } = useApp()
   const filters = useDashboardFilters()
@@ -66,8 +73,8 @@ function FilterBar() {
   const period = result.totals.period
 
   return (
-    <div className="sticky top-[3.25rem] z-30 border-b border-border/80 bg-bg/90 backdrop-blur-xl">
-      <div className="flex flex-col gap-3 px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+    <div className="border-b border-border/80 bg-bg/95 backdrop-blur-xl">
+      <div className="flex flex-col gap-3 px-4 py-2.5 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-subtle">Period</p>
           {isEmptyShop ? (
@@ -75,13 +82,16 @@ function FilterBar() {
           ) : (
             <span className="rounded-[10px] border border-border bg-elevated px-2.5 py-1 text-sm text-ink">
               {period.start} → {period.end}
-              <span className="text-subtle"> · {period.days}d · {currency}</span>
+              <span className="text-subtle">
+                {' '}
+                · {period.days}d · {currency}
+              </span>
             </span>
           )}
           {usingSampleData ? <Badge tone="warn">Sample</Badge> : null}
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2" role="group" aria-label="Platform filter">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-subtle">Platform</p>
           <button
             type="button"
@@ -134,26 +144,26 @@ function Sidebar({
   if (!filters) return null
 
   const nav = (
-    <nav className="flex flex-col gap-1 p-3" aria-label="Dashboard">
-      {NAV.map((item) => {
+    <nav className="flex flex-col gap-0.5 p-3" aria-label="Control room">
+      {DASH_SECTIONS.map((item) => {
         const active = filters.section === item.id
         return (
           <button
             key={item.id}
             type="button"
+            aria-current={active ? 'true' : undefined}
             onClick={() => {
-              filters.setSection(item.id)
+              filters.scrollToSection(item.id)
               onClose()
-              window.requestAnimationFrame(() => {
-                document.getElementById(`dash-${item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              })
             }}
             className={cn(
               'inline-flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-sm font-medium transition',
-              active ? 'bg-accent-soft text-accent' : 'text-subtle hover:bg-muted hover:text-ink',
+              active
+                ? 'bg-accent-soft text-accent shadow-[inset_3px_0_0_0_var(--accent)]'
+                : 'text-subtle opacity-80 hover:bg-muted hover:text-ink hover:opacity-100',
             )}
           >
-            <item.icon className="h-4 w-4 shrink-0" />
+            <item.icon className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-70')} />
             {item.label}
           </button>
         )
@@ -162,7 +172,7 @@ function Sidebar({
       <button
         type="button"
         onClick={() => setRoute('pricing')}
-        className="inline-flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-sm font-medium text-subtle hover:bg-muted hover:text-ink"
+        className="inline-flex min-h-11 items-center gap-3 rounded-[10px] px-3 text-sm font-medium text-subtle opacity-80 hover:bg-muted hover:text-ink hover:opacity-100"
       >
         <Package className="h-4 w-4 shrink-0" />
         Plans
@@ -173,10 +183,10 @@ function Sidebar({
   return (
     <>
       <aside className="hidden w-56 shrink-0 border-r border-border bg-elevated lg:block">
-        <div className="sticky top-0 flex h-full min-h-[calc(100vh-0px)] flex-col">
+        <div className="sticky top-0 flex max-h-screen flex-col overflow-y-auto">
           <div className="border-b border-border px-4 py-4">
             <BrandLockup />
-            <p className="mt-1 text-xs text-subtle">Profit diagnosis</p>
+            <p className="mt-1 text-xs text-subtle">Control room</p>
           </div>
           {nav}
         </div>
@@ -219,13 +229,31 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   const [selected, setSelected] = useState<Set<Platform>>(() => new Set())
 
-  // Keep selection in sync when platforms appear; default = all
   const effectiveSelected = useMemo(() => {
     if (platforms.length === 0) return new Set<Platform>()
     if (selected.size === 0) return new Set(platforms)
     const next = new Set([...selected].filter((p) => platforms.includes(p)))
     return next.size === 0 ? new Set(platforms) : next
   }, [platforms, selected])
+
+  const sectionDomIds = useMemo(() => DASH_SECTIONS.map((s) => dashDomId(s.id)), [])
+
+  const onSpyActive = useCallback((domId: string) => {
+    const id = domId.replace(/^dash-/, '') as DashSection
+    if (DASH_SECTIONS.some((s) => s.id === id)) setSection(id)
+  }, [])
+
+  const { scrollToSection: scrollDom } = useScrollSpy(sectionDomIds, onSpyActive, {
+    headerOffsetPx: 128,
+  })
+
+  const scrollToSection = useCallback(
+    (s: DashSection) => {
+      setSection(s)
+      scrollDom(dashDomId(s))
+    },
+    [scrollDom],
+  )
 
   const value = useMemo<FilterContextValue>(
     () => ({
@@ -244,8 +272,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       selectAll: () => setSelected(new Set(platforms)),
       section,
       setSection,
+      scrollToSection,
     }),
-    [platforms, effectiveSelected, section],
+    [platforms, effectiveSelected, section, scrollToSection],
   )
 
   return (
@@ -254,18 +283,21 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         <div className="flex min-h-screen">
           <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="lg:hidden">
-              <Header />
-              <div className="border-b border-border px-4 py-2">
-                <Button variant="secondary" size="sm" onClick={() => setMobileOpen(true)}>
-                  Menu
-                </Button>
+            {/* Persistent sticky chrome: account header + global filters */}
+            <div className="sticky top-0 z-40 border-b border-border/60 bg-bg/95 shadow-[0_1px_0_rgb(6_31_69_/_4%)] backdrop-blur-xl">
+              <div className="lg:hidden">
+                <Header sticky={false} compact />
+                <div className="border-t border-border px-4 py-2">
+                  <Button variant="secondary" size="sm" onClick={() => setMobileOpen(true)}>
+                    Menu
+                  </Button>
+                </div>
               </div>
+              <div className="hidden lg:block">
+                <Header sticky={false} compact />
+              </div>
+              <FilterBar />
             </div>
-            <div className="hidden lg:block">
-              <Header />
-            </div>
-            <FilterBar />
             <div className="flex-1">{children}</div>
           </div>
         </div>
