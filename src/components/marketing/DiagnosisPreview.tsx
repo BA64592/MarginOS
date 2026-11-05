@@ -34,7 +34,7 @@ export function DiagnosisPreview({ className = '' }: { className?: string }) {
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wide text-[#475569]">Health</p>
-              <p className="font-display text-lg font-bold text-[#061f45]">36</p>
+              <p className="font-display text-lg font-bold text-[#061f45]">69</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wide text-[#475569]">Top leak</p>
