@@ -8,6 +8,9 @@ import { Hero } from './components/Hero'
 import { InactivityBanner } from './components/InactivityBanner'
 import { LeaksPanel } from './components/LeaksPanel'
 import { MetricStrip } from './components/MetricStrip'
+import { HomePage } from './components/marketing/HomePage'
+import { MarketingChrome } from './components/marketing/MarketingChrome'
+import { SampleReportPage } from './components/marketing/SampleReportPage'
 import { PricingPage } from './components/PricingPage'
 import { ProductWorkspace } from './components/ProductWorkspace'
 import { RecommendationsPanel } from './components/RecommendationsPanel'
@@ -19,21 +22,19 @@ import { AppProvider, useApp } from './context/AppContext'
 import { en } from './i18n/en'
 import { PRODUCT_NAME } from './lib/brand'
 
-function AppShell() {
-  const { route, setRoute } = useApp()
+function MarketingShell({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <BrowserSupportBanner />
+      <MarketingChrome>{children}</MarketingChrome>
+      <UpgradeModal />
+      <AuthModal />
+    </>
+  )
+}
 
-  if (route === 'pricing') {
-    return (
-      <div className="min-h-screen bg-bg text-ink">
-        <BrowserSupportBanner />
-        <Header />
-        <PricingPage />
-        <UpgradeModal />
-        <AuthModal />
-      </div>
-    )
-  }
-
+function ProductShell() {
+  const { setRoute } = useApp()
   return (
     <div className="min-h-screen bg-bg text-ink">
       <BrowserSupportBanner />
@@ -57,26 +58,53 @@ function AppShell() {
       <footer className="border-t border-border px-4 py-8 text-center text-sm text-subtle sm:px-6">
         <p className="font-display text-base font-bold text-navy">{PRODUCT_NAME}</p>
         <p className="mt-1">{en.tagline}</p>
-        <p className="mt-1">{en.positioning}</p>
         <p className="mt-2">{en.platformsLaunchLine}</p>
         <p className="mt-4 flex flex-wrap justify-center gap-3 text-xs">
+          <button type="button" className="underline-offset-2 hover:underline" onClick={() => setRoute('home')}>
+            Home
+          </button>
+          <span aria-hidden>·</span>
+          <button type="button" className="underline-offset-2 hover:underline" onClick={() => setRoute('sample')}>
+            Sample report
+          </button>
+          <span aria-hidden>·</span>
           <button type="button" className="underline-offset-2 hover:underline" onClick={() => setRoute('pricing')}>
             Pricing
           </button>
-          <span aria-hidden>·</span>
-          <span>Terms</span>
-          <span aria-hidden>·</span>
-          <span>Privacy</span>
-          <span aria-hidden>·</span>
-          <span>Refunds &amp; cancellation</span>
-          <span aria-hidden>·</span>
-          <span>Help</span>
         </p>
       </footer>
       <UpgradeModal />
       <AuthModal />
     </div>
   )
+}
+
+function AppShell() {
+  const { route } = useApp()
+
+  if (route === 'home') {
+    return (
+      <MarketingShell>
+        <HomePage />
+      </MarketingShell>
+    )
+  }
+  if (route === 'pricing') {
+    return (
+      <MarketingShell>
+        <PricingPage />
+      </MarketingShell>
+    )
+  }
+  if (route === 'sample') {
+    return (
+      <MarketingShell>
+        <SampleReportPage />
+      </MarketingShell>
+    )
+  }
+
+  return <ProductShell />
 }
 
 export default function App() {

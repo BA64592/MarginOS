@@ -43,6 +43,14 @@ export function Header() {
             variant="ghost"
             size="sm"
             className="hidden sm:inline-flex"
+            onClick={() => setRoute('home')}
+          >
+            Home
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden sm:inline-flex"
             onClick={() => setRoute('pricing')}
           >
             Pricing
