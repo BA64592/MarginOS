@@ -53,14 +53,19 @@ export function HomePage() {
             <p className="font-display text-4xl font-bold tracking-tight text-navy sm:text-5xl lg:text-6xl">
               {PRODUCT_NAME}
             </p>
-            <h1 className="mt-4 max-w-lg font-[family-name:var(--font-marketing)] text-3xl font-semibold leading-[1.15] tracking-tight text-navy sm:text-4xl">
-              {en.tagline}
+            <h1 className="mt-4 max-w-xl font-[family-name:var(--font-marketing)] text-3xl font-semibold leading-[1.15] tracking-tight text-navy sm:text-4xl">
+              Stop guessing your e-commerce unit economics.
             </h1>
-            <p className="mt-4 max-w-md text-base text-subtle sm:text-lg">{en.positioning}</p>
+            <p className="mt-4 max-w-md text-base text-subtle sm:text-lg">
+              Connect your channels and fix margin leaks in under 60 seconds. {en.positioning}
+            </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Button onClick={() => setUpgradeOpen(true)}>Start {TRIAL_DAYS}-day free trial</Button>
-              <Button variant="secondary" onClick={() => setRoute('sample')}>
-                View sample report
+              <Button variant="secondary" onClick={() => setRoute('app')}>
+                Open control room
+              </Button>
+              <Button variant="ghost" onClick={() => setRoute('sample')}>
+                Sample report
               </Button>
             </div>
           </div>

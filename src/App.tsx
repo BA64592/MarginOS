@@ -4,9 +4,10 @@ import { CalculatorsPanel } from './components/CalculatorsPanel'
 import { CostCharts } from './components/CostCharts'
 import {
   DashboardShell,
-  useDashboardFilters,
+  dashDomId,
   type DashSection,
 } from './components/dashboard/DashboardShell'
+import { LazyMount } from './components/dashboard/LazyMount'
 import { HealthScorePanel } from './components/HealthScorePanel'
 import { InactivityBanner } from './components/InactivityBanner'
 import { LeaksPanel } from './components/LeaksPanel'
@@ -37,76 +38,126 @@ function MarketingShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function showOn(section: DashSection, targets: DashSection[]) {
-  return targets.includes(section)
+function SectionFrame({
+  id,
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  id: DashSection
+  eyebrow: string
+  title: string
+  description?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section
+      id={dashDomId(id)}
+      data-dash-section={id}
+      className="scroll-mt-[8.5rem] space-y-6 border-b border-border/70 pb-12 last:border-b-0 last:pb-4"
+    >
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">{eyebrow}</p>
+        <h2 className="mt-1 font-display text-2xl font-semibold tracking-tight text-navy sm:text-3xl">
+          {title}
+        </h2>
+        {description ? <p className="mt-1 max-w-2xl text-sm text-subtle">{description}</p> : null}
+      </div>
+      {children}
+    </section>
+  )
 }
 
+/** Continuous-scroll Control Room — every module on one canvas. */
 function DashboardMain() {
   const { setRoute } = useApp()
-  const filters = useDashboardFilters()
-  const section = filters?.section ?? 'overview'
 
   return (
     <>
       <InactivityBanner />
-      <main className="mx-auto max-w-6xl space-y-10 px-4 py-6 sm:px-6 sm:py-8">
-        {showOn(section, ['overview']) ? (
-          <section id="dash-overview" className="space-y-6 scroll-mt-28">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">Overview</p>
-              <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight text-navy sm:text-3xl">
-                Profit diagnosis
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm text-subtle">
-                KPI summary first, then ranked fixes and cost visuals. Use the filter bar for period and
-                platforms.
-              </p>
-            </div>
-            <MetricStrip />
-            <RecommendationsPanel />
-          </section>
-        ) : null}
+      <main className="mx-auto max-w-6xl space-y-12 px-4 py-6 sm:px-6 sm:py-8">
+        <SectionFrame
+          id="overview"
+          eyebrow="Overview"
+          title="Profit diagnosis"
+          description="KPI summary first, then ranked fixes. Sticky filters above recalculate the canvas for period and platforms."
+        >
+          <MetricStrip />
+          <RecommendationsPanel />
+        </SectionFrame>
 
-        {showOn(section, ['overview', 'workspace']) ? (
-          <section id="dash-workspace" className="scroll-mt-28">
-            <div id="workspace">
-              <ProductWorkspace />
-            </div>
-          </section>
-        ) : null}
+        <SectionFrame
+          id="workspace"
+          eyebrow="Upload"
+          title="Connect your channels"
+          description="Import Shopify, Amazon, Etsy or TikTok Shop UK files. No live store connection required."
+        >
+          <div id="workspace">
+            <ProductWorkspace />
+          </div>
+        </SectionFrame>
 
-        {showOn(section, ['overview', 'leaks']) ? (
-          <section id="dash-leaks" className="scroll-mt-28 space-y-10">
+        <SectionFrame
+          id="leaks"
+          eyebrow="Leaks"
+          title="Six margin leaks, ranked by £"
+          description="Monthly impact in your currency — with Show the maths on every figure."
+        >
+          <LazyMount label="Preparing leaks…" minHeight={320}>
             <LeaksPanel />
-            {section === 'leaks' ? <RecommendationsPanel /> : null}
-          </section>
-        ) : null}
+          </LazyMount>
+        </SectionFrame>
 
-        {showOn(section, ['overview', 'charts']) ? (
-          <section id="dash-charts" className="scroll-mt-28 space-y-10">
-            <HealthScorePanel />
-            <CostCharts />
-          </section>
-        ) : null}
+        <SectionFrame
+          id="charts"
+          eyebrow="Charts"
+          title="Where the money goes"
+          description="Allocation and true profit by product. Losses marked in red — platform chips above filter the bars."
+        >
+          <LazyMount label="Preparing charts…" minHeight={420} rootMargin="360px 0px">
+            <div className="space-y-10">
+              <HealthScorePanel />
+              <CostCharts />
+            </div>
+          </LazyMount>
+        </SectionFrame>
 
-        {showOn(section, ['calculators']) ? (
-          <section id="dash-calculators" className="scroll-mt-28">
+        <SectionFrame
+          id="calculators"
+          eyebrow="Calculators"
+          title="Break-even and target pricing"
+          description="ROAS, ACOS and price tools beside the diagnosis — not a separate app."
+        >
+          <LazyMount label="Preparing calculators…" minHeight={280}>
             <CalculatorsPanel />
-          </section>
-        ) : null}
+          </LazyMount>
+        </SectionFrame>
 
-        {showOn(section, ['scenarios']) ? (
-          <section id="dash-scenarios" className="scroll-mt-28">
+        <SectionFrame
+          id="scenarios"
+          eyebrow="Scenarios"
+          title="Model a change before you ship it"
+          description="Compare price or cost adjustments and save scenarios on Growth and above."
+        >
+          <LazyMount label="Preparing scenarios…" minHeight={280}>
             <ScenarioCompare />
-          </section>
-        ) : null}
+          </LazyMount>
+        </SectionFrame>
 
-        {showOn(section, ['settings']) ? (
-          <section id="dash-settings" className="scroll-mt-28 space-y-10">
-            <SavedDatasets />
-            <SettingsBar />
-          </section>
-        ) : null}
+        <SectionFrame
+          id="settings"
+          eyebrow="Settings"
+          title="Plan, data and preferences"
+          description="Saved datasets, billing, tax and download my data."
+        >
+          <LazyMount label="Preparing settings…" minHeight={240}>
+            <div className="space-y-10">
+              <SavedDatasets />
+              <SettingsBar />
+            </div>
+          </LazyMount>
+        </SectionFrame>
       </main>
       <footer className="border-t border-border px-4 py-8 text-center text-sm text-subtle sm:px-6">
         <p className="font-display text-base font-bold text-navy">{PRODUCT_NAME}</p>
