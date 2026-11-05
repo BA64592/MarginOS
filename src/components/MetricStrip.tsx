@@ -65,12 +65,19 @@ export function MetricStrip() {
       ) : null}
       <div className="grid gap-3 sm:grid-cols-3">
       {items.map((item, i) => (
-        <Card key={item.label} className={cn('animate-fade-up', i === 1 && 'delay-75', i === 2 && 'delay-150')}>
+        <Card
+          key={item.label}
+          className={cn(
+            'animate-fade-up !shadow-none',
+            i === 1 && 'delay-75',
+            i === 2 && 'delay-150',
+          )}
+        >
           <div className="mb-3 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-subtle">{item.label}</p>
-            <item.icon className="h-4 w-4 text-subtle" />
+            <item.icon className="h-4 w-4 text-subtle" aria-hidden />
           </div>
-          <p className={cn('font-display text-3xl font-semibold tracking-tight', item.accent)}>
+          <p className={cn('font-display text-3xl font-semibold tracking-tight sm:text-4xl', item.accent)}>
             {item.value}
             {item.label === 'Health score' && result.health.score != null ? (
               <span className="text-base font-medium text-subtle"> / 100</span>

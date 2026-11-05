@@ -3,6 +3,7 @@ import { en } from '../../i18n/en'
 import { PRODUCT_NAME } from '../../lib/brand'
 import { BrandLockup } from '../BrandMark'
 import { Button } from '../ui'
+import { StickyOfferBanner } from './StickyOfferBanner'
 
 const NAV: { id: 'home' | 'sample' | 'pricing' | 'app'; label: string }[] = [
   { id: 'home', label: 'Home' },
@@ -15,49 +16,52 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-bg text-ink">
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-bg/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <button type="button" onClick={() => setRoute('home')} aria-label={PRODUCT_NAME}>
-            <BrandLockup />
-          </button>
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+      <div className="sticky top-0 z-50">
+        <StickyOfferBanner />
+        <header className="border-b border-border/70 bg-bg/85 backdrop-blur-xl">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+            <button type="button" onClick={() => setRoute('home')} aria-label={PRODUCT_NAME}>
+              <BrandLockup />
+            </button>
+            <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+              {NAV.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setRoute(item.id)}
+                  className={`min-h-10 rounded-[10px] px-3 text-sm font-medium transition ${
+                    route === item.id ? 'bg-muted text-navy' : 'text-subtle hover:text-ink'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setAuthOpen(true)}>
+                Sign in
+              </Button>
+              <Button size="sm" onClick={() => setUpgradeOpen(true)}>
+                Start free trial
+              </Button>
+            </div>
+          </div>
+          <div className="flex gap-1 overflow-x-auto border-t border-border/60 px-4 py-2 md:hidden">
             {NAV.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setRoute(item.id)}
-                className={`min-h-10 rounded-[10px] px-3 text-sm font-medium transition ${
-                  route === item.id ? 'bg-muted text-navy' : 'text-subtle hover:text-ink'
+                className={`min-h-10 shrink-0 rounded-[10px] px-3 text-sm font-medium ${
+                  route === item.id ? 'bg-muted text-navy' : 'text-subtle'
                 }`}
               >
                 {item.label}
               </button>
             ))}
-          </nav>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setAuthOpen(true)}>
-              Sign in
-            </Button>
-            <Button size="sm" onClick={() => setUpgradeOpen(true)}>
-              Start free trial
-            </Button>
           </div>
-        </div>
-        <div className="flex gap-1 overflow-x-auto border-t border-border/60 px-4 py-2 md:hidden">
-          {NAV.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setRoute(item.id)}
-              className={`min-h-10 shrink-0 rounded-[10px] px-3 text-sm font-medium ${
-                route === item.id ? 'bg-muted text-navy' : 'text-subtle'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </header>
+        </header>
+      </div>
 
       {children}
 
