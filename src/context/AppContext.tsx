@@ -17,7 +17,7 @@ import { createId } from '../lib/format'
 import { marginosAuthProvider } from '../lib/auth/provider'
 import {
   EARLY_BIRD_CAP,
-  earlyBirdPlacesLeft,
+  foundingPlacesLeft,
   startCheckout,
 } from '../lib/payments/provider'
 import { logDataAction } from '../lib/auditLog'
@@ -26,15 +26,26 @@ import { inactivityWarningDays, isInactive24Months } from '../lib/inactivity'
 import {
   applyPaymentFailure,
   earliestClock,
-  formatDeletionTime,
   isExpired,
   pauseClocks,
   resumeOrCancelClocks,
-  upsertClock,
 } from '../lib/retention'
 import { buildDemoStore, type DemoStoreId } from '../lib/demo/stores'
-import { sanitizeResultForFree } from '../lib/leaks/freeView'
 import { clearAllState, loadState, saveState } from '../lib/storage'
+import { evaluateOrderImport, uniqueOrderIds } from '../lib/orders/uniqueOrders'
+import {
+  FOUNDING_CAP,
+  PLANS,
+  TRIAL_DAYS,
+  hasFeature,
+  hasPaidAccess,
+  nextPlanAfter,
+  orderLimitFor,
+  type AccessKind,
+  type BillingInterval,
+  type PlanFeature,
+  type PlanId,
+} from '../lib/plans'
 import type {
   AdSpendEntry,
   AnalysisResult,
@@ -51,6 +62,13 @@ import type {
   ScenarioAdjustments,
   TaxSettings,
 } from '../lib/types'
+
+type AppRoute = 'app' | 'pricing' | 'home' | 'legal'
+
+function normalizePlan(raw: Plan | 'free' | undefined | null): Plan {
+  if (!raw || raw === 'free') return 'none'
+  return raw
+}
 
 const SAMPLE_CLEARED_NOTE = 'Sample data has been removed now that your own data is in.'
 
@@ -106,7 +124,15 @@ function todayKey(tz: string) {
 
 interface AppContextValue {
   plan: Plan
-  theme: 'light' | 'dark'
+  access: AccessKind
+  billingInterval: BillingInterval | null
+  trialEndsAt: string | null
+  accessEndsAt: string | null
+  foundingSold: number
+  foundingLeft: number
+  foundingEligible: boolean
+  trialUsed: boolean
+  theme: 'light'
   currency: HomeCurrency
   user: AuthUser | null
   tax: TaxSettings
@@ -119,8 +145,16 @@ interface AppContextValue {
   savedDatasets: SavedDataset[]
   uploadDay: { dateKey: string; used: number }
   uploadsLeft: number
+  /** @deprecated v17 — stub mapped to foundingSold. */
   earlyBirdSold: number
+  /** @deprecated v17 — stub mapped to foundingLeft. */
   earlyBirdLeft: number
+  usageUniqueOrderIds: string[]
+  usageUniqueOrderCount: number
+  orderLimit: number | null
+  route: AppRoute
+  setRoute: (r: AppRoute) => void
+  hasFeature: (feature: PlanFeature) => boolean
   result: AnalysisResult
   scenarioResults: { scenario: Scenario; result: AnalysisResult }[]
   upgradeOpen: boolean
@@ -134,7 +168,7 @@ interface AppContextValue {
   /** One-shot notice after automatic sample clear (v16.3 E9). */
   sampleClearedNotice: string | null
   dismissSampleClearedNotice: () => void
-  /** Free 24h clocks (v16.4). Empty for Pro / sample-only. */
+  /** @deprecated v17 Free 24h clocks — retired by K39. */
   freeClocks: FreeRetentionClock[]
   /** Earliest Free clock still running, if any. */
   earliestFreeClock: FreeRetentionClock | null
@@ -162,7 +196,7 @@ interface AppContextValue {
   loadDemoStore: (id: DemoStoreId) => void
   /** Remove sample rows only — never uses a Free upload (v16.3 E2). */
   clearSampleData: () => void
-  /** Delete all shop data; keep account, Pro and settings (v16.3 E3). */
+  /** Delete all shop data; keep account, subscription and settings (v16.3 E3). */
   startFresh: () => void
   recordSuccessfulUpload: () => boolean
   replaceOrders: (lines: OrderLine[]) => void
@@ -177,9 +211,14 @@ interface AppContextValue {
   feeMathsNotes: string[]
   updateCost: (sku: string, patch: Partial<ProductCostRow>) => void
   setAdTotalManual: (amount: number) => void
-  unlockProDemo: (billingCountry: string) => Promise<{ ok: boolean; message: string }>
+  unlockProDemo: (
+    billingCountry: string,
+    planId?: PlanId,
+    interval?: BillingInterval,
+  ) => Promise<{ ok: boolean; message: string }>
   /** Demo: delayed payment failed — delete past-due Free data (v16.4 F8.14 / K11). */
   failDelayedPayment: () => { ok: boolean; message: string }
+  /** Demo harness: end subscription access (plan/access → none). */
   switchToFree: () => void
   /** §10.2.8 — delete account and all local shop data. */
   deleteAccount: (confirmEmail: string) => { ok: boolean; message: string }
@@ -198,8 +237,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const saved = loadState()
   const sample = buildSampleDataset(saved?.currency ?? 'GBP')
 
-  const [plan, setPlan] = useState<Plan>(saved?.plan ?? 'free')
-  const [theme, setTheme] = useState<'light' | 'dark'>(saved?.theme ?? 'light')
+  const initialPlan = normalizePlan(saved?.plan as Plan | 'free' | undefined)
+  const initialAccess: AccessKind =
+    saved?.access ??
+    (initialPlan === 'legacy' ? 'legacy' : initialPlan === 'none' ? 'none' : 'active')
+
+  const [plan, setPlan] = useState<Plan>(initialPlan)
+  const [access, setAccess] = useState<AccessKind>(initialAccess)
+  const [billingInterval, setBillingInterval] = useState<BillingInterval | null>(
+    saved?.billingInterval ?? null,
+  )
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(saved?.trialEndsAt ?? null)
+  const [accessEndsAt, setAccessEndsAt] = useState<string | null>(saved?.accessEndsAt ?? null)
+  const [foundingSold, setFoundingSold] = useState(
+    saved?.foundingSold ?? saved?.earlyBirdSold ?? 0,
+  )
+  const [foundingEligible] = useState(saved?.foundingEligible ?? true)
+  const [trialUsed, setTrialUsed] = useState(saved?.trialUsed ?? false)
+  const [theme] = useState<'light'>('light')
   const [currency, setCurrency] = useState<HomeCurrency>(saved?.currency ?? 'GBP')
   const [user, setUser] = useState<AuthUser | null>(saved?.user ?? null)
   const [tax, setTaxState] = useState<TaxSettings>(saved?.tax ?? defaultTax)
@@ -235,10 +290,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [uploadDay, setUploadDay] = useState(
     saved?.uploadDay ?? { dateKey: todayKey(saved?.user?.timeZone ?? 'Europe/London'), used: 0 },
   )
-  const [earlyBirdSold, setEarlyBirdSold] = useState(saved?.earlyBirdSold ?? 0)
+  const [usageMonthKey, setUsageMonthKey] = useState(saved?.usageMonthKey ?? '')
+  const [usageUniqueOrderIds, setUsageUniqueOrderIds] = useState<string[]>(
+    saved?.usageUniqueOrderIds ?? [],
+  )
+  const [route, setRoute] = useState<AppRoute>('app')
   const [sampleClearedNotice, setSampleClearedNotice] = useState<string | null>(null)
   const [freeClocks, setFreeClocks] = useState<FreeRetentionClock[]>(
-    saved?.plan === 'pro' ? [] : (saved?.freeClocks ?? []),
+    hasPaidAccess(initialAccess) ? [] : (saved?.freeClocks ?? []),
   )
   const [freeDataDeletedNotice, setFreeDataDeletedNotice] = useState<string | null>(
     saved?.freeDataDeletedNotice ?? null,
@@ -258,19 +317,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   /** Empty starting state: no order lines (after Clear sample / Start fresh). */
   const isEmptyShop = lines.length === 0
   const earliestFreeClock =
-    plan === 'free' && !usingSampleData ? earliestClock(freeClocks, nowTick) : null
+    access === 'none' && !usingSampleData ? earliestClock(freeClocks, nowTick) : null
 
   const tz = user?.timeZone ?? 'Europe/London'
   const dayKey = todayKey(tz)
+  const currentMonthKey = dayKey.slice(0, 7)
   useEffect(() => {
     if (uploadDay.dateKey !== dayKey) setUploadDay({ dateKey: dayKey, used: 0 })
   }, [dayKey, uploadDay.dateKey])
 
-  const uploadsLeft = plan === 'pro' ? Infinity : Math.max(0, 3 - uploadDay.used)
+  useEffect(() => {
+    if (usageMonthKey !== currentMonthKey) {
+      setUsageMonthKey(currentMonthKey)
+      setUsageUniqueOrderIds([])
+    }
+  }, [currentMonthKey, usageMonthKey])
+
+  // Subscribed → unlimited uploads; no plan → 0 real uploads (sample load still OK).
+  const uploadsLeft = hasPaidAccess(access) ? 999 : 0
+  const foundingLeft = foundingPlacesLeft(foundingSold)
+  const orderLimit = orderLimitFor(plan)
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-  }, [theme])
+    document.documentElement.classList.remove('dark')
+  }, [])
 
   useEffect(() => {
     const id = window.setInterval(() => setNowTick(Date.now()), 30_000)
@@ -278,15 +348,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (plan !== 'free') return
+    if (hasPaidAccess(access)) return
     setFreeClocks((prev) => {
       if (paymentPending) return pauseClocks(prev)
       return resumeOrCancelClocks(prev, { cancel: false })
     })
-  }, [paymentPending, plan])
+  }, [paymentPending, access])
 
   useEffect(() => {
-    if (plan !== 'free' || !freeClocks.length) return
+    if (hasPaidAccess(access) || !freeClocks.length) return
     const expired = freeClocks.filter((c) => isExpired(c, nowTick))
     if (!expired.length) return
     const expiredKinds = new Set(expired.map((c) => c.kind))
@@ -300,9 +370,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFreeClocks((prev) => prev.filter((c) => !isExpired(c, nowTick)))
     setSelectedSku(null)
     setFreeDataDeletedNotice(
-      'Your Free data was deleted after 24 hours. Upload again, or upgrade to Pro to keep your data.',
+      'Your data was deleted after 24 hours. Upload again, or start a trial to keep your data.',
     )
-  }, [nowTick, plan, freeClocks])
+  }, [nowTick, access, freeClocks])
 
   // K8 / F9 — 24-month inactivity deletes uploaded order data (and kept ex-Pro orders)
   useEffect(() => {
@@ -336,7 +406,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [user, nowTick])
 
-  // Restore server session (verified email + Pro licence) across devices / sign-ins
+  const applyLegacyFromSession = () => {
+    // Server still sends plan=pro for lifetime licences → map to legacy access (v18).
+    setPlan('legacy')
+    setAccess('legacy')
+    setFreeClocks([])
+  }
+
+  // Restore server session (verified email + licence) across devices / sign-ins
   useEffect(() => {
     void marginosAuthProvider.fetchSession().then(async (session) => {
       if (!session) return
@@ -356,10 +433,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         timeZone: tzGuess,
         timeZoneChangedAt: null,
       })
-      if (current.plan === 'pro') {
-        setPlan('pro')
-        setFreeClocks([])
-      }
+      if (current.plan === 'pro') applyLegacyFromSession()
     })
   }, [])
 
@@ -388,10 +462,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
             return u
           })
-          if (res.session?.plan === 'pro') {
-            setPlan('pro')
-            setFreeClocks([])
-          }
+          if (res.session?.plan === 'pro') applyLegacyFromSession()
         }
         params.delete('verify')
         const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
@@ -411,19 +482,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London',
           timeZoneChangedAt: null,
         })
-        if (session.plan === 'pro') setPlan('pro')
+        if (session.plan === 'pro') applyLegacyFromSession()
       })
       params.delete('verified')
       const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
       window.history.replaceState({}, '', next)
     }
     if (params.get('checkout') === 'success') {
-      setPlan('pro')
+      setAccess('trial')
+      setTrialUsed(true)
       setPaymentPending(false)
       setFreeClocks([])
-      // Refresh licence from server (Stripe webhook may have written plan=pro)
+      // Refresh licence from server (Stripe webhook may have written plan)
       void marginosAuthProvider.fetchSession().then((session) => {
-        if (session?.plan === 'pro') setPlan('pro')
+        if (session?.plan === 'pro') applyLegacyFromSession()
         if (session) {
           setUser((u) =>
             u
@@ -440,9 +512,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const state: AppPersistedState = {
-      version: 5,
+      version: 6,
       plan,
-      theme,
+      access,
+      billingInterval,
+      trialEndsAt,
+      accessEndsAt,
+      foundingEligible,
+      foundingSold,
+      theme: 'light',
       currency,
       user,
       tax,
@@ -455,20 +533,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
       lines,
       scenarios,
       savedDatasets,
+      usageMonthKey,
+      usageUniqueOrderIds,
       uploadDay,
-      earlyBirdSold,
-      licenceActive: plan === 'pro',
+      earlyBirdSold: foundingSold,
+      licenceActive: hasPaidAccess(access),
       digitalListingSkus: costs.filter((c) => c.digital).map((c) => c.sku),
       usingSampleData,
-      freeClocks: plan === 'free' ? freeClocks : [],
+      freeClocks: hasPaidAccess(access) ? [] : freeClocks,
       freeDataDeletedNotice,
       keptProData,
       paymentPending,
+      trialUsed,
     }
     saveState(state)
   }, [
     plan,
-    theme,
+    access,
+    billingInterval,
+    trialEndsAt,
+    accessEndsAt,
+    foundingEligible,
+    foundingSold,
     currency,
     user,
     tax,
@@ -479,13 +565,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lines,
     scenarios,
     savedDatasets,
+    usageMonthKey,
+    usageUniqueOrderIds,
     uploadDay,
-    earlyBirdSold,
     usingSampleData,
     freeClocks,
     freeDataDeletedNotice,
     keptProData,
     paymentPending,
+    trialUsed,
   ])
 
   const adSpendTotal = ads.reduce((s, a) => s + a.amount, 0)
@@ -500,23 +588,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const overheadsForPeriod = (monthlyOverheads * periodDays) / 30
 
   const result = useMemo(() => {
-    const full = analyzeStore({
+    // Full diagnosis for every tier + sample (v18 — no sanitizeResultForFree).
+    return analyzeStore({
       lines,
       costs,
       adSpendTotal,
-      overheadsForPeriod: plan === 'pro' ? overheadsForPeriod : 0,
+      overheadsForPeriod: hasFeature(plan, 'overheads') ? overheadsForPeriod : 0,
       conversionFees: 0,
       currency,
       targetMarginPct,
       feesComparable: feeCmp.comparable,
       feesExcessPp: feeCmp.excessPp,
     })
-    // Free session must not carry leak £ impact fields (v17.1 / 10.1 criteria 4, 15, 16).
-    return plan === 'free' ? sanitizeResultForFree(full) : full
   }, [lines, costs, adSpendTotal, overheadsForPeriod, currency, targetMarginPct, feeCmp, plan])
 
   const scenarioResults = useMemo(() => {
-    if (plan !== 'pro') return []
+    if (!hasFeature(plan, 'scenarios')) return []
     return scenarios.map((scenario) => {
       const applied = applyScenarioToLines(lines, costs, adSpendTotal, scenario.adjustments)
       return {
@@ -525,7 +612,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           lines: applied.lines,
           costs: applied.costs,
           adSpendTotal: applied.adSpend,
-          overheadsForPeriod,
+          overheadsForPeriod: hasFeature(plan, 'overheads') ? overheadsForPeriod : 0,
           conversionFees: 0,
           currency,
           targetMarginPct,
@@ -538,6 +625,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value: AppContextValue = {
     plan,
+    access,
+    billingInterval,
+    trialEndsAt,
+    accessEndsAt,
+    foundingSold,
+    foundingLeft,
+    foundingEligible,
+    trialUsed,
     theme,
     currency,
     user,
@@ -550,9 +645,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     scenarios,
     savedDatasets,
     uploadDay,
-    uploadsLeft: Number.isFinite(uploadsLeft) ? uploadsLeft : 999,
-    earlyBirdSold,
-    earlyBirdLeft: earlyBirdPlacesLeft(earlyBirdSold),
+    uploadsLeft,
+    earlyBirdSold: foundingSold,
+    earlyBirdLeft: foundingLeft,
+    usageUniqueOrderIds,
+    usageUniqueOrderCount: usageUniqueOrderIds.length,
+    orderLimit,
+    route,
+    setRoute,
+    hasFeature: (feature) => hasFeature(plan, feature),
     result,
     scenarioResults,
     upgradeOpen,
@@ -577,7 +678,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUpgradeOpen,
     setAuthOpen,
     setSelectedSku,
-    toggleTheme: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')),
+    toggleTheme: () => {
+      document.documentElement.classList.remove('dark')
+    },
     setCurrency,
     setTax: (patch) => setTaxState((t) => ({ ...t, ...patch })),
     setTargetMarginPct,
@@ -599,14 +702,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         timeZoneChangedAt: null,
       })
       if (res.session.plan === 'pro') {
-        setPlan('pro')
-        setFreeClocks([])
+        applyLegacyFromSession()
       } else {
-        // Restore Pro from a prior Stripe purchase tied to this email
+        // Restore lifetime licence from a prior Stripe purchase tied to this email
         void marginosAuthProvider.syncLicence().then((sync) => {
           if (sync.ok && sync.session?.plan === 'pro') {
-            setPlan('pro')
-            setFreeClocks([])
+            applyLegacyFromSession()
             setUser((u) =>
               u
                 ? { ...u, emailVerified: sync.session!.emailVerified, id: sync.session!.accountId }
@@ -678,10 +779,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               : null
           return base
         })
-        if (res.session?.plan === 'pro') {
-          setPlan('pro')
-          setFreeClocks([])
-        }
+        if (res.session?.plan === 'pro') applyLegacyFromSession()
       }
       return res
     },
@@ -786,16 +884,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })
     },
     recordSuccessfulUpload: () => {
-      if (plan === 'pro') return true
       if (!user?.emailVerified) {
         setAuthOpen(true)
         return false
       }
-      if (uploadsLeft <= 0) {
+      if (!hasPaidAccess(access)) {
         setUpgradeOpen(true)
         return false
       }
-      setUploadDay((d) => ({ dateKey: dayKey, used: d.dateKey === dayKey ? d.used + 1 : 1 }))
       return true
     },
     replaceOrders: (next) => {
@@ -827,37 +923,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAuthOpen(true)
         return { ok: false, message: 'Verify your email before your first upload.' }
       }
-      if (plan === 'free' && uploadsLeft <= 0) {
+      if (!hasPaidAccess(access)) {
         setUpgradeOpen(true)
-        return { ok: false, message: en.uploadsExhausted }
+        return { ok: false, message: en.verifyEmail || 'Start a trial to upload your own orders.' }
       }
       const parsed = importPlatformFiles(input)
       if (!parsed.ok) {
         // Failed upload leaves sample data in place (v16.3 E9)
         return { ok: false, message: parsed.errors.join(' ') || 'Import failed.' }
       }
-      if (plan === 'free' && parsed.lines.length > 50000) {
-        return {
-          ok: false,
-          message: 'Free uploads are limited to 50,000 orders. Use a shorter date range or Pro.',
+      const limit = orderLimitFor(plan)
+      if (hasPaidAccess(access) && limit != null) {
+        const existingForUsage =
+          usageUniqueOrderIds.length > 0
+            ? usageUniqueOrderIds.map((orderId) => ({ orderId, isSample: false }) as OrderLine)
+            : lines
+        const check = evaluateOrderImport({
+          existing: existingForUsage,
+          incoming: parsed.lines,
+          limit,
+        })
+        if (!check.allowed) {
+          const tier: PlanId =
+            plan === 'legacy' ? 'pro' : plan === 'none' ? 'starter' : plan
+          const next = nextPlanAfter(tier)
+          return {
+            ok: false,
+            message: en.orderLimitBlocked(
+              check.newUnique,
+              check.projected,
+              check.overage,
+              next ? PLANS[next].name : 'a higher plan',
+            ),
+          }
         }
-      }
-      if (plan === 'free') {
-        setUploadDay((d) => ({ dateKey: dayKey, used: d.dateKey === dayKey ? d.used + 1 : 1 }))
       }
       const hadSample = usingSampleData
       const counts = countSample(lines, costs, ads)
       const ownLines = parsed.lines.map((l) => ({ ...l, isSample: false as const }))
+      const incomingIds = [...uniqueOrderIds(ownLines)]
+      setUsageUniqueOrderIds((prev) => [...new Set([...prev, ...incomingIds])])
       setLines(ownLines)
       setFreeDataDeletedNotice(null)
-      const nextClocks = plan === 'free' ? upsertClock(freeClocks, 'orders') : freeClocks
-      if (plan === 'free') setFreeClocks(nextClocks)
-      const ordersClock = nextClocks.find((c) => c.kind === 'orders') ?? null
+      setFreeClocks([])
       if (hadSample) {
         setCosts((prev) => prev.filter((c) => !c.isSample))
         setAds((prev) => {
           const kept = prev.filter((a) => !a.isSample)
-          if (parsed.ads.length && plan === 'pro') return [...parsed.ads, ...kept]
+          if (parsed.ads.length && hasPaidAccess(access)) return [...parsed.ads, ...kept]
           return kept
         })
         setSampleClearedNotice(SAMPLE_CLEARED_NOTE)
@@ -876,20 +989,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           },
         })
       } else if (parsed.ads.length) {
-        setAds((prev) => (plan === 'pro' ? [...parsed.ads, ...prev] : prev))
+        setAds((prev) => (hasPaidAccess(access) ? [...parsed.ads, ...prev] : prev))
       }
       setSelectedSku(ownLines[0]?.sku ?? null)
       // Raw file never stored after import (v16.4 F5)
-      const deletionNote =
-        plan === 'free' && ordersClock
-          ? `Free data deleted ${formatDeletionTime(ordersClock.expiresAt, tz)} (${tz}).`
-          : plan === 'free'
-            ? 'Free uploads are deleted after 24 hours.'
-            : null
       const msg = [
         `Imported ${parsed.summary.newRows ?? parsed.lines.length} lines.`,
         'Original file deleted after import.',
-        deletionNote,
         hadSample ? SAMPLE_CLEARED_NOTE : null,
         ...parsed.warnings.slice(0, 3),
         ...parsed.mathsNotes.slice(0, 2),
@@ -904,10 +1010,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const ownCosts = nextCosts.map((c) => ({ ...c, isSample: false as const }))
       setCosts(ownCosts)
       setFreeDataDeletedNotice(null)
-      // v16.4 F2 / F8.5 — same deletion-time notice as orders import
-      const nextClocks = plan === 'free' ? upsertClock(freeClocks, 'template') : freeClocks
-      if (plan === 'free') setFreeClocks(nextClocks)
-      const templateClock = nextClocks.find((c) => c.kind === 'template') ?? null
       if (hadSample) {
         setLines((prev) => prev.filter((l) => !l.isSample))
         if (nextAds) {
@@ -934,16 +1036,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAds(nextAds.map((a) => ({ ...a, isSample: false as const })))
       }
       setSelectedSku(ownCosts[0]?.sku ?? null)
-      const deletionNote =
-        plan === 'free' && templateClock
-          ? `Free data deleted ${formatDeletionTime(templateClock.expiresAt, tz)} (${tz}).`
-          : plan === 'free'
-            ? 'Free uploads are deleted after 24 hours.'
-            : null
-      return { deletionNote }
+      return { deletionNote: null }
     },
     failDelayedPayment: () => {
-      if (plan !== 'free') {
+      if (hasPaidAccess(access)) {
         setPaymentPending(false)
         return { ok: true, message: 'Payment pending cleared.' }
       }
@@ -968,16 +1064,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { ok: true, message: en.paymentFailedClocksResumed }
     },
     updateCost: (sku, patch) => {
-      setCosts((prev) => {
-        const row = prev.find((c) => c.sku === sku)
-        // First save of a non-sample manual edit starts a Free manual clock (F1)
-        if (plan === 'free' && row && !row.isSample) {
-          setFreeClocks((clocks) =>
-            clocks.some((c) => c.kind === 'manual') ? clocks : upsertClock(clocks, 'manual'),
-          )
-        }
-        return prev.map((c) => (c.sku === sku ? { ...c, ...patch } : c))
-      })
+      setCosts((prev) => prev.map((c) => (c.sku === sku ? { ...c, ...patch } : c)))
       // K2: digital is manual — sync requiresShipping on matching order lines
       if (typeof patch.digital === 'boolean') {
         setLines((prev) =>
@@ -994,15 +1081,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     },
     setAdTotalManual: (amount) => {
-      if (plan === 'free') {
-        setFreeClocks((clocks) =>
-          clocks.some((c) => c.kind === 'manual') ? clocks : upsertClock(clocks, 'manual'),
-        )
-      }
       setAds([
         {
           id: createId('ad'),
-          channel: plan === 'pro' ? 'Meta' : 'Blended',
+          channel: hasFeature(plan, 'perChannelRoas') ? 'Meta' : 'Blended',
           amount,
           startDate: '2026-09-01',
           endDate: '2026-09-30',
@@ -1010,10 +1092,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         },
       ])
     },
-    unlockProDemo: async (billingCountry) => {
+    unlockProDemo: async (billingCountry, planId = 'growth', interval = 'month') => {
       if (!user) {
         setAuthOpen(true)
-        return { ok: false, message: 'Sign in to buy Pro.' }
+        return { ok: false, message: 'Sign in to start a trial.' }
       }
       const res = await startCheckout({
         accountId: user.id,
@@ -1021,22 +1103,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
         emailVerified: user.emailVerified,
         billingCountry,
         currency,
-        alreadyPro: plan === 'pro',
+        planId,
+        interval,
+        foundingSold,
+        trialUsed,
+        alreadySubscribed: hasPaidAccess(access),
         paymentPending,
-        earlyBirdSold,
       })
       if (res.checkoutUrl) {
         window.location.assign(res.checkoutUrl)
         return res
       }
       if (res.ok) {
-        setPlan('pro')
-        if (res.earlyBirdSold != null) setEarlyBirdSold(res.earlyBirdSold)
+        const lic = res.licence
+        setPlan(lic?.planId ?? planId)
+        setAccess('trial')
+        setBillingInterval(lic?.interval ?? interval)
+        setTrialEndsAt(
+          lic?.trialEndsAt ??
+            new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+        )
+        setTrialUsed(true)
+        if (res.foundingSold != null) setFoundingSold(res.foundingSold)
+        else if (lic?.founding) setFoundingSold((n) => Math.min(FOUNDING_CAP, n + 1))
         setPaymentPending(false)
-        // F7: upgrading cancels every running 24-hour clock
         setFreeClocks([])
         setFreeDataDeletedNotice(null)
-        // K8: restore kept ex-Pro data if present
+        // K8: restore kept ex-subscriber data if present
         if (keptProData) {
           setLines(keptProData.lines)
           setCosts(keptProData.costs)
@@ -1046,11 +1139,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setMonthlyOverheads(keptProData.monthlyOverheads)
           setKeptProData(null)
         } else if (lines.some((l) => !l.isSample)) {
-          // Free dataset still within 24h carries into Pro shop
           setSavedDatasets((prev) => [
             {
               id: createId('ds'),
-              name: 'Upgraded from Free',
+              name: 'Upgraded from sample',
               start: result.totals.period.start,
               end: result.totals.period.end,
               platforms: [...new Set(lines.map((l) => l.platform))],
@@ -1064,7 +1156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { ok: res.ok, message: res.message }
     },
     switchToFree: () => {
-      // Demo stand-in for refunded Pro (K8): keep shop for CSV export only
+      // Demo harness: end access — keep shop snapshot for CSV export only
       const ownLines = lines.filter((l) => !l.isSample)
       const ownCosts = costs.filter((c) => !c.isSample)
       const ownAds = ads.filter((a) => !a.isSample)
@@ -1087,7 +1179,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMonthlyOverheads(0)
       setSelectedSku(null)
       setFreeClocks([])
-      setPlan('free')
+      setPlan('none')
+      setAccess('none')
+      setBillingInterval(null)
+      setTrialEndsAt(null)
+      setAccessEndsAt(null)
     },
     deleteAccount: (confirmEmail) => {
       if (!user) return { ok: false, message: 'Sign in first.' }
@@ -1110,7 +1206,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       })
       clearAllState()
       setUser(null)
-      setPlan('free')
+      setPlan('none')
+      setAccess('none')
+      setBillingInterval(null)
+      setTrialEndsAt(null)
+      setAccessEndsAt(null)
+      setUsageUniqueOrderIds([])
       setLines([])
       setCosts([])
       setAds([])
@@ -1126,7 +1227,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { ok: true, message: 'Account deleted from this browser. This cannot be undone.' }
     },
     createScenario: () => {
-      if (plan !== 'pro') {
+      if (!hasFeature(plan, 'scenarios')) {
         setUpgradeOpen(true)
         return
       }
@@ -1139,7 +1240,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setScenarios((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s))),
     removeScenario: (id) => setScenarios((prev) => prev.filter((s) => s.id !== id)),
     saveDataset: (name) => {
-      if (plan !== 'pro') {
+      if (!hasPaidAccess(access)) {
         setUpgradeOpen(true)
         return
       }
