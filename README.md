@@ -42,7 +42,7 @@ npm run preview
 | Stripe Managed Payments (§12.10) | Live path via `/api/checkout` when `VITE_PAYMENTS_MODE=stripe`; mock in demo |
 | Shopify / Amazon / Etsy CSV parsers | Sample order dataset + MarginOS cost/ads templates; PII strip warnings on all three |
 | ECB FX | Offline ECB reference table + convert-at-import; unsupported currencies excluded |
-| Auth (email + Google) | Strict verify tokens + SES hook (`/api/auth/send-verification`); Google GIS via Client ID |
+| Auth (email + Google) | Strict verify tokens + SES hook; Google GIS (K57); password reset via SES |
 | Account deletion / 24-month inactivity | Implemented client-side (K8 / §10.2.8) |
 
 See `.env.example` for Stripe / SES secrets. Demo harnesses (Switch to Free, K11 simulators) only in `import.meta.env.DEV` unless `VITE_DEMO_HARNESS=true`.

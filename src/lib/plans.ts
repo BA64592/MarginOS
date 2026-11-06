@@ -267,8 +267,9 @@ export const LAUNCH_PLATFORMS: Platform[] = ['shopify', 'amazon', 'etsy']
 export const TIKTOK_COMING_SOON = 'TikTok Shop UK (Beta): Excel import coming soon'
 
 /** K54 — homepage differentiation line (word for word). */
+/** K56 — until S47 (TikTok reader) passes; then swap to “…Tik-Tok).” */
 export const MULTI_PLATFORM_LINE =
-  'Built for single or multi-platform sellers (Shopify, Amazon, Etsy, Tik-Tok).'
+  'Built for single or multi-platform sellers (Shopify, Amazon, Etsy, TikTok coming soon).'
 
 export function nextPlanAfter(plan: PlanId): PlanId | null {
   const i = PLAN_ORDER.indexOf(plan)

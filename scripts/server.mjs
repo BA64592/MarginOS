@@ -10,6 +10,8 @@ import {
   handleAuthContinue,
   handleAuthLogoutDestroy,
   handleAuthMe,
+  handleRequestPasswordReset,
+  handleResetPassword,
   handleSendVerification,
   handleSyncLicence,
   handleVerifyToken,
@@ -170,6 +172,32 @@ const server = http.createServer(async (req, res) => {
         return
       }
       json(res, result.status, result.body)
+      return
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/request-password-reset') {
+      let body = {}
+      try {
+        body = await parseJson(req)
+      } catch {
+        json(res, 400, { ok: false, message: 'Invalid JSON' })
+        return
+      }
+      const result = await handleRequestPasswordReset(body, req)
+      json(res, result.status, result.body)
+      return
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/reset-password') {
+      let body = {}
+      try {
+        body = await parseJson(req)
+      } catch {
+        json(res, 400, { ok: false, message: 'Invalid JSON' })
+        return
+      }
+      const result = await handleResetPassword(body)
+      json(res, result.status, result.body, result.headers || {})
       return
     }
 

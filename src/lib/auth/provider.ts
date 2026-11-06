@@ -77,19 +77,22 @@ async function apiJson<T>(
 }
 
 const VERIFY_KEY = 'marginos.verifyTokens'
+const RESET_KEY = 'marginos.resetTokens'
+const MIN_PASSWORD = 15
+const GENERIC_RESET_MSG = "If an account exists, we've sent a reset link."
 
 type TokenRow = { token: string; email: string; accountId: string; expiresAt: number }
 
-function loadTokens(): TokenRow[] {
+function loadTokens(key = VERIFY_KEY): TokenRow[] {
   try {
-    return JSON.parse(localStorage.getItem(VERIFY_KEY) || '[]') as TokenRow[]
+    return JSON.parse(localStorage.getItem(key) || '[]') as TokenRow[]
   } catch {
     return []
   }
 }
 
-function saveTokens(rows: TokenRow[]) {
-  localStorage.setItem(VERIFY_KEY, JSON.stringify(rows))
+function saveTokens(rows: TokenRow[], key = VERIFY_KEY) {
+  localStorage.setItem(key, JSON.stringify(rows))
 }
 
 function mintLocalToken(email: string, accountId: string): string {
@@ -100,14 +103,29 @@ function mintLocalToken(email: string, accountId: string): string {
   return token
 }
 
+function mintLocalResetToken(email: string, accountId: string): string {
+  const token = `rst_${Math.random().toString(36).slice(2)}_${Date.now()}`
+  // Invalidate older unused links for this account (Q34)
+  const rows = loadTokens(RESET_KEY).filter(
+    (r) => r.accountId !== accountId && r.expiresAt > Date.now(),
+  )
+  rows.push({ token, email, accountId, expiresAt: Date.now() + 60 * 60 * 1000 })
+  saveTokens(rows, RESET_KEY)
+  return token
+}
+
 /** Local fallback when API auth is unavailable (Vite preview without DATABASE_URL). */
 const localAuthProvider: AuthProvider = {
   async signUpEmail(email, password) {
-    if (password.length < 8) return { ok: false, message: 'Password must be at least 8 characters.' }
+    if (password.length < MIN_PASSWORD) {
+      return { ok: false, message: `Password must be at least ${MIN_PASSWORD} characters.` }
+    }
     return { ok: true, message: `Verification email would be sent to ${email} (24h link).` }
   },
   async signInEmail(email, password) {
-    if (password.length < 8) return { ok: false, message: 'Password must be at least 8 characters.' }
+    if (password.length < MIN_PASSWORD) {
+      return { ok: false, message: `Password must be at least ${MIN_PASSWORD} characters.` }
+    }
     const accountId = `acct_${email.toLowerCase()}`
     const token = mintLocalToken(email, accountId)
     if (isStrictAuthEnabled()) {
@@ -182,12 +200,33 @@ const localAuthProvider: AuthProvider = {
     saveTokens(rows.filter((r) => r.token !== token))
     return { ok: true, message: 'Email verified.', email: hit.email }
   },
-  async requestPasswordReset() {
-    return { ok: true, message: 'Password reset email sent.' }
+  async requestPasswordReset(email) {
+    const trimmed = email.trim().toLowerCase()
+    if (!trimmed.includes('@')) return { ok: false, message: 'Enter a valid email address.' }
+    const accountId = `acct_${trimmed}`
+    mintLocalResetToken(trimmed, accountId)
+    return { ok: true, message: GENERIC_RESET_MSG }
   },
-  async resetPassword(_token, newPassword) {
-    if (newPassword.length < 8) return { ok: false, message: 'Password must be at least 8 characters.' }
-    return { ok: true, message: 'Password updated. Other sessions have been signed out.' }
+  async resetPassword(token, newPassword) {
+    if (newPassword.length < MIN_PASSWORD) {
+      return { ok: false, message: `Password must be at least ${MIN_PASSWORD} characters.` }
+    }
+    const rows = loadTokens(RESET_KEY)
+    const hit = rows.find((r) => r.token === token && r.expiresAt > Date.now())
+    if (!hit) {
+      return {
+        ok: false,
+        message: 'This reset link is invalid or expired.',
+      }
+    }
+    saveTokens(
+      rows.map((r) => (r.token === token || r.accountId === hit.accountId ? { ...r, expiresAt: 0 } : r)),
+      RESET_KEY,
+    )
+    return {
+      ok: true,
+      message: 'Password updated. Sign in with your new password. Other sessions were signed out.',
+    }
   },
   async fetchSession() {
     return null
@@ -271,12 +310,51 @@ const serverAuthProvider: AuthProvider = {
       return localAuthProvider.verifyEmail(token)
     }
   },
-  async requestPasswordReset() {
-    return { ok: true, message: 'Password reset email sent.' }
+  async requestPasswordReset(email) {
+    try {
+      const { okHttp, data } = await apiJson<{ ok?: boolean; message?: string }>(
+        '/api/auth/request-password-reset',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email,
+            origin: window.location.origin,
+          }),
+        },
+      )
+      if (okHttp && data.ok) {
+        return { ok: true, message: data.message || GENERIC_RESET_MSG }
+      }
+      // Fall back to local demo path when API/DB unavailable
+      if (!okHttp) return localAuthProvider.requestPasswordReset(email)
+      return { ok: false, message: data.message || 'Could not send reset email.' }
+    } catch {
+      return localAuthProvider.requestPasswordReset(email)
+    }
   },
-  async resetPassword(_token, newPassword) {
-    if (newPassword.length < 8) return { ok: false, message: 'Password must be at least 8 characters.' }
-    return { ok: true, message: 'Password updated.' }
+  async resetPassword(token, newPassword) {
+    try {
+      const { okHttp, status, data } = await apiJson<{ ok?: boolean; message?: string }>(
+        '/api/auth/reset-password',
+        {
+          method: 'POST',
+          body: JSON.stringify({ token, password: newPassword }),
+        },
+      )
+      if (okHttp && data.ok) {
+        return { ok: true, message: data.message || 'Password updated.' }
+      }
+      // Structured API failure (expired token, validation) — do not invent a local success
+      if (status >= 400 && status < 500 && data.message) {
+        return { ok: false, message: data.message }
+      }
+      if (status >= 500 || status === 503) {
+        return localAuthProvider.resetPassword(token, newPassword)
+      }
+      return { ok: false, message: data.message || 'Could not reset password.' }
+    } catch {
+      return localAuthProvider.resetPassword(token, newPassword)
+    }
   },
   async fetchSession() {
     try {
