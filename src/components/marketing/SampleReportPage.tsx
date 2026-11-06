@@ -1,6 +1,6 @@
 import { useApp } from '../../context/AppContext'
 import { PRODUCT_NAME } from '../../lib/brand'
-import { PRIMARY_TRIAL_CTA, TRIAL_DAYS } from '../../lib/plans'
+import { TRIAL_DAYS } from '../../lib/plans'
 import { Button } from '../ui'
 
 const LEAKS = [
@@ -28,7 +28,7 @@ const LEAKS = [
 ]
 
 export function SampleReportPage() {
-  const { setRoute, setUpgradeOpen, loadSample } = useApp()
+  const { setRoute, loadSample } = useApp()
 
   return (
     <main>
@@ -48,8 +48,16 @@ export function SampleReportPage() {
             Synthetic sample data — labelled and never counted toward order limits. Explore the ranked
             leaks, then open the live sample shop or start a {TRIAL_DAYS}-day trial.
           </p>
+          {/* K55 — opening section: Open Sample Shop (not trial CTA); header keeps Start 14-day free trial */}
           <div className="mt-7 flex flex-wrap justify-center gap-3">
-            <Button onClick={() => setUpgradeOpen(true)}>{PRIMARY_TRIAL_CTA}</Button>
+            <Button
+              onClick={() => {
+                loadSample()
+                setRoute('app')
+              }}
+            >
+              Open Sample Shop
+            </Button>
             <Button variant="ghost" onClick={() => setRoute('pricing')}>
               Compare plans
             </Button>
