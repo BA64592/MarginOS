@@ -1,8 +1,12 @@
-# MarginOS
+# Margins 365
 
 Premium diagnosis app for e-commerce sellers: true profit after product cost, shipping, ads, platform fees and returns — with a Margin Health Score (0–100), ranked leaks, recommendations, calculators, scenarios and PDF export.
 
-Built to **MarginOS Product Spec v16** with amendments **v16.1–v16.4** (approved 29 October 2026).
+**Product name (K58):** Margins 365  
+**Target domain:** margins365.com (not cut over yet)  
+**Live host until 20.5 cutover:** https://marginos.online  
+
+Built to **Margins 365 Product Spec v19** (K41–K58). Cutover checklist: `docs/CUTOVER-20.5-K58.md`.
 
 ## Run
 
@@ -26,43 +30,26 @@ npm run preview
 | Health Score parts + confidence (§12.1) | Implemented |
 | Product verdicts (§12.2) | Implemented |
 | Six launch leaks + target price (§12.3) | Implemented |
-| Free vs Pro matrix (§7–8 launch) | UI + gating |
+| Plans / trial (v18+) | UI + gating |
 | Show the maths | On key metrics |
 | Calculators | Break-even ROAS/ACOS, break-even & target price |
 | Scenarios / PDF / saved datasets | Pro |
-| Clear sample data / Start fresh (v16.3) | Implemented |
-| Free 24h retention + raw-file deletion (v16.4) | Implemented |
-| Slice A UI parity (B5–B7 handoff) | Template deletion time, upload-limit midnight copy, Shopify PII warnings |
-| Google sign-in | Enabled when `VITE_GOOGLE_CLIENT_ID` is set (K6 GIS OAuth) |
-| K11 payment-fail → past-due delete | Client demo path in Upgrade modal |
-| Digital product mark (manual, K2) | Per-product toggle |
+| Clear sample data / Start fresh | Implemented |
+| Google sign-in | Enabled when `VITE_GOOGLE_CLIENT_ID` is set (K57) |
+| Password reset | SES link flow (K57) |
 | Currency GBP/EUR/USD/CAD/AUD | Selector |
 | i18n store + hidden language selector | English only |
-| Auth (email + Google) | Demo modal |
-| Stripe Managed Payments (§12.10) | Live path via `/api/checkout` when `VITE_PAYMENTS_MODE=stripe`; mock in demo |
-| Shopify / Amazon / Etsy CSV parsers | Sample order dataset + MarginOS cost/ads templates; PII strip warnings on all three |
-| ECB FX | Offline ECB reference table + convert-at-import; unsupported currencies excluded |
-| Auth (email + Google) | Strict verify tokens + SES hook; Google GIS (K57); password reset via SES |
-| Account deletion / 24-month inactivity | Implemented client-side (K8 / §10.2.8) |
+| Stripe Managed Payments (§12.10) | Live path via `/api/checkout` when `VITE_PAYMENTS_MODE=stripe` |
+| Shopify / Amazon / Etsy CSV parsers | Sample + cost/ads templates; TikTok coming soon (K53) |
+| Auth (email + Google) | Strict verify tokens + SES; Google GIS; password reset |
+| Brand rename | PRODUCT_NAME → Margins 365 (K58); live domain still marginos.online |
 
-See `.env.example` for Stripe / SES secrets. Demo harnesses (Switch to Free, K11 simulators) only in `import.meta.env.DEV` unless `VITE_DEMO_HARNESS=true`.
+See `.env.example` for Stripe / SES secrets. Demo harnesses only in `import.meta.env.DEV` unless `VITE_DEMO_HARNESS=true`.
 
-Open questions: `docs/OPEN-QUESTIONS.md`  
-Approved spec: `docs/MarginOS-Spec-v16-Final.pdf`  
-Amendments: `docs/MarginOS-Amendment-v16.1.pdf`, `docs/MarginOS-Amendment-v16.3.pdf`, `docs/MarginOS-Amendment-v16.4.pdf`  
-Checklists: `docs/checklists/` (Stripe SMP, auth rules)
-
-**Decided (v16.2):** K2 Etsy digital manual; K3 fee presets signed off (Shopify Basic, Amazon 15%); K5 in-app auth + SES London.  
-**Decided (v16.3):** Clear sample data + Start fresh; **K7** auto-clear sample on first successful own upload.  
-**Decided (v16.4):** Free data deleted after 24 hours; raw files deleted after import; **K8–K11** (refunded Pro keep/export, 3 uploads/day, sales wording, delayed-payment pause).  
-**Pending Akthar:** K1 sample exports; confirm Google Cloud authorized JS origins include `https://marginos.online` (and local Vite). Privacy wording pending legal review (K10).
-
-## Pricing (from spec)
-
-- Free: £0  
-- Pro: £59 lifetime (early-bird £39 for first 200 sales)  
-- Sold through Link (Stripe Managed Payments); displayed prices tax-inclusive  
+**Spec docs:** `docs/Margins365-Spec-v19.pdf`, `docs/Margins365-v19-Changes.pdf`  
+**Cutover:** `docs/CUTOVER-20.5-K58.md`  
+**Pending ops cutover:** DNS/SES/Google OAuth/Stripe URLs for `margins365.com` (see 20.5). Privacy wording pending legal review.
 
 ## Stack
 
-React + TypeScript (Vite), Tailwind CSS v4, Recharts, jsPDF, localStorage.
+React + TypeScript (Vite), Tailwind CSS v4, Recharts, jsPDF, localStorage / DigitalOcean App Platform.

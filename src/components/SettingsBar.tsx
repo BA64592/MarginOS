@@ -46,7 +46,7 @@ export function SettingsBar() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'marginos-data-export.csv'
+    a.download = 'margins365-data-export.csv'
     a.click()
     URL.revokeObjectURL(url)
   }

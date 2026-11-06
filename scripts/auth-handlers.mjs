@@ -132,14 +132,14 @@ async function sendVerifyEmail(to, verifyUrl) {
       Destination: { ToAddresses: [to] },
       Content: {
         Simple: {
-          Subject: { Data: 'Verify your MarginOS email', Charset: 'UTF-8' },
+          Subject: { Data: 'Verify your Margins 365 email', Charset: 'UTF-8' },
           Body: {
             Text: {
-              Data: `Verify your MarginOS email.\n\nOpen within 24 hours:\n${verifyUrl}\n`,
+              Data: `Verify your Margins 365 email.\n\nOpen within 24 hours:\n${verifyUrl}\n`,
               Charset: 'UTF-8',
             },
             Html: {
-              Data: `<p>Verify your MarginOS email address.</p><p><a href="${verifyUrl}">Confirm email</a></p><p style="color:#555;font-size:14px">${verifyUrl}</p>`,
+              Data: `<p>Verify your Margins 365 email address.</p><p><a href="${verifyUrl}">Confirm email</a></p><p style="color:#555;font-size:14px">${verifyUrl}</p>`,
               Charset: 'UTF-8',
             },
           },
@@ -335,23 +335,23 @@ async function sendSesSimple(to, subject, text, html) {
 }
 
 async function sendPasswordResetEmail(to, resetUrl) {
-  const subject = 'Reset your MarginOS password'
-  const text = `Reset your MarginOS password.\n\nSet a new password within ${RESET_MINUTES} minutes:\n${resetUrl}\n\nIf you did not ask for this, you can ignore this email.\n`
-  const html = `<p>Reset your MarginOS password.</p><p><a href="${resetUrl}">Set a new password</a></p><p style="color:#555;font-size:14px">This link expires in ${RESET_MINUTES} minutes.</p><p style="color:#555;font-size:14px">${resetUrl}</p><p style="color:#555;font-size:14px">If you did not ask for this, you can ignore this email.</p>`
+  const subject = 'Reset your Margins 365 password'
+  const text = `Reset your Margins 365 password.\n\nSet a new password within ${RESET_MINUTES} minutes:\n${resetUrl}\n\nIf you did not ask for this, you can ignore this email.\n`
+  const html = `<p>Reset your Margins 365 password.</p><p><a href="${resetUrl}">Set a new password</a></p><p style="color:#555;font-size:14px">This link expires in ${RESET_MINUTES} minutes.</p><p style="color:#555;font-size:14px">${resetUrl}</p><p style="color:#555;font-size:14px">If you did not ask for this, you can ignore this email.</p>`
   return sendSesSimple(to, subject, text, html)
 }
 
 async function sendGoogleOnlyResetEmail(to) {
-  const subject = 'Sign in to MarginOS with Google'
-  const text = `This MarginOS account uses Google sign-in.\n\nThere is no password to reset. Open MarginOS and choose Continue with Google.\n\nIf you did not ask for this, you can ignore this email.\n`
-  const html = `<p>This MarginOS account uses <strong>Google sign-in</strong>.</p><p>There is no password to reset. Open MarginOS and choose <strong>Continue with Google</strong>.</p><p style="color:#555;font-size:14px">If you did not ask for this, you can ignore this email.</p>`
+  const subject = 'Sign in to Margins 365 with Google'
+  const text = `This Margins 365 account uses Google sign-in.\n\nThere is no password to reset. Open Margins 365 and choose Continue with Google.\n\nIf you did not ask for this, you can ignore this email.\n`
+  const html = `<p>This Margins 365 account uses <strong>Google sign-in</strong>.</p><p>There is no password to reset. Open Margins 365 and choose <strong>Continue with Google</strong>.</p><p style="color:#555;font-size:14px">If you did not ask for this, you can ignore this email.</p>`
   return sendSesSimple(to, subject, text, html)
 }
 
 async function sendPasswordChangedEmail(to) {
   const subject = 'Your password was changed'
-  const text = `Your MarginOS password was changed.\n\nAll other signed-in sessions were signed out. If you did not make this change, reply to this email or contact support from the privacy policy contact address.\n`
-  const html = `<p>Your MarginOS password was changed.</p><p>All other signed-in sessions were signed out.</p><p style="color:#555;font-size:14px">If you did not make this change, reply to this email or use the privacy policy contact address.</p>`
+  const text = `Your Margins 365 password was changed.\n\nAll other signed-in sessions were signed out. If you did not make this change, reply to this email or contact support from the privacy policy contact address.\n`
+  const html = `<p>Your Margins 365 password was changed.</p><p>All other signed-in sessions were signed out.</p><p style="color:#555;font-size:14px">If you did not make this change, reply to this email or use the privacy policy contact address.</p>`
   return sendSesSimple(to, subject, text, html)
 }
 

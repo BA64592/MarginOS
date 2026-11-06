@@ -86,7 +86,7 @@ export async function createCheckoutSession(body, req) {
   if (!ALLOWED.has(country)) {
     return {
       status: 400,
-      body: { ok: false, message: "MarginOS isn't available in your country yet." },
+      body: { ok: false, message: "Margins 365 isn't available in your country yet." },
     }
   }
 

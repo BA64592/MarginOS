@@ -112,7 +112,7 @@ export function ProductWorkspace() {
             ? 'Upload a Shopify, Amazon or Etsy export — or load sample data to explore the calculator.'
             : usingSampleData
               ? 'Sample orders from Shopify, Amazon and Etsy are loaded so you can explore. Upload your own export when you’re ready.'
-              : 'Edit unit costs below, or upload a MarginOS cost template and fresh platform orders.'
+              : 'Edit unit costs below, or upload a Margins 365 cost template and fresh platform orders.'
         }
         action={
           <div className="flex flex-wrap gap-2">
@@ -183,7 +183,7 @@ export function ProductWorkspace() {
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = 'marginos-cost-template.csv'
+            a.download = 'margins365-cost-template.csv'
             a.click()
             URL.revokeObjectURL(url)
           }}
@@ -198,7 +198,7 @@ export function ProductWorkspace() {
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = 'marginos-ads-template.csv'
+            a.download = 'margins365-ads-template.csv'
             a.click()
             URL.revokeObjectURL(url)
           }}

@@ -1,5 +1,5 @@
 /**
- * Create MarginOS Pro product + tax-inclusive prices in Stripe (test or live).
+ * Create Margins 365 Pro product + tax-inclusive prices in Stripe (test or live).
  * Usage: STRIPE_SECRET_KEY=sk_... node scripts/stripe-bootstrap-products.mjs
  *
  * Prints price IDs to set as STRIPE_PRICE_FULL / STRIPE_PRICE_EARLY_BIRD.
@@ -44,8 +44,8 @@ function currencyOptions(map, primary) {
 }
 
 const product = await stripe.products.create({
-  name: 'MarginOS Pro',
-  description: 'Lifetime MarginOS Pro licence — keep your data, saved datasets and history.',
+  name: 'Margins 365 Pro',
+  description: 'Lifetime Margins 365 Pro licence — keep your data, saved datasets and history.',
   tax_code: 'txcd_10103001',
   metadata: { marginos: 'pro_lifetime' },
 })
@@ -56,7 +56,7 @@ const full = await stripe.prices.create({
   unit_amount: FULL.GBP,
   tax_behavior: 'inclusive',
   currency_options: currencyOptions(FULL, 'GBP'),
-  nickname: 'MarginOS Pro — full',
+  nickname: 'Margins 365 Pro — full',
   metadata: { marginos_tier: 'full' },
 })
 
@@ -66,7 +66,7 @@ const early = await stripe.prices.create({
   unit_amount: EARLY.GBP,
   tax_behavior: 'inclusive',
   currency_options: currencyOptions(EARLY, 'GBP'),
-  nickname: 'MarginOS Pro — early bird',
+  nickname: 'Margins 365 Pro — early bird',
   metadata: { marginos_tier: 'early_bird' },
 })
 

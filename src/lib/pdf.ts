@@ -85,9 +85,9 @@ export function exportPdfReport(args: {
   })
 
   y += 8
-  line('MarginOS — Pro lifetime. Sold through Link (Stripe Managed Payments).', {
+  line(`${PRODUCT_NAME} — Pro lifetime. Sold through Link (Stripe Managed Payments).`, {
     size: 9,
     color: [91, 107, 124],
   })
-  doc.save(`MarginOS-Report-${new Date().toISOString().slice(0, 10)}.pdf`)
+  doc.save(`Margins365-Report-${new Date().toISOString().slice(0, 10)}.pdf`)
 }
