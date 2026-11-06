@@ -15,11 +15,11 @@ import {
   type PlanId,
 } from '../lib/plans'
 import { Button } from './ui'
-import { HelpTip } from './ui/HelpTip'
 
 type CompRow = {
   label: string
-  help?: string
+  /** Plain sub-text under the label (K55 — no (i) / ? on Shops & Seats). */
+  sub?: string
   group?: string
   values: Record<PlanId, string>
 }
@@ -108,7 +108,7 @@ const COMPARISON: CompRow[] = [
   },
   {
     label: 'Shops',
-    help: SHOP_HELP,
+    sub: SHOP_HELP,
     values: { starter: '1', growth: '1', pro: '1', scale: 'Up to 3' },
   },
   {
@@ -122,12 +122,8 @@ const COMPARISON: CompRow[] = [
   },
   {
     label: 'Seats',
-    help: SEAT_HELP,
+    sub: SEAT_HELP,
     values: { starter: '1', growth: '1', pro: '2', scale: '5' },
-  },
-  {
-    label: 'Email support',
-    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
   },
 ]
 
@@ -151,6 +147,34 @@ const FAQ = [
   {
     q: 'What happens after the 14-day trial?',
     a: `Starter, Growth and Pro trials include full Pro features for those ${TRIAL_DAYS} days; Scale trials include Scale. Unless you cancel in Plan & billing, we charge your chosen plan on day 15 — not the Pro price unless you chose Pro or used Keep Pro. Cancel any time before then in one click.`,
+  },
+  {
+    q: 'What are shops?',
+    a: `${SHOP_HELP} Starter, Growth and Pro include 1 shop. Scale includes up to 3. On Scale, the unique-order limit is counted account-wide across those shops.`,
+  },
+  {
+    q: 'What are seats?',
+    a: `${SEAT_HELP} Starter and Growth include 1 seat (the owner). Pro includes 2. Scale includes 5. Only the account owner can cancel.`,
+  },
+  {
+    q: 'What happens if I hit my order limit?',
+    a: 'We warn at 80% of your unique-order allowance and name the next plan. If a file would take you over the limit, we import nothing and show the overage — there is no partial import. During a Starter, Growth or Pro trial the Pro 5,000-order limit applies. Re-uploading the same order IDs does not use allowance again.',
+  },
+  {
+    q: 'Is my data safe, and where is it stored?',
+    a: 'Buyer names, emails, addresses and similar personal details are stripped at import and are never stored. Original upload files are deleted as soon as they are imported. Product diagnosis data is held for your account while you have access; when access ends after cancel, product data is permanently wiped and the login is removed. Hosting is on DigitalOcean (London) with Stripe for payments and Amazon SES for mail.',
+  },
+  {
+    q: 'Do you connect to my store?',
+    a: 'No. You upload the CSV reports you already download from Shopify, Amazon or Etsy. There is no live API connection to your store.',
+  },
+  {
+    q: 'Can I change plan?',
+    a: 'Yes. Choose a different plan from Pricing or Plan & billing. Upgrades take effect for the next billing period according to the checkout terms shown. During a trial you can also use Keep Pro to stay on Pro features when the trial ends (you are then charged the Pro price).',
+  },
+  {
+    q: 'Does the price include VAT?',
+    a: 'Yes. Published prices include VAT. Checkout shows the amount including VAT and the charge date before you confirm.',
   },
   {
     q: 'How do order limits work?',
@@ -204,9 +228,9 @@ export function PricingPage() {
             ))}
           </div>
 
-          <div className="mt-8 grid gap-4 rounded-[14px] border border-accent/30 bg-elevated/90 p-5 ring-1 ring-accent/20 sm:grid-cols-[1.2fr_0.8fr] sm:items-center">
+          <div className="mt-8 grid gap-4 rounded-[14px] border border-navy/15 bg-elevated/90 p-5 sm:grid-cols-[1.2fr_0.8fr] sm:items-center">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">Most popular</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-navy">Pro command centre</p>
               <p className="mt-2 font-display text-xl font-semibold text-navy">
                 Pro · {formatGbp(interval === 'year' ? PLANS.pro.annualGbp : PLANS.pro.monthlyGbp)}
                 {interval === 'year' ? '/year' : '/month'}
@@ -249,7 +273,19 @@ export function PricingPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="font-display text-xl font-semibold text-navy">{def.name}</h2>
-                  {def.mostPopular ? (
+                  {id === 'pro' ? (
+                    <div className="flex flex-col items-end gap-1">
+                      {/* K55 — Command centre above Most popular on Pro */}
+                      <span className="rounded-[6px] bg-navy px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                        Command centre
+                      </span>
+                      {def.mostPopular ? (
+                        <span className="rounded-[6px] bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                          Most popular
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : def.mostPopular ? (
                     <span className="rounded-[6px] bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
                       Most popular
                     </span>
@@ -334,7 +370,12 @@ export function PricingPage() {
                     ) : null}
                     <tr className="border-b border-border/70">
                       <td className="sticky left-0 z-10 bg-elevated py-3 pr-4 text-subtle">
-                        {row.help ? <HelpTip label={row.label}>{row.help}</HelpTip> : row.label}
+                        <span className="font-medium text-ink">{row.label}</span>
+                        {row.sub ? (
+                          <span className="mt-1 block max-w-[16rem] text-xs leading-relaxed text-subtle">
+                            {row.sub}
+                          </span>
+                        ) : null}
                       </td>
                       {PLAN_ORDER.map((id) => (
                         <td key={id} className="px-3 py-3 text-ink">

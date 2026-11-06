@@ -122,19 +122,20 @@ export function HomePage() {
               </Button>
             </div>
           </div>
-          <div className="mkt-hero-visual flex min-h-[280px] items-center justify-center rounded-[14px] bg-[linear-gradient(145deg,#0a3d38_0%,#34726b_55%,#7fc4ba_100%)] p-5 sm:min-h-[340px] sm:p-7">
-            <DiagnosisPreview className="h-full min-h-[240px] w-full max-w-lg sm:min-h-[300px]" />
+          {/* K55 — revert K54 equal-inset green panel; restore K48 paired visual */}
+          <div className="mkt-hero-visual min-h-[280px] overflow-hidden rounded-[14px] sm:min-h-[340px]">
+            <DiagnosisPreview className="h-full min-h-[280px] sm:min-h-[340px]" />
           </div>
         </div>
       </section>
 
-      {/* K49 + K54 — centred Product section */}
+      {/* K49 + K54/K55 — centred Product section; headline drops “in pounds” */}
       <section className="border-b border-border bg-elevated">
         <div className="mx-auto flex max-w-6xl flex-col items-center px-4 py-14 text-center sm:px-6 sm:py-16">
           <SectionIntro
             className="mx-auto text-center [&_p]:mx-auto"
             eyebrow="Product"
-            title="See where your profit is leaking, in pounds"
+            title="See where your profit is leaking."
             body="Upload your platform reports. We’ll show your true profit, a Health Score and the six leaks that are costing you the most this month — then the first fix to make."
           />
           <p className="mt-5 w-full max-w-2xl rounded-[10px] border border-border bg-bg px-4 py-3 text-left text-sm text-ink sm:text-center">
