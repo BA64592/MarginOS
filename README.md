@@ -33,7 +33,7 @@ npm run preview
 | Clear sample data / Start fresh (v16.3) | Implemented |
 | Free 24h retention + raw-file deletion (v16.4) | Implemented |
 | Slice A UI parity (B5–B7 handoff) | Template deletion time, upload-limit midnight copy, Shopify PII warnings |
-| Google sign-in | Disabled until K6 (clear copy in auth modal) |
+| Google sign-in | Enabled when `VITE_GOOGLE_CLIENT_ID` is set (K6 GIS OAuth) |
 | K11 payment-fail → past-due delete | Client demo path in Upgrade modal |
 | Digital product mark (manual, K2) | Per-product toggle |
 | Currency GBP/EUR/USD/CAD/AUD | Selector |
@@ -42,7 +42,7 @@ npm run preview
 | Stripe Managed Payments (§12.10) | Live path via `/api/checkout` when `VITE_PAYMENTS_MODE=stripe`; mock in demo |
 | Shopify / Amazon / Etsy CSV parsers | Sample order dataset + MarginOS cost/ads templates; PII strip warnings on all three |
 | ECB FX | Offline ECB reference table + convert-at-import; unsupported currencies excluded |
-| Auth (email + Google) | Strict verify tokens + SES hook (`/api/auth/send-verification`); Google disabled until K6 |
+| Auth (email + Google) | Strict verify tokens + SES hook (`/api/auth/send-verification`); Google GIS via Client ID |
 | Account deletion / 24-month inactivity | Implemented client-side (K8 / §10.2.8) |
 
 See `.env.example` for Stripe / SES secrets. Demo harnesses (Switch to Free, K11 simulators) only in `import.meta.env.DEV` unless `VITE_DEMO_HARNESS=true`.
@@ -55,7 +55,7 @@ Checklists: `docs/checklists/` (Stripe SMP, auth rules)
 **Decided (v16.2):** K2 Etsy digital manual; K3 fee presets signed off (Shopify Basic, Amazon 15%); K5 in-app auth + SES London.  
 **Decided (v16.3):** Clear sample data + Start fresh; **K7** auto-clear sample on first successful own upload.  
 **Decided (v16.4):** Free data deleted after 24 hours; raw files deleted after import; **K8–K11** (refunded Pro keep/export, 3 uploads/day, sales wording, delayed-payment pause).  
-**Pending Akthar:** K1 sample exports, K4 Stripe account, K6 Google Cloud project. Privacy wording pending legal review (K10).
+**Pending Akthar:** K1 sample exports; confirm Google Cloud authorized JS origins include `https://marginos.online` (and local Vite). Privacy wording pending legal review (K10).
 
 ## Pricing (from spec)
 

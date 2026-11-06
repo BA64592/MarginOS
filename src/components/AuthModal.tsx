@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
+import { isGoogleSignInConfigured, requestGoogleSignIn } from '../lib/auth/google'
 import { isInAppBrowser } from '../lib/browserEnv'
 import { Button, Input, Modal } from './ui'
 
-/** Google OIDC enabled once K6 / §20.3 complete. */
-const GOOGLE_SIGN_IN_ENABLED = false
+/** K6 — enabled when VITE_GOOGLE_CLIENT_ID (or built-in client id) is present. */
+const GOOGLE_SIGN_IN_ENABLED = isGoogleSignInConfigured()
 
 type AuthMode = 'signIn' | 'create'
 
@@ -27,6 +28,7 @@ export function AuthModal() {
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [googleBusy, setGoogleBusy] = useState(false)
   const [manualToken, setManualToken] = useState('')
   const [inApp] = useState(() =>
     typeof navigator !== 'undefined' ? isInAppBrowser() : false,
@@ -147,17 +149,32 @@ export function AuthModal() {
           <Button
             className="w-full"
             type="button"
-            disabled={!GOOGLE_SIGN_IN_ENABLED || inApp}
+            disabled={!GOOGLE_SIGN_IN_ENABLED || inApp || googleBusy}
             onClick={() => {
-              if (!GOOGLE_SIGN_IN_ENABLED || inApp) return
-              signInGoogle(true)
+              if (!GOOGLE_SIGN_IN_ENABLED || inApp || googleBusy) return
+              resetFeedback()
+              setGoogleBusy(true)
+              void requestGoogleSignIn()
+                .then((claims) => signInGoogle(claims))
+                .then((res) => {
+                  if (!res.ok) setError(res.message)
+                  else setStatus(res.message)
+                })
+                .catch((err: unknown) => {
+                  setError(err instanceof Error ? err.message : 'Google sign-in failed.')
+                })
+                .finally(() => setGoogleBusy(false))
             }}
           >
-            Continue with Google
+            {googleBusy ? 'Connecting to Google…' : 'Continue with Google'}
           </Button>
           {!GOOGLE_SIGN_IN_ENABLED ? (
             <p className="text-xs text-subtle">{en.googleSignInPendingK6}</p>
-          ) : null}
+          ) : inApp ? null : (
+            <p className="text-xs text-subtle">
+              Google sign-in uses your Google account. We never see your Google password.
+            </p>
+          )}
           <div className="relative py-1 text-center text-xs text-subtle">
             <span className="bg-elevated px-2">or continue with email</span>
           </div>
