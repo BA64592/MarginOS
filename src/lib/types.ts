@@ -270,6 +270,8 @@ export interface AppPersistedState {
   billingInterval: BillingInterval | null
   trialEndsAt: string | null
   accessEndsAt: string | null
+  /** K52 — Pro or Scale while access is trial; day 15 still charges `plan`. */
+  trialEntitlement?: PlanId | null
   foundingEligible: boolean
   foundingSold: number
   /** Force light UI (v18 — dark mode retired). */

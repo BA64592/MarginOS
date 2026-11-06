@@ -180,7 +180,7 @@ export function SettingsBar() {
         <p className="mb-3 text-sm text-subtle">
           {hasPaidAccess(access)
             ? 'Manage trial, subscription, invoices and cancellation in Stripe customer portal (wired at live Stripe).'
-            : 'Start a 14-day free trial on any plan. Card required. Cancel before the trial ends to pay nothing.'}
+            : 'Start a 14-day free trial on any plan. Cancel before day 14 and pay nothing in Plan & billing — one click. Cancelling also closes the account when access ends.'}
         </p>
         <Button size="sm" onClick={() => setUpgradeOpen(true)}>
           {hasPaidAccess(access) ? 'Change plan' : 'View plans & start trial'}

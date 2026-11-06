@@ -55,10 +55,11 @@ export interface CheckoutResult {
   checkoutUrl?: string
 }
 
-export function priceForPlan(planId: PlanId, interval: BillingInterval, founding: boolean) {
+/** K42 — founding prices removed; `founding` arg ignored. */
+export function priceForPlan(planId: PlanId, interval: BillingInterval, _founding = false) {
   const def = PLANS[planId]
   if (interval === 'year') return def.annualGbp
-  return founding ? def.foundingMonthlyGbp : def.monthlyGbp
+  return def.monthlyGbp
 }
 
 /** @deprecated */
@@ -105,9 +106,7 @@ function validateCheckoutGates(args: CheckoutArgs): CheckoutResult | null {
 export function mockStartCheckout(args: CheckoutArgs): CheckoutResult {
   const gate = validateCheckoutGates(args)
   if (gate) return gate
-  const founding =
-    args.interval === 'month' && args.foundingSold < FOUNDING_CAP
-  const amount = priceForPlan(args.planId, args.interval, founding)
+  const amount = priceForPlan(args.planId, args.interval, false)
   const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString()
   const licence: LicenceRecord = {
     id: `lic_${Date.now()}`,
@@ -117,7 +116,7 @@ export function mockStartCheckout(args: CheckoutArgs): CheckoutResult {
     interval: args.interval,
     pricePaid: amount,
     currency: 'GBP',
-    founding,
+    founding: false,
     amountRefunded: 0,
     disputeState: 'none',
     state: 'trialing',
@@ -135,7 +134,6 @@ export function mockStartCheckout(args: CheckoutArgs): CheckoutResult {
 export async function stripeStartCheckout(args: CheckoutArgs): Promise<CheckoutResult> {
   const gate = validateCheckoutGates(args)
   if (gate) return gate
-  const founding = args.interval === 'month' && args.foundingSold < FOUNDING_CAP
   try {
     const res = await fetch('/api/checkout', {
       method: 'POST',
@@ -147,7 +145,7 @@ export async function stripeStartCheckout(args: CheckoutArgs): Promise<CheckoutR
         billingCountry: args.billingCountry,
         planId: args.planId,
         interval: args.interval,
-        founding,
+        founding: false,
         trialDays: TRIAL_DAYS,
         successUrl: `${window.location.origin}/?checkout=success`,
         cancelUrl: `${window.location.origin}/?checkout=cancel`,

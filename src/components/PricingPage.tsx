@@ -2,25 +2,28 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { PRODUCT_NAME } from '../lib/brand'
 import {
-  FOUNDING_CAP,
   PLANS,
   PLAN_ORDER,
+  PRIMARY_TRIAL_CTA,
+  SEAT_HELP,
+  SHOP_HELP,
   TRIAL_DAYS,
   formatGbp,
+  trialChargeDateLabel,
   type BillingInterval,
   type PlanId,
 } from '../lib/plans'
 import { Button } from './ui'
+import { HelpTip } from './ui/HelpTip'
 
-const COMPARISON: { label: string; values: Record<PlanId, string> }[] = [
+const COMPARISON: {
+  label: string
+  help?: string
+  values: Record<PlanId, string>
+}[] = [
   {
     label: 'Unique orders / billing month',
-    values: {
-      starter: '500',
-      growth: '2,000',
-      pro: '5,000',
-      scale: '15,000',
-    },
+    values: { starter: '500', growth: '2,000', pro: '5,000', scale: '15,000' },
   },
   {
     label: 'Platforms',
@@ -33,6 +36,7 @@ const COMPARISON: { label: string; values: Record<PlanId, string> }[] = [
   },
   {
     label: 'Shops',
+    help: SHOP_HELP,
     values: { starter: '1', growth: '1', pro: '1', scale: 'Up to 3' },
   },
   {
@@ -46,6 +50,7 @@ const COMPARISON: { label: string; values: Record<PlanId, string> }[] = [
   },
   {
     label: 'Seats',
+    help: SEAT_HELP,
     values: { starter: '1', growth: '1', pro: '2', scale: '5' },
   },
   {
@@ -74,55 +79,32 @@ const COMPARISON: { label: string; values: Record<PlanId, string> }[] = [
     label: 'PDF beside results',
     values: { starter: '—', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
   },
-  {
-    label: 'Support target',
-    values: {
-      starter: '2 working days',
-      growth: '1 working day',
-      pro: 'Priority',
-      scale: 'Priority + onboarding',
-    },
-  },
 ]
 
 const FAQ = [
   {
     q: 'How does the free trial work?',
-    a: `Every plan includes a ${TRIAL_DAYS}-day free trial. Card required. Cancel in Plan & billing before the displayed trial end to pay nothing. Unless cancelled, the selected monthly or annual price is charged automatically on day 15.`,
+    a: `Every plan includes a ${TRIAL_DAYS}-day free trial. Starter, Growth and Pro trials include full Pro features for those ${TRIAL_DAYS} days; Scale trials include Scale. You pay nothing today. Unless you cancel in Plan & billing, we charge your chosen plan on day 15 — not the Pro price unless you chose Pro or used Keep Pro. Cancel any time before then in one click.`,
   },
   {
     q: 'How do order limits work?',
-    a: 'Orders count once per billing month — re-uploading the same orders does not use allowance again. We warn at 80% and name the next plan. If a file would take you over, we import nothing and show the overage so you can upgrade and re-upload.',
+    a: 'Orders count once per billing month — re-uploading the same orders does not use allowance again. During a Starter/Growth/Pro trial the Pro 5,000-order limit applies. We warn at 80% and name the next plan. If a file would take you over, we import nothing and show the overage.',
   },
   {
     q: 'What happens on annual plans?',
     a: 'Pay for 10 months and receive 12. Order usage still resets monthly inside the annual period. Renewal date and terms are shown before checkout.',
   },
   {
-    q: 'What is the founding offer?',
-    a: `The first ${FOUNDING_CAP} successfully paying accounts get 25% off monthly for 12 months. Trial conversion counts only when the first payment succeeds. Recommended default: monthly plans only.`,
-  },
-  {
-    q: 'Can I cancel anytime?',
-    a: 'Yes. Cancel through Plan & billing / Stripe portal. Paid access continues to the paid-period end; trial cancel avoids the charge. Product data is deleted on the disclosed date after access ends — download your data first.',
+    q: 'How do I cancel?',
+    a: 'Cancel only in Plan & billing (Cancel trial or Cancel subscription). Only the account owner can cancel. There is no email, phone or support-ticket cancellation. You keep access until the trial or paid period ends; then the account is closed, the login is removed, and product data is permanently deleted. Download my data before then.',
   },
 ]
 
 export function PricingPage() {
-  const { setUpgradeOpen, setRoute, setAuthOpen, foundingSold } = useApp()
+  const { setUpgradeOpen, setRoute, setAuthOpen } = useApp()
   const [interval, setInterval] = useState<BillingInterval>('month')
-  const foundingLeft = Math.max(0, FOUNDING_CAP - foundingSold)
-  const founding = interval === 'month' && foundingLeft > 0
 
-  const chargeHint = useMemo(() => {
-    const d = new Date()
-    d.setDate(d.getDate() + TRIAL_DAYS)
-    return d.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  }, [])
+  const chargeHint = useMemo(() => trialChargeDateLabel(), [])
 
   return (
     <main>
@@ -133,14 +115,16 @@ export function PricingPage() {
             'radial-gradient(90% 60% at 0% 0%, #e7f7f6 0%, transparent 55%), #f5f7fb',
         }}
       >
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto w-full max-w-6xl">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Pricing</p>
-          <h1 className="mt-3 max-w-3xl font-[family-name:var(--font-marketing)] text-4xl font-semibold tracking-tight text-navy sm:text-5xl">
+          <h1 className="mt-3 max-w-3xl font-[family-name:var(--font-marketing)] text-[1.75rem] font-semibold tracking-tight text-navy sm:text-4xl lg:text-5xl">
             {PRODUCT_NAME} plans — {TRIAL_DAYS} days free on every tier
           </h1>
           <p className="mt-4 max-w-2xl text-base text-subtle sm:text-lg">
-            Card required. Cancel before the trial ends to pay nothing. All prices include VAT. First charge
-            date for a trial starting today: <span className="font-semibold text-ink">{chargeHint}</span>.
+            14 days free, then your chosen plan. You won’t be charged until{' '}
+            <span className="font-semibold text-ink">{chargeHint}</span>. Cancel any time before then in
+            one click in Plan &amp; billing. All prices include VAT. Every trial includes Pro features
+            (Scale trials include Scale).
           </p>
 
           <div className="mt-8 inline-flex rounded-[10px] bg-muted p-1">
@@ -158,55 +142,47 @@ export function PricingPage() {
             ))}
           </div>
 
-          {founding ? (
-            <p className="mt-4 text-sm font-medium text-accent">
-              Founding: first {FOUNDING_CAP} paying accounts — 25% off monthly for 12 months ({foundingLeft}{' '}
-              places left).
-            </p>
-          ) : null}
-
           <div className="mt-8 grid gap-4 rounded-[14px] border border-navy/15 bg-elevated/90 p-5 sm:grid-cols-[1.2fr_0.8fr] sm:items-center">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-navy">Pro command centre</p>
               <p className="mt-2 font-display text-xl font-semibold text-navy">
-                Pro · {formatGbp(interval === 'year' ? PLANS.pro.annualGbp : founding ? PLANS.pro.foundingMonthlyGbp : PLANS.pro.monthlyGbp)}
+                Pro · {formatGbp(interval === 'year' ? PLANS.pro.annualGbp : PLANS.pro.monthlyGbp)}
                 {interval === 'year' ? '/year' : '/month'}
               </p>
               <p className="mt-2 text-sm text-subtle">
-                5,000 unique orders · all 4 platforms · 24 months history · 2 seats · unlimited scenarios ·
-                priority support. Built for multi-channel merchants who live in the control room daily.
+                5,000 unique orders · all 4 platforms · 24 months history · 2 seats · unlimited
+                scenarios. Built for multi-channel merchants who live in the control room daily.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 sm:justify-end">
-              <Button onClick={() => setUpgradeOpen(true)}>Start Pro trial</Button>
+              <Button variant="secondary" onClick={() => setUpgradeOpen(true)}>
+                Choose Pro
+              </Button>
               <Button
-                variant="secondary"
+                variant="ghost"
                 onClick={() =>
                   document.getElementById('plan-comparison')?.scrollIntoView({ behavior: 'smooth' })
                 }
               >
-                Compare all tiers
+                Full comparison
               </Button>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="grid gap-5 lg:grid-cols-4">
+      <section id="plan-cards" className="mx-auto max-w-6xl scroll-mt-28 px-4 py-12 sm:px-6">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {PLAN_ORDER.map((id) => {
             const def = PLANS[id]
-            const price =
-              interval === 'year'
-                ? def.annualGbp
-                : founding
-                  ? def.foundingMonthlyGbp
-                  : def.monthlyGbp
+            const price = interval === 'year' ? def.annualGbp : def.monthlyGbp
             const isPro = id === 'pro'
             return (
               <div
                 key={id}
-                className={`flex flex-col border bg-elevated p-5 ${
+                id={`plan-card-${id}`}
+                tabIndex={-1}
+                className={`flex flex-col border bg-elevated p-5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${
                   def.mostPopular
                     ? 'border-accent ring-1 ring-accent/30'
                     : isPro
@@ -232,9 +208,10 @@ export function PricingPage() {
                     {interval === 'year' ? '/year' : '/month'}
                   </span>
                 </p>
-                <p className="mt-2 text-xs text-subtle">
-                  {TRIAL_DAYS}-day free trial · then {formatGbp(price)}
-                  {interval === 'year' ? '/year' : '/month'} including VAT · cancel in Plan &amp; billing
+                <p className="mt-2 text-xs leading-relaxed text-subtle">
+                  14 days free, then {formatGbp(price)} {interval === 'year' ? 'a year' : 'a month'}{' '}
+                  including VAT. You won’t be charged until {chargeHint}. Cancel any time before then in
+                  one click.
                 </p>
                 <ul className="mt-5 flex-1 space-y-2 text-sm text-ink">
                   <li>{def.orderLimit.toLocaleString('en-GB')} unique orders / month</li>
@@ -248,10 +225,10 @@ export function PricingPage() {
                 </ul>
                 <Button
                   className="mt-6 w-full"
-                  variant={def.mostPopular || isPro ? 'primary' : 'secondary'}
+                  variant={def.mostPopular ? 'primary' : 'secondary'}
                   onClick={() => setUpgradeOpen(true)}
                 >
-                  Start {TRIAL_DAYS}-day trial
+                  Choose {def.name}
                 </Button>
               </div>
             )
@@ -260,58 +237,68 @@ export function PricingPage() {
       </section>
 
       <section id="plan-comparison" className="scroll-mt-28 border-y border-border bg-elevated px-4 py-14 sm:px-6">
-        <div className="mx-auto max-w-6xl overflow-x-auto">
-          <h2 className="font-[family-name:var(--font-marketing)] text-3xl font-semibold text-navy">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="font-[family-name:var(--font-marketing)] text-[1.75rem] font-semibold text-navy sm:text-3xl">
             Full comparison
           </h2>
-          <p className="mt-2 text-sm text-subtle">Every plan includes true profit, Health Score, six leaks with £ impact, calculators and TikTok Shop UK — Beta.</p>
-          <table className="mt-8 w-full min-w-[720px] border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="py-3 pr-4 font-semibold text-subtle">Capability</th>
-                {PLAN_ORDER.map((id) => (
-                  <th key={id} className="px-3 py-3 font-semibold text-navy">
-                    {PLANS[id].name}
+          <p className="mt-2 text-sm text-subtle sm:text-base">
+            Every plan includes true profit, Health Score, six leaks with £ impact, calculators and
+            TikTok Shop UK — Beta. Every trial includes Pro features.
+          </p>
+          <div className="mt-8 overflow-x-auto">
+            <p className="mb-2 text-xs text-subtle lg:hidden">Swipe sideways to see all plans →</p>
+            <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="sticky left-0 z-10 bg-elevated py-3 pr-4 font-semibold text-subtle">
+                    Capability
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {COMPARISON.map((row) => (
-                <tr key={row.label} className="border-b border-border/70">
-                  <td className="py-3 pr-4 text-subtle">{row.label}</td>
                   {PLAN_ORDER.map((id) => (
-                    <td key={id} className="px-3 py-3 text-ink">
-                      {row.values[id]}
-                    </td>
+                    <th key={id} className="px-3 py-3 font-semibold text-navy">
+                      {PLANS[id].name}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {COMPARISON.map((row) => (
+                  <tr key={row.label} className="border-b border-border/70">
+                    <td className="sticky left-0 z-10 bg-elevated py-3 pr-4 text-subtle">
+                      {row.help ? <HelpTip label={row.label}>{row.help}</HelpTip> : row.label}
+                    </td>
+                    {PLAN_ORDER.map((id) => (
+                      <td key={id} className="px-3 py-3 text-ink">
+                        {row.values[id]}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
-        <h2 className="font-[family-name:var(--font-marketing)] text-3xl font-semibold text-navy">
+        <h2 className="font-[family-name:var(--font-marketing)] text-[1.75rem] font-semibold text-navy sm:text-3xl">
           Hard limits &amp; billing FAQ
         </h2>
         <div className="mt-8 space-y-0">
           {FAQ.map((item) => (
             <details key={item.q} className="group border-t border-border py-4">
-              <summary className="cursor-pointer list-none font-semibold text-navy outline-none marker:content-none">
+              <summary className="min-h-11 cursor-pointer list-none font-semibold text-navy outline-none marker:content-none">
                 <span className="flex items-center justify-between gap-3">
                   {item.q}
                   <span className="text-accent transition group-open:rotate-45">+</span>
                 </span>
               </summary>
-              <p className="mt-3 text-sm leading-relaxed text-subtle">{item.a}</p>
+              <p className="mt-3 text-sm leading-relaxed text-subtle sm:text-base">{item.a}</p>
             </details>
           ))}
         </div>
         <div className="mt-10 flex flex-wrap gap-3">
-          <Button onClick={() => setUpgradeOpen(true)}>Start free trial</Button>
-          <Button variant="secondary" onClick={() => setRoute('sample')}>
+          <Button onClick={() => setUpgradeOpen(true)}>{PRIMARY_TRIAL_CTA}</Button>
+          <Button variant="ghost" onClick={() => setRoute('sample')}>
             View sample report
           </Button>
           <Button variant="ghost" onClick={() => setAuthOpen(true)}>

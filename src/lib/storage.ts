@@ -31,6 +31,7 @@ function migrate(raw: Record<string, unknown>): AppPersistedState | null {
     billingInterval: (raw.billingInterval as AppPersistedState['billingInterval']) ?? null,
     trialEndsAt: (raw.trialEndsAt as string | null) ?? null,
     accessEndsAt: (raw.accessEndsAt as string | null) ?? null,
+    trialEntitlement: (raw.trialEntitlement as AppPersistedState['trialEntitlement']) ?? null,
     foundingEligible: Boolean(raw.foundingEligible ?? true),
     foundingSold: Number(raw.foundingSold ?? 0),
     theme: 'light',

@@ -1,6 +1,6 @@
 import { useApp } from '../../context/AppContext'
 import { PRODUCT_NAME } from '../../lib/brand'
-import { TRIAL_DAYS } from '../../lib/plans'
+import { PRIMARY_TRIAL_CTA, TRIAL_DAYS } from '../../lib/plans'
 import { Button } from '../ui'
 
 const LEAKS = [
@@ -58,7 +58,7 @@ export function SampleReportPage() {
               Open sample shop
             </Button>
             <Button variant="secondary" onClick={() => setUpgradeOpen(true)}>
-              Start {TRIAL_DAYS}-day free trial
+              {PRIMARY_TRIAL_CTA}
             </Button>
           </div>
         </div>
