@@ -53,6 +53,45 @@ function marketplaceRegion(marketplace: string): string {
   return 'GB'
 }
 
+/** Normalise EN/DE/FR Amazon transaction type labels. */
+function classifyAmazonType(raw: string): 'order' | 'refund' | 'transfer' | 'service_fee' | 'other' {
+  const t = raw.toLowerCase().trim()
+  if (!t) return 'other'
+  if (t.includes('transfer') || t === 'überweisung' || t === 'ueberweisung' || t === 'virement') {
+    return 'transfer'
+  }
+  if (
+    t.includes('service fee') ||
+    t.includes('servicegebühr') ||
+    t.includes('servicegebuehr') ||
+    t.includes('frais de service')
+  ) {
+    return 'service_fee'
+  }
+  if (
+    t.includes('refund') ||
+    t.includes('erstattung') ||
+    t.includes('remboursement') ||
+    t.includes('reembolso') ||
+    t.includes('rimborso')
+  ) {
+    return 'refund'
+  }
+  if (
+    t === 'order' ||
+    t.includes('order') ||
+    t === 'bestellung' ||
+    t.includes('bestellung') ||
+    t === 'commande' ||
+    t.includes('commande') ||
+    t === 'pedido' ||
+    t === 'ordine'
+  ) {
+    return 'order'
+  }
+  return 'other'
+}
+
 export function parseAmazonTransactionCsv(
   text: string,
   homeCurrency: HomeCurrency,
@@ -84,37 +123,48 @@ export function parseAmazonTransactionCsv(
 
   for (let r = headerRow + 1; r < rows.length; r++) {
     const row = rows[r]
-    const type = cell(row, idx, 'type', 'Typ', 'transaction type').toLowerCase()
-    if (!type) continue
-    if (type === 'transfer' || type.includes('transfer')) continue
+    const typeRaw = cell(row, idx, 'type', 'Typ', 'transaction type', 'Type de transaction')
+    const kind = classifyAmazonType(typeRaw)
+    if (kind === 'other' && !typeRaw) continue
+    if (kind === 'transfer') continue
 
     const date =
-      parseDateLoose(cell(row, idx, 'date/time', 'Datum/Uhrzeit', 'date time')) || '1970-01-01'
-    const orderId = cell(row, idx, 'order id', 'Bestellnummer') || `AMZ-${r}`
+      parseDateLoose(cell(row, idx, 'date/time', 'Datum/Uhrzeit', 'date time', 'date/heure')) ||
+      '1970-01-01'
+    const orderId = cell(row, idx, 'order id', 'Bestellnummer', 'numéro de commande') || `AMZ-${r}`
     const sku = cell(row, idx, 'sku', 'SKU') || 'UNKNOWN'
-    const name = cell(row, idx, 'description', 'Beschreibung') || sku
-    const qty = Math.abs(Math.round(parseAmount(cell(row, idx, 'quantity', 'Menge')) ?? 0))
+    const name = cell(row, idx, 'description', 'Beschreibung', 'Description') || sku
+    const qty = Math.abs(Math.round(parseAmount(cell(row, idx, 'quantity', 'Menge', 'Quantité')) ?? 0))
     const marketplace = cell(row, idx, 'marketplace')
     const country = marketplaceRegion(marketplace)
     const fulfillment = cell(row, idx, 'fulfillment', 'fulfilment').toLowerCase()
     const isFba = fulfillment.includes('amazon')
 
-    const productSales = parseAmount(cell(row, idx, 'product sales', 'Umsätze', 'product sales')) ?? 0
+    const productSales =
+      parseAmount(cell(row, idx, 'product sales', 'Umsätze', 'product sales', 'ventes de produits')) ?? 0
     const shippingCredits =
       parseAmount(
-        cell(row, idx, 'shipping credits', 'postage credits', 'Versandgutschriften'),
+        cell(
+          row,
+          idx,
+          'shipping credits',
+          'postage credits',
+          'Versandgutschriften',
+          'crédits d’expédition',
+        ),
       ) ?? 0
     const giftWrap = parseAmount(cell(row, idx, 'gift wrap credits', 'giftwrap credits')) ?? 0
     const promo = Math.abs(parseAmount(cell(row, idx, 'promotional rebates')) ?? 0)
-    const sellingFees = Math.abs(parseAmount(cell(row, idx, 'selling fees', 'Verkaufsgebühren')) ?? 0)
+    const sellingFees =
+      Math.abs(parseAmount(cell(row, idx, 'selling fees', 'Verkaufsgebühren', 'frais de vente')) ?? 0)
     const fbaFees = Math.abs(parseAmount(cell(row, idx, 'fba fees')) ?? 0)
     const otherFees = Math.abs(parseAmount(cell(row, idx, 'other transaction fees')) ?? 0)
     const regulatory = Math.abs(parseAmount(cell(row, idx, 'Regulatory Fee')) ?? 0)
     const other = parseAmount(cell(row, idx, 'other')) ?? 0
     const taxCollection = cell(row, idx, 'tax collection model').toLowerCase()
 
-    if (type.includes('service fee') || type === 'service fee') {
-      const otherDesc = cell(row, idx, 'description', 'Beschreibung').toLowerCase()
+    if (kind === 'service_fee') {
+      const otherDesc = cell(row, idx, 'description', 'Beschreibung', 'Description').toLowerCase()
       if (otherDesc.includes('advertising') || otherDesc.includes('cost of advertising')) {
         ads.push({
           id: createId('ad'),
@@ -129,11 +179,12 @@ export function parseAmazonTransactionCsv(
       continue
     }
 
-    if (type.includes('order') || type === 'order' || type.includes('refund')) {
-      const isRefund = type.includes('refund')
+    if (kind === 'order' || kind === 'refund') {
+      const isRefund = kind === 'refund'
       const units = Math.max(1, qty || 1)
-      const sales = isRefund ? -Math.abs(productSales) : productSales
-      const unitPrice = units > 0 ? Math.abs(sales) / units : 0
+      const salesAbs = Math.abs(productSales)
+      const unitPrice = units > 0 ? salesAbs / units : 0
+      // Refunds must not inflate revenue/units — return cost only (BUG-001).
       lines.push({
         id: createId('line'),
         orderId,
@@ -141,9 +192,9 @@ export function parseAmazonTransactionCsv(
         platform: 'amazon',
         sku,
         name,
-        quantity: units,
+        quantity: isRefund ? units : units,
         unitPrice: roundMoney(unitPrice),
-        lineValue: roundMoney(Math.abs(sales) + Math.abs(giftWrap)),
+        lineValue: isRefund ? 0 : roundMoney(salesAbs + Math.abs(giftWrap)),
         orderDate: date,
         postingDate: date,
         currency: homeCurrency,
@@ -151,20 +202,24 @@ export function parseAmazonTransactionCsv(
         region: cell(row, idx, 'order state') || null,
         requiresShipping: true,
         isFba,
-        taxAmount: Math.abs(parseAmount(cell(row, idx, 'product sales tax')) ?? 0),
-        marketplaceCollectedTax: taxCollection.includes('marketplace') || Boolean(cell(row, idx, 'marketplace withheld tax')),
-        shippingCharged: roundMoney(Math.abs(shippingCredits)),
+        taxAmount: isRefund
+          ? 0
+          : Math.abs(parseAmount(cell(row, idx, 'product sales tax')) ?? 0),
+        marketplaceCollectedTax:
+          taxCollection.includes('marketplace') ||
+          Boolean(cell(row, idx, 'marketplace withheld tax')),
+        shippingCharged: isRefund ? 0 : roundMoney(Math.abs(shippingCredits)),
         shippingCost: 0,
-        discount: roundMoney(promo),
-        refundAmount: isRefund ? roundMoney(Math.abs(sales) + Math.abs(shippingCredits)) : 0,
+        discount: isRefund ? 0 : roundMoney(promo),
+        refundAmount: isRefund ? roundMoney(salesAbs + Math.abs(shippingCredits)) : 0,
         returnExtraCost: 0,
-        referralFee: roundMoney(sellingFees + regulatory),
+        referralFee: isRefund ? 0 : roundMoney(sellingFees + regulatory),
         paymentFee: 0,
         listingFee: 0,
-        fulfilmentFee: roundMoney(fbaFees),
+        fulfilmentFee: isRefund ? 0 : roundMoney(fbaFees),
         conversionFee: 0,
         feesActual: {
-          referral: sellingFees > 0 || regulatory > 0,
+          referral: !isRefund && (sellingFees > 0 || regulatory > 0),
           payment: true, // Amazon bundles processing into selling fees — treated as actual referral only
           listing: true, // no listing type compared; mark true so referral-only compare can proceed for Amazon
         },
@@ -173,7 +228,7 @@ export function parseAmazonTransactionCsv(
         refundAllocated: false,
         refundUnitsEstimated: isRefund,
       })
-      if (otherFees > 0) {
+      if (!isRefund && otherFees > 0) {
         // counted as other marketplace fees — fold into referral for CM, not compared separately in draft
         const last = lines[lines.length - 1]
         last.referralFee = roundMoney(last.referralFee + otherFees)
@@ -182,7 +237,9 @@ export function parseAmazonTransactionCsv(
   }
 
   if (!lines.length) {
-    warnings.push('No Order/Refund rows parsed from Amazon report.')
+    errors.push(
+      'No Order/Refund rows parsed from Amazon report. Check the Type column (Order/Bestellung/Commande) and that dates are quoted.',
+    )
   }
 
   return {

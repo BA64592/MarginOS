@@ -155,12 +155,14 @@ export function importPlatformFiles(input: PlatformImportInput): PlatformImportO
       }
     }
     const parsed = parseAmazonTransactionCsv(input.primaryCsv, input.homeCurrency)
-    if (parsed.errors.length) {
+    if (parsed.errors.length || !parsed.lines.length) {
       return {
         ok: false,
         lines: [],
         ads: [],
-        errors: parsed.errors,
+        errors: parsed.errors.length
+          ? parsed.errors
+          : ['No Order/Refund rows parsed from Amazon report.'],
         warnings: parsed.warnings,
         mathsNotes,
         summary: parsed.summary,

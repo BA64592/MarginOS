@@ -11,7 +11,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useDashboardFilters } from './dashboard/DashboardShell'
 import { useApp } from '../context/AppContext'
 import { hasPaidAccess } from '../lib/plans'
 import { formatMoney, formatPct } from '../lib/format'
@@ -61,7 +60,6 @@ function ChartTooltipContent({
 
 export function CostCharts() {
   const { access, result, currency, usingSampleData, isEmptyShop } = useApp()
-  const filters = useDashboardFilters()
   if (isEmptyShop) return null
   const t = result.totals
   const periodLabel = `${t.period.start} → ${t.period.end}`
@@ -75,13 +73,8 @@ export function CostCharts() {
     { name: 'True profit', value: Math.max(0, t.trueProfit) },
   ].filter((d) => d.value > 0)
 
-  const selected = filters?.selected
-  const products = result.products.filter((p) => {
-    if (!selected || selected.size === 0) return true
-    return p.platforms.some((pl) => selected.has(pl))
-  })
-
-  const byProduct = products.slice(0, 10).map((p) => {
+  // Analysis is already platform-filtered in AppContext (BUG-020).
+  const byProduct = result.products.slice(0, 10).map((p) => {
     const value = !hasPaidAccess(access) ? Math.round(p.netMarginPct * 10) / 10 : Math.round(p.netProfit)
     return {
       name: p.name,

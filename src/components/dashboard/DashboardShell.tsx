@@ -12,6 +12,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -216,16 +217,16 @@ function Sidebar({
 }
 
 export function DashboardShell({ children }: { children: ReactNode }) {
-  const { result, lines } = useApp()
+  const { lines, platformFilter, setPlatformFilter } = useApp()
   const [section, setSection] = useState<DashSection>('overview')
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  // Platforms from all loaded lines (not the filtered analysis) so chips stay available.
   const platforms = useMemo(() => {
     const set = new Set<Platform>()
     for (const line of lines) set.add(line.platform)
-    for (const p of result.products) for (const pl of p.platforms) set.add(pl)
     return [...set]
-  }, [lines, result.products])
+  }, [lines])
 
   const [selected, setSelected] = useState<Set<Platform>>(() => new Set())
 
@@ -235,6 +236,24 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     const next = new Set([...selected].filter((p) => platforms.includes(p)))
     return next.size === 0 ? new Set(platforms) : next
   }, [platforms, selected])
+
+  // Drive AppContext analysis from the same chips (BUG-020).
+  useEffect(() => {
+    if (platforms.length === 0) {
+      if (platformFilter) setPlatformFilter(null)
+      return
+    }
+    const allOn = platforms.every((p) => effectiveSelected.has(p))
+    if (allOn) {
+      if (platformFilter) setPlatformFilter(null)
+    } else {
+      const same =
+        platformFilter &&
+        platformFilter.size === effectiveSelected.size &&
+        [...effectiveSelected].every((p) => platformFilter.has(p))
+      if (!same) setPlatformFilter(new Set(effectiveSelected))
+    }
+  }, [effectiveSelected, platforms, platformFilter, setPlatformFilter])
 
   const sectionDomIds = useMemo(() => DASH_SECTIONS.map((s) => dashDomId(s.id)), [])
 
