@@ -39,7 +39,7 @@ export function SampleReportPage() {
             'linear-gradient(180deg, #e7f7f6 0%, #f5f7fb 55%, #f5f7fb 100%)',
         }}
       >
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto flex max-w-6xl flex-col items-center text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Sample report</p>
           <h1 className="mt-3 max-w-2xl font-[family-name:var(--font-marketing)] text-4xl font-semibold tracking-tight text-navy sm:text-5xl">
             What a {PRODUCT_NAME} diagnosis looks like
@@ -48,17 +48,10 @@ export function SampleReportPage() {
             Synthetic sample data — labelled and never counted toward order limits. Explore the ranked
             leaks, then open the live sample shop or start a {TRIAL_DAYS}-day trial.
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Button
-              onClick={() => {
-                loadSample()
-                setRoute('app')
-              }}
-            >
-              Open sample shop
-            </Button>
-            <Button variant="secondary" onClick={() => setUpgradeOpen(true)}>
-              {PRIMARY_TRIAL_CTA}
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <Button onClick={() => setUpgradeOpen(true)}>{PRIMARY_TRIAL_CTA}</Button>
+            <Button variant="ghost" onClick={() => setRoute('pricing')}>
+              Compare plans
             </Button>
           </div>
         </div>
@@ -114,12 +107,26 @@ export function SampleReportPage() {
               ))}
             </dl>
             <p className="mt-5 text-xs text-subtle">
-              Sample data is labelled in-app. Upload your own CSV/XLSX after sign-in to replace it.
+              Sample data is labelled in-app. Upload your own CSV after sign-in to replace it.
             </p>
             <Button className="mt-5 w-full" variant="secondary" onClick={() => setRoute('pricing')}>
               See plans
             </Button>
           </aside>
+        </div>
+
+        {/* K54 — secondary-but-green Open Sample Shop exception (#34726B) */}
+        <div className="mt-12 flex justify-center">
+          <button
+            type="button"
+            className="min-h-11 rounded-[10px] bg-[#34726B] px-6 text-sm font-semibold text-white transition hover:bg-[#2c615b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            onClick={() => {
+              loadSample()
+              setRoute('app')
+            }}
+          >
+            Open Sample Shop
+          </button>
         </div>
       </section>
     </main>

@@ -23,7 +23,9 @@ export function HelpTip({
         aria-controls={id}
         onClick={() => setOpen((v) => !v)}
       >
-        ?
+        <span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-[10px] font-bold leading-none">
+          i
+        </span>
         <span className="sr-only">About {label}</span>
       </button>
       {open ? (

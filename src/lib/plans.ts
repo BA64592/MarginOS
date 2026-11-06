@@ -80,12 +80,12 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
   growth: {
     id: 'growth',
     name: 'Growth',
-    mostPopular: true,
     monthlyGbp: 79,
     annualGbp: 790,
     foundingMonthlyGbp: 79,
     orderLimit: 2000,
     shops: 1,
+    // K53 — usable slots exclude TikTok until S47 (Q32: 1/2/3 of 3).
     maxPlatforms: 2,
     historyMonths: 12,
     seats: 1,
@@ -95,12 +95,13 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
   pro: {
     id: 'pro',
     name: 'Pro',
+    mostPopular: true, // K54 — Most Popular moved from Growth to Pro
     monthlyGbp: 129,
     annualGbp: 1290,
     foundingMonthlyGbp: 129,
     orderLimit: 5000,
     shops: 1,
-    maxPlatforms: 4,
+    maxPlatforms: 3,
     historyMonths: 24,
     seats: 2,
     uploadsTelemetryDefault: null,
@@ -114,7 +115,7 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     foundingMonthlyGbp: 199,
     orderLimit: 15000,
     shops: 3,
-    maxPlatforms: 4,
+    maxPlatforms: 3,
     historyMonths: null,
     seats: 5,
     uploadsTelemetryDefault: null,
@@ -259,8 +260,15 @@ export function trialChargeDateLabel(from = new Date()): string {
   })
 }
 
-/** All launch platforms including TikTok Shop UK Beta. */
-export const LAUNCH_PLATFORMS: Platform[] = ['shopify', 'amazon', 'etsy', 'tiktok']
+/** Usable upload platforms today (K53 — TikTok not a slot until S47). */
+export const LAUNCH_PLATFORMS: Platform[] = ['shopify', 'amazon', 'etsy']
+
+/** K53 public line until the TikTok XLSX reader ships. */
+export const TIKTOK_COMING_SOON = 'TikTok Shop UK (Beta): Excel import coming soon'
+
+/** K54 — homepage differentiation line (word for word). */
+export const MULTI_PLATFORM_LINE =
+  'Built for multi-platform sellers (Shopify, Amazon, Etsy). No 3PL integration required.'
 
 export function nextPlanAfter(plan: PlanId): PlanId | null {
   const i = PLAN_ORDER.indexOf(plan)

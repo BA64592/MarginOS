@@ -31,11 +31,11 @@ export const en = {
   verifyEmail: 'Verify your email before your first upload.',
   googleSignInPendingK6:
     'Google sign-in arrives after Google Cloud project setup (20.3). Use email for now.',
-  /** v18 — TikTok Shop UK Beta on every tier. */
-  tiktokBeta: 'TikTok Shop UK — Beta',
+  /** K53 — public TikTok copy softened until the XLSX reader ships. */
+  tiktokBeta: 'TikTok Shop UK (Beta): Excel import coming soon',
   tiktokBetaBlurb:
-    "Built from TikTok's public UK statement documentation. We haven't verified every seller's file yet. If yours fails, send us the error and, if you're comfortable, the file so we can fix it.",
-  platformsLaunchLine: 'Shopify, Amazon, Etsy and TikTok Shop UK — Beta.',
+    'Excel import for TikTok Shop UK is coming soon. Shopify, Amazon and Etsy uploads work today.',
+  platformsLaunchLine: 'Shopify, Amazon and Etsy. TikTok Shop UK (Beta): Excel import coming soon.',
   etsyMultiFileHint:
     'On a phone you can add the Orders, Order Items and Statement files one at a time — it still counts as one upload.',
   inAppBrowserGoogleHint: `If this link opened inside Instagram, Facebook, TikTok or Gmail, use email sign-in here, or open ${PRODUCT_NAME} in Safari or Chrome for Google sign-in.`,
@@ -50,7 +50,7 @@ export const en = {
   freeUploadPolicy: '',
   uploadsLeft: (_n: number) => '',
   uploadsExhausted: '',
-  tiktokComingSoon: 'TikTok Shop UK — Beta',
+  tiktokComingSoon: 'TikTok Shop UK (Beta): Excel import coming soon',
   alreadyPro: 'You already have an active plan',
   paymentFailedPastDueDeleted: 'Payment failed — access ended and product data was deleted.',
   paymentFailedClocksResumed: 'Payment failed — access continues until the disclosed end date.',

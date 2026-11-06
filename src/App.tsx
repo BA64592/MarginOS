@@ -93,7 +93,7 @@ function DashboardMain() {
           id="workspace"
           eyebrow="Upload"
           title="Connect your channels"
-          description="Import Shopify, Amazon, Etsy or TikTok Shop UK files. No live store connection required."
+          description="Import Shopify, Amazon or Etsy files. TikTok Shop UK (Beta): Excel import coming soon. No live store connection required."
         >
           <div id="workspace">
             <ProductWorkspace />

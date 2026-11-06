@@ -17,11 +17,11 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
 
   const primaryCta = () => {
     if (route === 'pricing') {
-      // K46: header CTA on Pricing scrolls to plan cards and focuses Growth
+      // K46 + K54: header CTA on Pricing scrolls to plan cards and focuses Pro
       const el = document.getElementById('plan-cards')
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       window.setTimeout(() => {
-        document.getElementById('plan-card-growth')?.focus({ preventScroll: true })
+        document.getElementById('plan-card-pro')?.focus({ preventScroll: true })
       }, 400)
       return
     }

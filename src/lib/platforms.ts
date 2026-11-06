@@ -9,7 +9,7 @@ export function platformLabel(platform: Platform): string {
     case 'etsy':
       return 'Etsy'
     case 'tiktok':
-      return 'TikTok Shop UK — Beta'
+      return 'TikTok Shop UK (Beta): Excel import coming soon'
     case 'manual':
       return 'Manual'
   }

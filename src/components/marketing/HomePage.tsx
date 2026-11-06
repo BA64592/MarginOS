@@ -2,7 +2,14 @@ import { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { PRODUCT_NAME } from '../../lib/brand'
 import { en } from '../../i18n/en'
-import { PRIMARY_TRIAL_CTA, TRIAL_DAYS, formatGbp, PLANS } from '../../lib/plans'
+import {
+  MULTI_PLATFORM_LINE,
+  PRIMARY_TRIAL_CTA,
+  TIKTOK_COMING_SOON,
+  TRIAL_DAYS,
+  formatGbp,
+  PLANS,
+} from '../../lib/plans'
 import { Button } from '../ui'
 import { HelpTip } from '../ui/HelpTip'
 import {
@@ -17,13 +24,15 @@ function SectionIntro({
   eyebrow,
   title,
   body,
+  className = '',
 }: {
   eyebrow: string
   title: string
   body: string
+  className?: string
 }) {
   return (
-    <div className="max-w-2xl">
+    <div className={`max-w-2xl ${className}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">{eyebrow}</p>
       <h2 className="mt-2 font-[family-name:var(--font-marketing)] text-[1.75rem] font-semibold tracking-tight text-navy sm:text-3xl lg:text-4xl">
         {title}
@@ -89,13 +98,14 @@ export function HomePage() {
 
   return (
     <div>
-      {/* K48: content-fit hero — paired visual, not a zoomed-out full-bleed with tiny copy */}
+      {/* K48 + K54: content-fit hero — sample card centred in green panel */}
       <section className="border-b border-border">
         <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-2 lg:gap-10 lg:py-16">
           <div className="mkt-hero-copy min-w-0">
             <p className="font-display text-4xl font-bold tracking-tight text-navy sm:text-5xl lg:text-6xl">
               {PRODUCT_NAME}
             </p>
+            <p className="mt-3 text-sm font-medium text-accent sm:text-base">{MULTI_PLATFORM_LINE}</p>
             <h1 className="mt-4 font-[family-name:var(--font-marketing)] text-[1.75rem] font-semibold leading-[1.15] tracking-tight text-navy sm:text-4xl lg:text-[2.5rem]">
               Stop guessing your e-commerce unit economics.
             </h1>
@@ -112,21 +122,22 @@ export function HomePage() {
               </Button>
             </div>
           </div>
-          <div className="mkt-hero-visual min-h-[280px] overflow-hidden rounded-[14px] sm:min-h-[340px]">
-            <DiagnosisPreview className="h-full min-h-[280px] sm:min-h-[340px]" />
+          <div className="mkt-hero-visual flex min-h-[280px] items-center justify-center rounded-[14px] bg-[linear-gradient(145deg,#0a3d38_0%,#34726b_55%,#7fc4ba_100%)] p-5 sm:min-h-[340px] sm:p-7">
+            <DiagnosisPreview className="h-full min-h-[240px] w-full max-w-lg sm:min-h-[300px]" />
           </div>
         </div>
       </section>
 
-      {/* K49 — outcome-led product section */}
+      {/* K49 + K54 — centred Product section */}
       <section className="border-b border-border bg-elevated">
-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
+        <div className="mx-auto flex max-w-6xl flex-col items-center px-4 py-14 text-center sm:px-6 sm:py-16">
           <SectionIntro
+            className="mx-auto text-center [&_p]:mx-auto"
             eyebrow="Product"
             title="See where your profit is leaking, in pounds"
             body="Upload your platform reports. We’ll show your true profit, a Health Score and the six leaks that are costing you the most this month — then the first fix to make."
           />
-          <p className="mt-5 max-w-2xl rounded-[10px] border border-border bg-bg px-4 py-3 text-sm text-ink">
+          <p className="mt-5 w-full max-w-2xl rounded-[10px] border border-border bg-bg px-4 py-3 text-left text-sm text-ink sm:text-center">
             <span className="font-semibold">Sample result:</span> on this example shop, the biggest leak
             is costing £840 a month.
             <span className="mt-1 block text-xs text-subtle">
@@ -134,7 +145,7 @@ export function HomePage() {
               not a live customer result.
             </span>
           </p>
-          <div className="mt-10 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid w-full gap-x-8 gap-y-6 text-left sm:grid-cols-2 lg:grid-cols-3">
             {PRODUCT_CARDS.map((item) => (
               <div key={item.title} className="border-t border-accent/30 pt-4">
                 <h3 className="font-display text-lg font-semibold text-navy">
@@ -144,68 +155,6 @@ export function HomePage() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* K44 — What files / How to use */}
-      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
-        <SectionIntro
-          eyebrow="Get started"
-          title="What you need, and how it works"
-          body="Tap to open. Designed for phone and tablet — no hover-only help."
-        />
-        <div className="mt-8 max-w-3xl">
-          <Expandable title="What files do I need?">
-            <p>You upload reports you already download from your sales platforms. We never connect to your store.</p>
-            <ul className="mt-3 space-y-3">
-              <li>
-                <strong className="text-ink">Shopify.</strong> In Shopify Admin go to Orders → Export and
-                download the Orders CSV. For actual payment fees, also download your Shopify Payments
-                transactions CSV (optional).
-              </li>
-              <li>
-                <strong className="text-ink">Amazon.</strong> In Seller Central go to Payments → Reports
-                Repository → Transaction, and download a Custom Unified Transaction CSV. This file uses
-                posting dates.
-              </li>
-              <li>
-                <strong className="text-ink">Etsy.</strong> Download both the Orders CSV and the Order Items
-                CSV (both are required). The Monthly Statement is optional and is used for actual
-                card-processing fees.
-              </li>
-              <li>
-                <strong className="text-ink">TikTok Shop UK — Beta.</strong> In Seller Centre go to Finance →
-                Statements → Export or Export history, and download the XLSX file.
-              </li>
-            </ul>
-            <p className="mt-3">
-              You can also enter costs with the product CSV template or type them in. Buyer names, emails,
-              addresses and similar personal details are removed at import and are never stored.
-            </p>
-            <p className="mt-3">
-              Your plan decides how many of these platforms you can use at once (Starter 1 of 4, Growth up
-              to 2, Pro and Scale all 4).
-            </p>
-          </Expandable>
-          <Expandable title="How to use this platform">
-            <ol className="list-decimal space-y-2 pl-5">
-              <li>Start your 14-day free trial and choose a plan.</li>
-              <li>Add your shop and pick the platform it uses.</li>
-              <li>Download the files above and upload them.</li>
-              <li>Add your product costs (and ads, shipping or overheads if you have them).</li>
-              <li>
-                Review the import, then see your true profit, Health Score and the ranked fixes to make
-                first.
-              </li>
-            </ol>
-            <p className="mt-3">
-              Prefer to look around first?{' '}
-              <button type="button" className="font-semibold text-accent underline" onClick={() => setRoute('sample')}>
-                Open the sample report
-              </button>
-              .
-            </p>
-          </Expandable>
         </div>
       </section>
 
@@ -265,6 +214,75 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* K54 — Get Started directly under Tools, centred */}
+      <section className="border-b border-border">
+        <div className="mx-auto flex max-w-6xl flex-col items-center px-4 py-14 text-center sm:px-6 sm:py-16">
+          <SectionIntro
+            className="mx-auto text-center [&_p]:mx-auto"
+            eyebrow="Get started"
+            title="What you need, and how it works"
+            body="Tap to open. Designed for phone and tablet — no hover-only help."
+          />
+          <div className="mt-8 w-full max-w-3xl text-left">
+            <Expandable title="What files do I need?">
+              <p>You upload reports you already download from your sales platforms. We never connect to your store.</p>
+              <ul className="mt-3 space-y-3">
+                <li>
+                  <strong className="text-ink">Shopify.</strong> In Shopify Admin go to Orders → Export and
+                  download the Orders CSV. For actual payment fees, also download your Shopify Payments
+                  transactions CSV (optional).
+                </li>
+                <li>
+                  <strong className="text-ink">Amazon.</strong> In Seller Central go to Payments → Reports
+                  Repository → Transaction, and download a Custom Unified Transaction CSV. This file uses
+                  posting dates.
+                </li>
+                <li>
+                  <strong className="text-ink">Etsy.</strong> Download both the Orders CSV and the Order Items
+                  CSV (both are required). The Monthly Statement is optional and is used for actual
+                  card-processing fees.
+                </li>
+                <li>
+                  <strong className="text-ink">{TIKTOK_COMING_SOON}.</strong> Upload is not available yet —
+                  no export steps until the reader ships.
+                </li>
+              </ul>
+              <p className="mt-3">
+                You can also enter costs with the product CSV template or type them in. Buyer names, emails,
+                addresses and similar personal details are removed at import and are never stored.
+              </p>
+              <p className="mt-3">
+                Your plan decides how many of these platforms you can use at once (Starter 1 of 3, Growth up
+                to 2 of 3, Pro and Scale all 3). {TIKTOK_COMING_SOON}.
+              </p>
+            </Expandable>
+            <Expandable title="How to use this platform">
+              <ol className="list-decimal space-y-2 pl-5">
+                <li>Start your 14-day free trial and choose a plan.</li>
+                <li>Add your shop and pick the platform it uses.</li>
+                <li>Download the Shopify, Amazon or Etsy files above and upload them.</li>
+                <li>Add your product costs (and ads, shipping or overheads if you have them).</li>
+                <li>
+                  Review the import, then see your true profit, Health Score and the ranked fixes to make
+                  first.
+                </li>
+              </ol>
+              <p className="mt-3">
+                Prefer to look around first?{' '}
+                <button
+                  type="button"
+                  className="font-semibold text-accent underline"
+                  onClick={() => setRoute('sample')}
+                >
+                  Open the sample report
+                </button>
+                .
+              </p>
+            </Expandable>
+          </div>
+        </div>
+      </section>
+
       <section className="border-t border-border bg-[linear-gradient(135deg,#061f45_0%,#0a3d38_55%,#34726b_100%)]">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
           <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
@@ -303,18 +321,18 @@ export function HomePage() {
             <div className="rounded-[14px] border border-white/20 bg-white/10 p-5 backdrop-blur-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#7FC4BA]">Most popular</p>
               <p className="mt-2 font-display text-2xl font-semibold text-white">
-                Growth · {formatGbp(PLANS.growth.monthlyGbp)}/mo
+                Pro · {formatGbp(PLANS.pro.monthlyGbp)}/mo
               </p>
               <p className="mt-2 text-sm text-white/75">
-                {PLANS.growth.orderLimit.toLocaleString('en-GB')} orders after trial ·{' '}
-                {PLANS.growth.maxPlatforms} platforms · scenarios &amp; PDF. Try Pro free for 14 days first.
+                {PLANS.pro.orderLimit.toLocaleString('en-GB')} orders · all 3 platforms · 24 months history
+                · scenarios &amp; PDF. Try Pro free for 14 days.
               </p>
               <Button
                 className="mt-5 bg-white text-navy hover:bg-white/90"
                 size="sm"
                 onClick={() => setUpgradeOpen(true)}
               >
-                Choose Growth
+                Choose Pro
               </Button>
             </div>
           </div>
