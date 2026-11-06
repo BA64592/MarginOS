@@ -3,7 +3,7 @@
  * Spec: v16 §12.10 / docs/checklists/stripe-smp.md
  */
 import Stripe from 'stripe'
-import { setUserPlan, setUserPlanByEmail } from './auth-handlers.mjs'
+import { setUserPlan, setUserPlanByEmail, userFromRequest } from './auth-handlers.mjs'
 import { dbConfigured, query } from './db.mjs'
 
 const ALLOWED = new Set([
@@ -45,7 +45,11 @@ export function stripeConfigured() {
   )
 }
 
-export async function createCheckoutSession(body) {
+/**
+ * Create Checkout. Identity MUST come from the authenticated session (BUG-023).
+ * Call as createCheckoutSession(body, req) — body.accountId/email are ignored when a session exists.
+ */
+export async function createCheckoutSession(body, req) {
   const stripe = stripeClient()
   if (!stripe) {
     return {
@@ -55,6 +59,27 @@ export async function createCheckoutSession(body) {
         message: 'Stripe is not configured (STRIPE_SECRET_KEY). Complete K4 then set secrets.',
       },
     }
+  }
+
+  let accountId = ''
+  let email = ''
+  if (req && dbConfigured()) {
+    const user = await userFromRequest(req)
+    if (!user) {
+      return { status: 401, body: { ok: false, message: 'Sign in to start checkout.' } }
+    }
+    accountId = String(user.id)
+    email = String(user.email || '')
+  } else if (process.env.NODE_ENV === 'production' || dbConfigured()) {
+    // Fail closed in hosted envs when we cannot bind a session.
+    return {
+      status: 401,
+      body: { ok: false, message: 'Sign in to start checkout.' },
+    }
+  } else {
+    // Local/dev without DB: allow body identity for smoke tests only.
+    accountId = String(body.accountId || '')
+    email = String(body.email || '')
   }
 
   const country = String(body.billingCountry || '').toUpperCase()
@@ -72,22 +97,26 @@ export async function createCheckoutSession(body) {
     return { status: 503, body: { ok: false, message: 'Stripe price IDs not configured.' } }
   }
 
+  const base = {
+    mode: 'payment',
+    client_reference_id: accountId,
+    customer_email: email || undefined,
+    success_url: String(body.successUrl || 'https://marginos.online/?checkout=success'),
+    cancel_url: String(body.cancelUrl || 'https://marginos.online/?checkout=cancel'),
+    line_items: [{ price: priceId, quantity: 1 }],
+    expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+    metadata: {
+      marginos_account_id: accountId,
+      early_bird: body.earlyBird ? '1' : '0',
+      billing_country: country,
+    },
+  }
+
   try {
     const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      client_reference_id: String(body.accountId || ''),
-      customer_email: String(body.email || '') || undefined,
-      success_url: String(body.successUrl || 'https://marginos.online/?checkout=success'),
-      cancel_url: String(body.cancelUrl || 'https://marginos.online/?checkout=cancel'),
-      line_items: [{ price: priceId, quantity: 1 }],
+      ...base,
       // Managed Payments / Link — ignore if account not yet eligible
       managed_payments: { enabled: true },
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-      metadata: {
-        marginos_account_id: String(body.accountId || ''),
-        early_bird: body.earlyBird ? '1' : '0',
-        billing_country: country,
-      },
     })
     if (!session.url) {
       return { status: 502, body: { ok: false, message: 'Stripe Checkout Session failed.' } }
@@ -102,20 +131,7 @@ export async function createCheckoutSession(body) {
     if (String(message).toLowerCase().includes('managed_payments')) {
       try {
         const stripe2 = stripeClient()
-        const session = await stripe2.checkout.sessions.create({
-          mode: 'payment',
-          client_reference_id: String(body.accountId || ''),
-          customer_email: String(body.email || '') || undefined,
-          success_url: String(body.successUrl || 'https://marginos.online/?checkout=success'),
-          cancel_url: String(body.cancelUrl || 'https://marginos.online/?checkout=cancel'),
-          line_items: [{ price: priceId, quantity: 1 }],
-          expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-          metadata: {
-            marginos_account_id: String(body.accountId || ''),
-            early_bird: body.earlyBird ? '1' : '0',
-            billing_country: country,
-          },
-        })
+        const session = await stripe2.checkout.sessions.create(base)
         return {
           status: 200,
           body: {

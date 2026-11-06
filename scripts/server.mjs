@@ -181,7 +181,7 @@ const server = http.createServer(async (req, res) => {
         json(res, 400, { ok: false, message: 'Invalid JSON' })
         return
       }
-      const result = await createCheckoutSession(body)
+      const result = await createCheckoutSession(body, req)
       json(res, result.status, result.body)
       return
     }

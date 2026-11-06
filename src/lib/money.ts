@@ -2,15 +2,15 @@
 
 export function roundHalfUp(value: number, decimals: number): number {
   if (!Number.isFinite(value)) return 0
-  const factor = 10 ** decimals
-  const shifted = value * factor
+  // Decimal-safe half-up via exponential string shift (avoids 1.005*100 → 100.499… — BUG-005).
+  const shifted = Number(`${value}e${decimals}`)
+  if (!Number.isFinite(shifted)) return 0
   const sign = shifted < 0 ? -1 : 1
   const abs = Math.abs(shifted)
   const whole = Math.floor(abs)
   const frac = abs - whole
-  // Exactly 0.5 → round away from zero (half-up)
   const rounded = frac >= 0.5 - Number.EPSILON ? whole + 1 : whole
-  return (sign * rounded) / factor
+  return Number(`${sign * rounded}e-${decimals}`)
 }
 
 export function roundMoney(value: number) {

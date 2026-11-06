@@ -14,6 +14,7 @@ import {
 import { importPlatformFiles, type PlatformImportInput } from '../lib/csv/importPlatform'
 import { compareFees } from '../lib/fees/presets'
 import { createId } from '../lib/format'
+import { roundMoney } from '../lib/money'
 import { marginosAuthProvider } from '../lib/auth/provider'
 import {
   EARLY_BIRD_CAP,
@@ -58,6 +59,7 @@ import type {
   KeptProData,
   OrderLine,
   Plan,
+  Platform,
   ProductCostRow,
   SavedDataset,
   Scenario,
@@ -236,6 +238,9 @@ interface AppContextValue {
   removeScenario: (id: string) => void
   saveDataset: (name: string) => void
   exportDataCsv: () => string
+  /** Active Control Room platform filter (null/empty = all platforms). Recalculates KPIs (BUG-020). */
+  platformFilter: Set<Platform> | null
+  setPlatformFilter: (next: Set<Platform> | null) => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -319,6 +324,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedSku, setSelectedSku] = useState<string | null>(
     (saved?.costs ?? sample.costs)[0]?.sku ?? null,
   )
+  const [platformFilter, setPlatformFilter] = useState<Set<Platform> | null>(null)
 
   const usingSampleData =
     lines.some((l) => l.isSample) || costs.some((c) => c.isSample) || ads.some((a) => a.isSample)
@@ -498,20 +504,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
       window.history.replaceState({}, '', next)
     }
     if (params.get('checkout') === 'success') {
-      setAccess('trial')
-      setTrialUsed(true)
+      // Do not grant trial from the query string alone (BUG-023). Wait for session/licence sync.
       setPaymentPending(false)
       setFreeClocks([])
-      // Refresh licence from server (Stripe webhook may have written plan)
       void marginosAuthProvider.fetchSession().then((session) => {
-        if (session?.plan === 'pro') applyLegacyFromSession()
-        if (session) {
-          setUser((u) =>
-            u
-              ? { ...u, emailVerified: session.emailVerified, id: session.accountId, email: session.email }
-              : u,
-          )
+        if (!session) return
+        if (session.plan === 'pro') applyLegacyFromSession()
+        else {
+          // Server confirmed a session after Checkout — unlock trial locally once.
+          setAccess((prev) => (prev === 'none' ? 'trial' : prev))
+          setTrialUsed(true)
         }
+        setUser((u) =>
+          u
+            ? { ...u, emailVerified: session.emailVerified, id: session.accountId, email: session.email }
+            : {
+                id: session.accountId,
+                email: session.email,
+                emailVerified: session.emailVerified,
+                authProvider: 'email',
+                createdAt: new Date().toISOString(),
+                lastSignInAt: new Date().toISOString(),
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London',
+                timeZoneChangedAt: null,
+              },
+        )
       })
       params.delete('checkout')
       const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
@@ -587,52 +604,110 @@ export function AppProvider({ children }: { children: ReactNode }) {
     trialUsed,
   ])
 
-  const adSpendTotal = ads.reduce((s, a) => s + a.amount, 0)
-  const feeCmp = useMemo(() => compareFees(lines, currency), [lines, currency])
+  const analysisPlan = entitlementPlan ?? plan
+  const analysisLines = useMemo(() => {
+    if (!platformFilter || platformFilter.size === 0) return lines
+    return lines.filter((l) => platformFilter.has(l.platform))
+  }, [lines, platformFilter])
+
+  const adSpendTotal = useMemo(() => {
+    // When a platform filter is active, only count ads that match that channel loosely;
+    // otherwise use all ads (BUG-020 honesty — prefer under-count vs wrong full-shop ROAS).
+    if (!platformFilter || platformFilter.size === 0) {
+      return ads.reduce((s, a) => s + a.amount, 0)
+    }
+    const platforms = [...platformFilter]
+    return ads.reduce((s, a) => {
+      const ch = (a.channel || '').toLowerCase()
+      const matches = platforms.some((p) => {
+        if (p === 'amazon') return ch.includes('amazon')
+        if (p === 'shopify') return ch.includes('meta') || ch.includes('google') || ch.includes('shopify')
+        if (p === 'etsy') return ch.includes('etsy')
+        return false
+      })
+      // Blended / unmatched ads: prorate by filtered revenue share later via analyze; include full for now only if single-platform shop
+      if (!matches && (ch.includes('blend') || !ch)) {
+        return s + a.amount
+      }
+      return matches ? s + a.amount : s
+    }, 0)
+  }, [ads, platformFilter])
+
+  const feeCmp = useMemo(() => compareFees(analysisLines, currency), [analysisLines, currency])
   const periodDays = useMemo(() => {
-    if (!lines.length) return 30
-    const dates = lines.map((l) => l.postingDate || l.orderDate).sort()
+    if (!analysisLines.length) return 30
+    const dates = analysisLines.map((l) => l.postingDate || l.orderDate).sort()
     const a = new Date(dates[0] + 'T00:00:00Z').getTime()
     const b = new Date(dates[dates.length - 1] + 'T00:00:00Z').getTime()
     return Math.max(1, Math.round((b - a) / 86400000) + 1)
-  }, [lines])
+  }, [analysisLines])
   const overheadsForPeriod = (monthlyOverheads * periodDays) / 30
+  const conversionFeesTotal = useMemo(
+    () => roundMoney(analysisLines.reduce((s, l) => s + (l.conversionFee || 0), 0)),
+    [analysisLines],
+  )
 
   const result = useMemo(() => {
     // Full diagnosis for every tier + sample (v18 — no sanitizeResultForFree).
+    // Gates use entitlementPlan so reverse-trial Pro features compute correctly (BUG-012).
     return analyzeStore({
-      lines,
+      lines: analysisLines,
       costs,
       adSpendTotal,
-      overheadsForPeriod: hasFeature(plan, 'overheads') ? overheadsForPeriod : 0,
-      conversionFees: 0,
+      overheadsForPeriod: hasFeature(analysisPlan, 'overheads') ? overheadsForPeriod : 0,
+      conversionFees: conversionFeesTotal,
       currency,
       targetMarginPct,
       feesComparable: feeCmp.comparable,
       feesExcessPp: feeCmp.excessPp,
+      pricesIncludeTax: tax.pricesIncludeTax,
     })
-  }, [lines, costs, adSpendTotal, overheadsForPeriod, currency, targetMarginPct, feeCmp, plan])
+  }, [
+    analysisLines,
+    costs,
+    adSpendTotal,
+    overheadsForPeriod,
+    conversionFeesTotal,
+    currency,
+    targetMarginPct,
+    feeCmp,
+    analysisPlan,
+    tax.pricesIncludeTax,
+  ])
 
   const scenarioResults = useMemo(() => {
-    if (!hasFeature(plan, 'scenarios')) return []
+    if (!hasFeature(analysisPlan, 'scenarios')) return []
     return scenarios.map((scenario) => {
-      const applied = applyScenarioToLines(lines, costs, adSpendTotal, scenario.adjustments)
+      const applied = applyScenarioToLines(analysisLines, costs, adSpendTotal, scenario.adjustments)
       return {
         scenario,
         result: analyzeStore({
           lines: applied.lines,
           costs: applied.costs,
           adSpendTotal: applied.adSpend,
-          overheadsForPeriod: hasFeature(plan, 'overheads') ? overheadsForPeriod : 0,
-          conversionFees: 0,
+          overheadsForPeriod: hasFeature(analysisPlan, 'overheads') ? overheadsForPeriod : 0,
+          conversionFees: conversionFeesTotal,
           currency,
           targetMarginPct,
           feesComparable: feeCmp.comparable,
           feesExcessPp: feeCmp.excessPp,
+          pricesIncludeTax: tax.pricesIncludeTax,
         }),
       }
     })
-  }, [plan, scenarios, lines, costs, adSpendTotal, overheadsForPeriod, currency, targetMarginPct, feeCmp])
+  }, [
+    analysisPlan,
+    scenarios,
+    analysisLines,
+    costs,
+    adSpendTotal,
+    overheadsForPeriod,
+    conversionFeesTotal,
+    currency,
+    targetMarginPct,
+    feeCmp,
+    tax.pricesIncludeTax,
+  ])
 
   const value: AppContextValue = {
     plan,
@@ -812,7 +887,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     signOut: () => {
       void marginosAuthProvider.signOut()
+      // Clear in-memory shop so Account B cannot see Account A data (BUG-022/024).
       setUser(null)
+      setPlan('none')
+      setAccess('none')
+      setBillingInterval(null)
+      setTrialEndsAt(null)
+      setTrialEntitlement(null)
+      setAccessEndsAt(null)
+      setTrialUsed(false)
+      setLines([])
+      setCosts([])
+      setAds([])
+      setScenarios(defaultScenarios())
+      setSavedDatasets([])
+      setUsageUniqueOrderIds([])
+      setKeptProData(null)
+      setPaymentPending(false)
+      setSelectedSku(null)
+      setPlatformFilter(null)
+      setMonthlyOverheads(0)
+      setSampleClearedNotice(null)
+      setRoute('home')
     },
     loadSample: () => {
       // Loading sample is not an upload (v16.3 E1). Only when the shop is empty / sample-only.
@@ -959,6 +1055,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Failed upload leaves sample data in place (v16.3 E9)
         return { ok: false, message: parsed.errors.join(' ') || 'Import failed.' }
       }
+      // Fail closed on empty “success” — never wipe the shop (BUG-013).
+      if (!parsed.lines.length) {
+        return {
+          ok: false,
+          message:
+            parsed.errors.join(' ') ||
+            'No order rows found in that file. Your existing data was left unchanged.',
+        }
+      }
       const limit = orderLimitFor(entitlementPlan ?? plan)
       if (hasPaidAccess(access) && limit != null) {
         const existingForUsage =
@@ -971,8 +1076,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           limit,
         })
         if (!check.allowed) {
+          // Suggest next plan from entitlement (trial Pro), not chosen plan (BUG-017).
+          const ent = entitlementPlan ?? plan
           const tier: PlanId =
-            plan === 'legacy' ? 'pro' : plan === 'none' ? 'starter' : plan
+            ent === 'legacy' ? 'pro' : ent === 'none' ? 'starter' : (ent as PlanId)
           const next = nextPlanAfter(tier)
           return {
             ok: false,
@@ -988,9 +1095,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const hadSample = usingSampleData
       const counts = countSample(lines, costs, ads)
       const ownLines = parsed.lines.map((l) => ({ ...l, isSample: false as const }))
+      const incomingPlatform = input.platform
       const incomingIds = [...uniqueOrderIds(ownLines)]
       setUsageUniqueOrderIds((prev) => [...new Set([...prev, ...incomingIds])])
-      setLines(ownLines)
+      // Merge by platform: replace only this platform’s lines, keep others (BUG-013).
+      setLines((prev) => {
+        const base = hadSample ? prev.filter((l) => !l.isSample) : prev
+        const kept = base.filter((l) => l.platform !== incomingPlatform)
+        return [...kept, ...ownLines]
+      })
       setFreeDataDeletedNotice(null)
       setFreeClocks([])
       if (hadSample) {
@@ -1021,7 +1134,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSelectedSku(ownLines[0]?.sku ?? null)
       // Raw file never stored after import (v16.4 F5)
       const msg = [
-        `Imported ${parsed.summary.newRows ?? parsed.lines.length} lines.`,
+        `Imported ${parsed.summary.newRows ?? parsed.lines.length} lines (${incomingPlatform}).`,
+        'Other platforms were kept.',
         'Original file deleted after import.',
         hadSample ? SAMPLE_CLEARED_NOTE : null,
         ...parsed.warnings.slice(0, 3),
@@ -1232,8 +1346,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           overheadsCleared: monthlyOverheads > 0,
         },
       })
-      clearAllState()
+      clearAllState(user.id)
       setUser(null)
+      setPlatformFilter(null)
       setPlan('none')
       setAccess('none')
       setBillingInterval(null)
@@ -1316,6 +1431,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...orderRows,
       ].join('\n')
     },
+    platformFilter,
+    setPlatformFilter,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

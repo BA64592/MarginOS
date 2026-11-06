@@ -43,6 +43,13 @@ function scaleToMonth(value: number, days: number) {
   return (value * 30) / days
 }
 
+function lineNetRevenue(l: OrderLine, pricesIncludeTax: boolean) {
+  const gross = l.lineValue + l.shippingCharged - l.discount
+  if (!pricesIncludeTax) return gross
+  // Strip marketplace/line tax when prices are tax-inclusive (BUG-002).
+  return gross - Math.max(0, l.taxAmount)
+}
+
 export function analyzeStore(args: {
   lines: OrderLine[]
   costs: ProductCostRow[]
@@ -55,6 +62,8 @@ export function analyzeStore(args: {
   feesExcessPp: number | null
   periodStart?: string
   periodEnd?: string
+  /** When true, subtract line.taxAmount from revenue (Settings → prices include VAT). */
+  pricesIncludeTax?: boolean
 }): AnalysisResult {
   const warnings: string[] = []
   const costMap = new Map(args.costs.map((c) => [c.sku, c]))
@@ -132,13 +141,18 @@ export function analyzeStore(args: {
     bySku.set(line.sku, list)
   }
 
-  const revenueTotal = filtered.reduce((s, l) => s + l.lineValue + l.shippingCharged - l.discount, 0)
+  const pricesIncludeTax = Boolean(args.pricesIncludeTax)
+  const revenueTotal = filtered.reduce((s, l) => s + lineNetRevenue(l, pricesIncludeTax), 0)
   const productRows: Omit<ProductResult, 'adSpendShare' | 'netProfit' | 'netMarginPct' | 'verdict' | 'targetPrice' | 'targetPriceNote'>[] = []
 
   for (const [sku, skuLines] of bySku) {
     const cost = costMap.get(sku)
-    const unitsSold = skuLines.reduce((s, l) => s + l.quantity, 0)
-    const revenue = roundMoney(skuLines.reduce((s, l) => s + l.lineValue + l.shippingCharged - l.discount, 0))
+    // Pure refund rows (lineValue 0 + refundUnitsEstimated) must not count as units sold (BUG-001).
+    const saleLines = skuLines.filter((l) => !(l.refundUnitsEstimated && l.lineValue === 0))
+    const unitsSold = saleLines.reduce((s, l) => s + l.quantity, 0)
+    const revenue = roundMoney(
+      skuLines.reduce((s, l) => s + lineNetRevenue(l, pricesIncludeTax), 0),
+    )
     const shippingCost = roundMoney(
       skuLines.reduce((s, l) => s + l.shippingCost, 0) +
         (cost && !skuLines.some((l) => l.shippingCost > 0) ? cost.shippingCostPerUnit * unitsSold : 0),
@@ -206,7 +220,7 @@ export function analyzeStore(args: {
       refundUnitsEstimated,
       costMissing,
       maths: {
-        revenue: `Revenue = product sales + shipping charged − discounts = ${money(revenue, args.currency)} (refunds are counted in return cost, not here).`,
+        revenue: `Revenue = product sales + shipping charged − discounts${pricesIncludeTax ? ' − tax' : ''} = ${money(revenue, args.currency)} (refunds are counted in return cost, not here).`,
         cm: `Contribution margin = revenue − product/packaging − shipping − fees − return cost = ${money(cm, args.currency)}.`,
       },
     })
@@ -292,7 +306,7 @@ export function analyzeStore(args: {
   const shippingEligibleRevenue = roundMoney(
     filtered
       .filter((l) => l.requiresShipping && !l.isFba)
-      .reduce((s, l) => s + l.lineValue + l.shippingCharged - l.discount, 0),
+      .reduce((s, l) => s + lineNetRevenue(l, pricesIncludeTax), 0),
   )
   const totalsBase = {
     revenue: roundMoney(revenueTotal),

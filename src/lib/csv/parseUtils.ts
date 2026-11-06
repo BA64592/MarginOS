@@ -75,10 +75,30 @@ export function parseAmount(value: string | undefined | null): number | null {
 export function parseDateLoose(value: string | undefined | null): string | null {
   if (!value?.trim()) return null
   const v = value.trim()
-  // ISO-ish
+  // ISO-ish / RFC / "Oct 1, 2024 12:00:00 AM PDT"
   const iso = Date.parse(v)
   if (!Number.isNaN(iso)) {
     return new Date(iso).toISOString().slice(0, 10)
+  }
+  // DD.MM.YYYY or DD/MM/YYYY (EU Amazon)
+  const eu = v.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})/)
+  if (eu) {
+    const d = Number(eu[1])
+    const m = Number(eu[2])
+    const y = Number(eu[3])
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
+  }
+  // YYYY-MM-DD already handled by Date.parse; bare YYYY/MM/DD
+  const ymd = v.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/)
+  if (ymd) {
+    const y = Number(ymd[1])
+    const m = Number(ymd[2])
+    const d = Number(ymd[3])
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
   }
   return null
 }
