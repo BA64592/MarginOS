@@ -169,7 +169,7 @@ const localAuthProvider: AuthProvider = {
       },
       message: claims.email_verified
         ? 'Signed in with Google.'
-        : 'Google email not verified — please verify with MarginOS.',
+        : 'Google email not verified — please verify with Margins 365.',
     }
   },
   async requestEmailVerification(accountId, email) {

@@ -1,6 +1,6 @@
 /**
  * Shared Amazon SES send helper (K5).
- * Accepts both MarginOS names and common AWS aliases.
+ * Accepts Margins 365 / legacy env names and common AWS aliases.
  */
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2'
 
@@ -43,19 +43,19 @@ export async function sendVerificationEmail(opts: {
     },
   })
 
-  const subject = 'Verify your MarginOS email'
+  const subject = 'Verify your Margins 365 email'
   const text = [
-    'Verify your MarginOS email address.',
+    'Verify your Margins 365 email address.',
     '',
     `Open this link within 24 hours:`,
     opts.verifyUrl,
     '',
-    'If you did not create a MarginOS account, you can ignore this email.',
+    'If you did not create a Margins 365 account, you can ignore this email.',
   ].join('\n')
-  const html = `<p>Verify your MarginOS email address.</p>
+  const html = `<p>Verify your Margins 365 email address.</p>
 <p><a href="${opts.verifyUrl}">Confirm email</a></p>
 <p style="color:#555;font-size:14px">Or paste this link into your browser (valid 24 hours):<br/>${opts.verifyUrl}</p>
-<p style="color:#777;font-size:12px">If you did not create a MarginOS account, you can ignore this email.</p>`
+<p style="color:#777;font-size:12px">If you did not create a Margins 365 account, you can ignore this email.</p>`
 
   try {
     const out = await client.send(

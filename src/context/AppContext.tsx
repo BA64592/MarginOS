@@ -221,7 +221,7 @@ interface AppContextValue {
   importPlatformOrders: (
     input: PlatformImportInput,
   ) => { ok: boolean; message: string }
-  /** Apply MarginOS cost/ads template; returns Free deletion note when applicable (v16.4 F2). */
+  /** Apply Margins 365 cost/ads template; returns Free deletion note when applicable (v16.4 F2). */
   replaceTemplate: (
     costs: ProductCostRow[],
     ads?: AdSpendEntry[],

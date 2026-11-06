@@ -1,5 +1,5 @@
 /**
- * Postgres pool + schema migrate for MarginOS auth / licences.
+ * Postgres pool + schema migrate for Margins 365 auth / licences.
  */
 import pg from 'pg'
 

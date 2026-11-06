@@ -72,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const country = String(body.billingCountry || '').toUpperCase()
   if (!ALLOWED.has(country)) {
-    res.status(400).json({ ok: false, message: "MarginOS isn't available in your country yet." })
+    res.status(400).json({ ok: false, message: "Margins 365 isn't available in your country yet." })
     return
   }
 

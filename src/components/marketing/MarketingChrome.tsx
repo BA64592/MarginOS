@@ -120,8 +120,8 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <p className="mx-auto mt-10 max-w-6xl text-xs text-subtle">
-          {PRODUCT_NAME} is a working name pending trademark clearance. Plans from £39/month including VAT after
-          trial. Cancel in Plan &amp; billing — there is no email cancellation route.
+          {PRODUCT_NAME}. Plans from £39/month including VAT after trial. Cancel in Plan &amp; billing —
+          there is no email cancellation route.
         </p>
       </footer>
     </div>
