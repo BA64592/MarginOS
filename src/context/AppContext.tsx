@@ -195,7 +195,11 @@ interface AppContextValue {
   setTargetMarginPct: (n: number) => void
   setMonthlyOverheads: (n: number) => void
   signInEmail: (email: string, password: string) => Promise<{ ok: boolean; message: string }>
-  signInGoogle: (emailVerified: boolean) => void
+  signInGoogle: (claims: {
+    sub: string
+    email: string
+    email_verified: boolean
+  }) => Promise<{ ok: boolean; message: string }>
   verifyEmail: () => void
   requestVerificationEmail: () => Promise<{ ok: boolean; message: string; debugToken?: string }>
   applyVerifyToken: (token: string) => Promise<{ ok: boolean; message: string }>
@@ -821,29 +825,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAuthOpen(false)
       return { ok: true, message: res.message || 'Signed in.' }
     },
-    signInGoogle: (emailVerified) => {
-      void marginosAuthProvider
-        .signInGoogle({
-          sub: 'demo-google-sub',
-          email: 'seller@gmail.com',
-          email_verified: emailVerified,
-        })
-        .then((res) => {
-          if (!res.ok || !res.session) return
-          const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
-          setUser({
-            id: res.session.accountId,
-            email: res.session.email,
-            emailVerified: res.session.emailVerified,
-            authProvider: 'google',
-            googleEmailVerified: emailVerified,
-            createdAt: new Date().toISOString(),
-            lastSignInAt: new Date().toISOString(),
-            timeZone: tzGuess,
-            timeZoneChangedAt: null,
-          })
-          setAuthOpen(false)
-        })
+    signInGoogle: async (claims) => {
+      const res = await marginosAuthProvider.signInGoogle(claims)
+      if (!res.ok || !res.session) {
+        return { ok: false, message: res.message || 'Google sign-in failed.' }
+      }
+      const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
+      setUser({
+        id: res.session.accountId,
+        email: res.session.email,
+        emailVerified: res.session.emailVerified,
+        authProvider: 'google',
+        googleEmailVerified: claims.email_verified,
+        createdAt: new Date().toISOString(),
+        lastSignInAt: new Date().toISOString(),
+        timeZone: tzGuess,
+        timeZoneChangedAt: null,
+      })
+      setAuthOpen(false)
+      return { ok: true, message: res.message || 'Signed in with Google.' }
     },
     verifyEmail: () => {
       if (!user) return

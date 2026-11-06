@@ -30,7 +30,7 @@ export const en = {
     `This file adds ${newUnique.toLocaleString('en-GB')} new orders (${projected.toLocaleString('en-GB')} projected, ${overage.toLocaleString('en-GB')} over your limit). Nothing was imported. Upgrade to ${nextPlan} and re-upload.`,
   verifyEmail: 'Verify your email before your first upload.',
   googleSignInPendingK6:
-    'Google sign-in arrives after Google Cloud project setup (20.3). Use email for now.',
+    'Google sign-in is not configured in this build. Use email for now.',
   /** K53 — public TikTok copy softened until the XLSX reader ships. */
   tiktokBeta: 'TikTok Shop UK (Beta): Excel import coming soon',
   tiktokBetaBlurb:
