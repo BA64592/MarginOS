@@ -120,7 +120,7 @@ export function UpgradeModal() {
                 </span>
               </p>
               <p className="mt-1 text-xs text-subtle">
-                {def.orderLimit.toLocaleString('en-GB')} unique orders / month · {def.maxPlatforms} of 4
+                {def.orderLimit.toLocaleString('en-GB')} unique orders / month · {def.maxPlatforms} of 3
                 platforms
               </p>
             </button>
@@ -156,7 +156,7 @@ export function UpgradeModal() {
         {[
           `Trial entitlement: ${PLANS[entitlement].name} features for ${TRIAL_DAYS} days`,
           'True profit, Health Score, six leaks with £ impact',
-          'TikTok Shop UK — Beta on every plan',
+          'TikTok Shop UK (Beta): Excel import coming soon',
         ].map((p) => (
           <li key={p} className="flex items-start gap-2">
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" />

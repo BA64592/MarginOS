@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { PRODUCT_NAME } from '../lib/brand'
 import {
@@ -7,6 +7,7 @@ import {
   PRIMARY_TRIAL_CTA,
   SEAT_HELP,
   SHOP_HELP,
+  TIKTOK_COMING_SOON,
   TRIAL_DAYS,
   formatGbp,
   trialChargeDateLabel,
@@ -16,22 +17,93 @@ import {
 import { Button } from './ui'
 import { HelpTip } from './ui/HelpTip'
 
-const COMPARISON: {
+type CompRow = {
   label: string
   help?: string
+  group?: string
   values: Record<PlanId, string>
-}[] = [
+}
+
+const COMPARISON: CompRow[] = [
+  // Diagnosis
   {
+    group: 'Diagnosis',
+    label: 'True profit & net margin',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: 'Health Score + full breakdown',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: 'Six ranked leaks with £ impact',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: 'Show the maths on every figure',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  // Calculators
+  {
+    group: 'Calculators',
+    label: 'Target-margin pricing',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: 'Break-even ROAS / ACOS',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: 'Per-channel ROAS',
+    values: { starter: '—', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  // Planning
+  {
+    group: 'Planning',
+    label: 'Saved scenarios',
+    values: {
+      starter: '—',
+      growth: '2 saved',
+      pro: 'Unlimited',
+      scale: 'Unlimited',
+    },
+  },
+  {
+    label: 'PDF beside results',
+    values: { starter: '—', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  // Costs and tax
+  {
+    group: 'Costs & tax',
+    label: 'Overheads',
+    values: { starter: '—', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: 'Own FX rates',
+    values: { starter: '—', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: 'Tax',
+    values: {
+      starter: 'Simple UK/VAT',
+      growth: 'Full per-order',
+      pro: 'Full',
+      scale: 'Full',
+    },
+  },
+  // Account and data (K53 — of 3 usable platforms)
+  {
+    group: 'Account & data',
     label: 'Unique orders / billing month',
     values: { starter: '500', growth: '2,000', pro: '5,000', scale: '15,000' },
   },
   {
     label: 'Platforms',
     values: {
-      starter: '1 of 4',
-      growth: 'Up to 2 of 4',
-      pro: 'All 4',
-      scale: 'All 4',
+      starter: '1 of 3',
+      growth: 'Up to 2 of 3',
+      pro: 'All 3',
+      scale: 'All 3',
     },
   },
   {
@@ -54,37 +126,31 @@ const COMPARISON: {
     values: { starter: '1', growth: '1', pro: '2', scale: '5' },
   },
   {
-    label: 'Overheads / own FX / channel ROAS',
-    values: { starter: '—', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
-  },
-  {
-    label: 'Tax',
-    values: {
-      starter: 'Simple UK/VAT',
-      growth: 'Full per-order',
-      pro: 'Full',
-      scale: 'Full',
-    },
-  },
-  {
-    label: 'Scenarios',
-    values: {
-      starter: '—',
-      growth: '2 saved',
-      pro: 'Unlimited',
-      scale: 'Unlimited',
-    },
-  },
-  {
-    label: 'PDF beside results',
-    values: { starter: '—', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+    label: 'Email support',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
   },
 ]
 
 const FAQ = [
   {
-    q: 'How does the free trial work?',
-    a: `Every plan includes a ${TRIAL_DAYS}-day free trial. Starter, Growth and Pro trials include full Pro features for those ${TRIAL_DAYS} days; Scale trials include Scale. You pay nothing today. Unless you cancel in Plan & billing, we charge your chosen plan on day 15 — not the Pro price unless you chose Pro or used Keep Pro. Cancel any time before then in one click.`,
+    q: 'How do I use this platform?',
+    a: 'Start a 14-day free trial, add your shop, upload Shopify, Amazon or Etsy reports, add product costs, then review true profit, Health Score and the ranked leaks. Prefer to look around first? Open the sample report.',
+  },
+  {
+    q: 'What exactly is needed to get started?',
+    a: 'A verified email, a plan choice, and the CSV exports you already download from Shopify, Amazon or Etsy. Product costs can be typed in or uploaded with the cost template. We never connect live to your store. TikTok Shop UK (Beta): Excel import coming soon — no TikTok upload yet.',
+  },
+  {
+    q: 'How can I recommend a new feature I want to see?',
+    a: 'When signed in, use Suggest a feature in the app (one short text field). We store the timestamp, your account ID, plan and the text for review. There is no public feature-request email, and we do not promise a reply. This is not a cancel or support route.',
+  },
+  {
+    q: 'Can I cancel anytime?',
+    a: 'Yes. Cancel only in Plan & billing (Cancel trial or Cancel subscription). Only the account owner can cancel. There is no email, phone or support-ticket cancellation. You keep access until the trial or paid period ends; then the account is closed, the login is removed, and product data is permanently deleted. Download my data before then.',
+  },
+  {
+    q: 'What happens after the 14-day trial?',
+    a: `Starter, Growth and Pro trials include full Pro features for those ${TRIAL_DAYS} days; Scale trials include Scale. Unless you cancel in Plan & billing, we charge your chosen plan on day 15 — not the Pro price unless you chose Pro or used Keep Pro. Cancel any time before then in one click.`,
   },
   {
     q: 'How do order limits work?',
@@ -93,10 +159,6 @@ const FAQ = [
   {
     q: 'What happens on annual plans?',
     a: 'Pay for 10 months and receive 12. Order usage still resets monthly inside the annual period. Renewal date and terms are shown before checkout.',
-  },
-  {
-    q: 'How do I cancel?',
-    a: 'Cancel only in Plan & billing (Cancel trial or Cancel subscription). Only the account owner can cancel. There is no email, phone or support-ticket cancellation. You keep access until the trial or paid period ends; then the account is closed, the login is removed, and product data is permanently deleted. Download my data before then.',
   },
 ]
 
@@ -124,7 +186,7 @@ export function PricingPage() {
             14 days free, then your chosen plan. You won’t be charged until{' '}
             <span className="font-semibold text-ink">{chargeHint}</span>. Cancel any time before then in
             one click in Plan &amp; billing. All prices include VAT. Every trial includes Pro features
-            (Scale trials include Scale).
+            (Scale trials include Scale). {TIKTOK_COMING_SOON}.
           </p>
 
           <div className="mt-8 inline-flex rounded-[10px] bg-muted p-1">
@@ -142,22 +204,20 @@ export function PricingPage() {
             ))}
           </div>
 
-          <div className="mt-8 grid gap-4 rounded-[14px] border border-navy/15 bg-elevated/90 p-5 sm:grid-cols-[1.2fr_0.8fr] sm:items-center">
+          <div className="mt-8 grid gap-4 rounded-[14px] border border-accent/30 bg-elevated/90 p-5 ring-1 ring-accent/20 sm:grid-cols-[1.2fr_0.8fr] sm:items-center">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-navy">Pro command centre</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">Most popular</p>
               <p className="mt-2 font-display text-xl font-semibold text-navy">
                 Pro · {formatGbp(interval === 'year' ? PLANS.pro.annualGbp : PLANS.pro.monthlyGbp)}
                 {interval === 'year' ? '/year' : '/month'}
               </p>
               <p className="mt-2 text-sm text-subtle">
-                5,000 unique orders · all 4 platforms · 24 months history · 2 seats · unlimited
+                5,000 unique orders · all 3 platforms · 24 months history · 2 seats · unlimited
                 scenarios. Built for multi-channel merchants who live in the control room daily.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 sm:justify-end">
-              <Button variant="secondary" onClick={() => setUpgradeOpen(true)}>
-                Choose Pro
-              </Button>
+              <Button onClick={() => setUpgradeOpen(true)}>Choose Pro</Button>
               <Button
                 variant="ghost"
                 onClick={() =>
@@ -176,7 +236,6 @@ export function PricingPage() {
           {PLAN_ORDER.map((id) => {
             const def = PLANS[id]
             const price = interval === 'year' ? def.annualGbp : def.monthlyGbp
-            const isPro = id === 'pro'
             return (
               <div
                 key={id}
@@ -185,9 +244,7 @@ export function PricingPage() {
                 className={`flex flex-col border bg-elevated p-5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${
                   def.mostPopular
                     ? 'border-accent ring-1 ring-accent/30'
-                    : isPro
-                      ? 'border-navy/40 ring-1 ring-navy/15'
-                      : 'border-border'
+                    : 'border-border'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -195,10 +252,6 @@ export function PricingPage() {
                   {def.mostPopular ? (
                     <span className="rounded-[6px] bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
                       Most popular
-                    </span>
-                  ) : isPro ? (
-                    <span className="rounded-[6px] bg-navy px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                      Command centre
                     </span>
                   ) : null}
                 </div>
@@ -216,7 +269,7 @@ export function PricingPage() {
                 <ul className="mt-5 flex-1 space-y-2 text-sm text-ink">
                   <li>{def.orderLimit.toLocaleString('en-GB')} unique orders / month</li>
                   <li>
-                    {def.maxPlatforms} of 4 platforms · {def.shops} shop{def.shops > 1 ? 's' : ''}
+                    {def.maxPlatforms} of 3 platforms · {def.shops} shop{def.shops > 1 ? 's' : ''}
                   </li>
                   <li>
                     History:{' '}
@@ -234,6 +287,7 @@ export function PricingPage() {
             )
           })}
         </div>
+        <p className="mt-4 text-center text-sm text-subtle">{TIKTOK_COMING_SOON}.</p>
       </section>
 
       <section id="plan-comparison" className="scroll-mt-28 border-y border-border bg-elevated px-4 py-14 sm:px-6">
@@ -242,8 +296,8 @@ export function PricingPage() {
             Full comparison
           </h2>
           <p className="mt-2 text-sm text-subtle sm:text-base">
-            Every plan includes true profit, Health Score, six leaks with £ impact, calculators and
-            TikTok Shop UK — Beta. Every trial includes Pro features.
+            Every plan includes true profit, Health Score, six leaks with £ impact and calculators.
+            Every trial includes Pro features. {TIKTOK_COMING_SOON}.
           </p>
           <div className="mt-8 overflow-x-auto">
             <p className="mb-2 text-xs text-subtle lg:hidden">Swipe sideways to see all plans →</p>
@@ -256,22 +310,39 @@ export function PricingPage() {
                   {PLAN_ORDER.map((id) => (
                     <th key={id} className="px-3 py-3 font-semibold text-navy">
                       {PLANS[id].name}
+                      {PLANS[id].mostPopular ? (
+                        <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                          · Popular
+                        </span>
+                      ) : null}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {COMPARISON.map((row) => (
-                  <tr key={row.label} className="border-b border-border/70">
-                    <td className="sticky left-0 z-10 bg-elevated py-3 pr-4 text-subtle">
-                      {row.help ? <HelpTip label={row.label}>{row.help}</HelpTip> : row.label}
-                    </td>
-                    {PLAN_ORDER.map((id) => (
-                      <td key={id} className="px-3 py-3 text-ink">
-                        {row.values[id]}
+                  <Fragment key={row.label}>
+                    {row.group ? (
+                      <tr className="border-b border-border/40 bg-muted/40">
+                        <td
+                          colSpan={5}
+                          className="sticky left-0 py-2 pr-4 text-xs font-semibold uppercase tracking-[0.12em] text-subtle"
+                        >
+                          {row.group}
+                        </td>
+                      </tr>
+                    ) : null}
+                    <tr className="border-b border-border/70">
+                      <td className="sticky left-0 z-10 bg-elevated py-3 pr-4 text-subtle">
+                        {row.help ? <HelpTip label={row.label}>{row.help}</HelpTip> : row.label}
                       </td>
-                    ))}
-                  </tr>
+                      {PLAN_ORDER.map((id) => (
+                        <td key={id} className="px-3 py-3 text-ink">
+                          {row.values[id]}
+                        </td>
+                      ))}
+                    </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
