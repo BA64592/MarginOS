@@ -1,6 +1,7 @@
 import { useApp } from '../../context/AppContext'
 import { en } from '../../i18n/en'
 import { PRODUCT_NAME } from '../../lib/brand'
+import { PRIMARY_TRIAL_CTA } from '../../lib/plans'
 import { BrandLockup } from '../BrandMark'
 import { Button } from '../ui'
 import { StickyOfferBanner } from './StickyOfferBanner'
@@ -14,10 +15,23 @@ const NAV: { id: 'home' | 'sample' | 'pricing' | 'app'; label: string }[] = [
 export function MarketingChrome({ children }: { children: React.ReactNode }) {
   const { route, setRoute, setAuthOpen, setUpgradeOpen } = useApp()
 
+  const primaryCta = () => {
+    if (route === 'pricing') {
+      // K46: header CTA on Pricing scrolls to plan cards and focuses Growth
+      const el = document.getElementById('plan-cards')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      window.setTimeout(() => {
+        document.getElementById('plan-card-growth')?.focus({ preventScroll: true })
+      }, 400)
+      return
+    }
+    setUpgradeOpen(true)
+  }
+
   return (
     <div className="min-h-screen bg-bg text-ink">
       <div className="sticky top-0 z-50">
-        <StickyOfferBanner />
+        <StickyOfferBanner showCta={false} />
         <header className="border-b border-border/70 bg-bg/85 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <button type="button" onClick={() => setRoute('home')} aria-label={PRODUCT_NAME}>
@@ -29,7 +43,7 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
                   key={item.id}
                   type="button"
                   onClick={() => setRoute(item.id)}
-                  className={`min-h-10 rounded-[10px] px-3 text-sm font-medium transition ${
+                  className={`min-h-11 rounded-[10px] px-3 text-sm font-medium transition ${
                     route === item.id ? 'bg-muted text-navy' : 'text-subtle hover:text-ink'
                   }`}
                 >
@@ -41,8 +55,8 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
               <Button variant="ghost" size="sm" onClick={() => setAuthOpen(true)}>
                 Sign in
               </Button>
-              <Button size="sm" onClick={() => setUpgradeOpen(true)}>
-                Start free trial
+              <Button size="sm" onClick={primaryCta}>
+                {PRIMARY_TRIAL_CTA}
               </Button>
             </div>
           </div>
@@ -52,7 +66,7 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
                 key={item.id}
                 type="button"
                 onClick={() => setRoute(item.id)}
-                className={`min-h-10 shrink-0 rounded-[10px] px-3 text-sm font-medium ${
+                className={`min-h-11 shrink-0 rounded-[10px] px-3 text-sm font-medium ${
                   route === item.id ? 'bg-muted text-navy' : 'text-subtle'
                 }`}
               >
@@ -84,8 +98,8 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
               <button type="button" className="block text-subtle hover:text-ink" onClick={() => setRoute('pricing')}>
                 Pricing
               </button>
-              <button type="button" className="block text-subtle hover:text-ink" onClick={() => setRoute('app')}>
-                Open app
+              <button type="button" className="block text-subtle hover:text-ink" onClick={() => setAuthOpen(true)}>
+                Sign in
               </button>
             </div>
             <div className="space-y-2">
@@ -107,7 +121,7 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
         </div>
         <p className="mx-auto mt-10 max-w-6xl text-xs text-subtle">
           {PRODUCT_NAME} is a working name pending trademark clearance. Plans from £39/month including VAT after
-          trial.
+          trial. Cancel in Plan &amp; billing — there is no email cancellation route.
         </p>
       </footer>
     </div>

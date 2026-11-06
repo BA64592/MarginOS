@@ -1,17 +1,20 @@
 import { Check } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
 import { PRODUCT_NAME } from '../lib/brand'
 import { isDemoHarnessEnabled } from '../lib/demoFlags'
 import { ALLOWED_BUYER_COUNTRIES } from '../lib/payments/provider'
 import {
-  FOUNDING_CAP,
   PLANS,
   PLAN_ORDER,
+  PRIMARY_TRIAL_CTA,
   TRIAL_DAYS,
   formatGbp,
   hasPaidAccess,
+  trialChargeDateLabel,
+  trialCheckoutSummary,
+  trialEntitlementFor,
   type BillingInterval,
   type PlanId,
 } from '../lib/plans'
@@ -49,7 +52,6 @@ export function UpgradeModal() {
     upgradeOpen,
     setUpgradeOpen,
     unlockProDemo,
-    foundingSold,
     user,
     access,
     paymentPending,
@@ -61,14 +63,17 @@ export function UpgradeModal() {
   const [selected, setSelected] = useState<PlanId>('growth')
   const [message, setMessage] = useState<string | null>(null)
 
-  const foundingLeft = Math.max(0, FOUNDING_CAP - foundingSold)
-  const founding = interval === 'month' && foundingLeft > 0
+  const chargeHint = useMemo(() => trialChargeDateLabel(), [])
+  const summary = trialCheckoutSummary(selected, interval, false)
+  const entitlement = trialEntitlementFor(selected)
+  const price =
+    interval === 'year' ? PLANS[selected].annualGbp : PLANS[selected].monthlyGbp
 
   return (
     <Modal open={upgradeOpen} onClose={() => setUpgradeOpen(false)} title={`${PRODUCT_NAME} plans`}>
       <p className="mb-3 text-sm text-subtle">
-        {TRIAL_DAYS}-day free trial on every tier. Card required. Cancel before the trial ends to pay
-        nothing.
+        {PRIMARY_TRIAL_CTA}. You pay nothing today. Cancel any time before {chargeHint} in Plan &amp;
+        billing — it takes one click.
       </p>
 
       <div className="mb-4 flex gap-2 rounded-[10px] bg-muted p-1">
@@ -76,7 +81,7 @@ export function UpgradeModal() {
           <button
             key={iv}
             type="button"
-            className={`min-h-10 flex-1 rounded-[8px] text-sm font-medium transition ${
+            className={`min-h-11 flex-1 rounded-[8px] text-sm font-medium transition ${
               interval === iv ? 'bg-elevated text-ink shadow-sm' : 'text-subtle hover:text-ink'
             }`}
             onClick={() => setInterval(iv)}
@@ -86,29 +91,17 @@ export function UpgradeModal() {
         ))}
       </div>
 
-      {founding && interval === 'month' ? (
-        <p className="mb-3 text-sm font-medium text-accent">
-          Founding offer: first {FOUNDING_CAP} paying accounts get 25% off monthly for 12 months (
-          {foundingLeft} left).
-        </p>
-      ) : null}
-
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
         {PLAN_ORDER.map((id) => {
           const def = PLANS[id]
-          const price =
-            interval === 'year'
-              ? def.annualGbp
-              : founding
-                ? def.foundingMonthlyGbp
-                : def.monthlyGbp
+          const cardPrice = interval === 'year' ? def.annualGbp : def.monthlyGbp
           const active = selected === id
           return (
             <button
               key={id}
               type="button"
               onClick={() => setSelected(id)}
-              className={`rounded-2xl border p-4 text-left transition ${
+              className={`min-h-11 rounded-2xl border p-4 text-left transition ${
                 active ? 'border-accent bg-accent-soft/40' : 'border-border bg-elevated hover:border-accent/40'
               }`}
             >
@@ -121,7 +114,7 @@ export function UpgradeModal() {
                 ) : null}
               </div>
               <p className="font-display text-2xl font-bold text-navy">
-                {formatGbp(price)}
+                {formatGbp(cardPrice)}
                 <span className="text-sm font-medium text-subtle">
                   {interval === 'year' ? '/year' : '/month'}
                 </span>
@@ -135,11 +128,35 @@ export function UpgradeModal() {
         })}
       </div>
 
+      {/* K43 + K52 checkout disclosure */}
+      <div className="mb-4 rounded-[12px] border border-border bg-muted/60 p-3 text-sm leading-relaxed text-ink">
+        {summary.reverseTrial ? (
+          <p>
+            You’ll try <strong>Pro</strong> free for {TRIAL_DAYS} days. Unless you cancel, your{' '}
+            <strong>{PLANS[selected].name}</strong> plan starts on {chargeHint} at{' '}
+            {formatGbp(price)} including VAT
+            {interval === 'year' ? ' per year' : ' per month'}.
+          </p>
+        ) : (
+          <p>
+            You’re starting a {PLANS[selected].name} free trial until {chargeHint}. Unless you cancel,
+            we’ll charge {formatGbp(price)} including VAT
+            {interval === 'year' ? ' per year' : ' per month'}.
+          </p>
+        )}
+        <p className="mt-2 text-subtle">
+          We’ll ask for a card now so your plan can continue after the trial if you keep it. You pay
+          nothing today. Cancel any time before {chargeHint} in Plan &amp; billing — it takes one
+          click. We’ll email you a reminder before you’re charged. There is no email cancellation
+          route.
+        </p>
+      </div>
+
       <ul className="mb-4 space-y-1.5 text-sm text-ink">
         {[
+          `Trial entitlement: ${PLANS[entitlement].name} features for ${TRIAL_DAYS} days`,
           'True profit, Health Score, six leaks with £ impact',
           'TikTok Shop UK — Beta on every plan',
-          'Cancel in Plan & billing any time during the trial to pay nothing',
         ].map((p) => (
           <li key={p} className="flex items-start gap-2">
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
@@ -185,24 +202,12 @@ export function UpgradeModal() {
             void unlockProDemo(country, selected, interval).then((res) => setMessage(res.message))
           }}
         >
-          Start {TRIAL_DAYS}-day {PLANS[selected].name} trial
+          {PRIMARY_TRIAL_CTA}
         </Button>
         <Button variant="secondary" className="flex-1" onClick={() => setUpgradeOpen(false)}>
           Not now
         </Button>
       </div>
-
-      <p className="mt-3 text-xs text-subtle">
-        After the trial, you will be charged {formatGbp(
-          interval === 'year'
-            ? PLANS[selected].annualGbp
-            : founding
-              ? PLANS[selected].foundingMonthlyGbp
-              : PLANS[selected].monthlyGbp,
-        )}{' '}
-        {interval === 'year' ? 'per year' : 'per month'} including VAT unless you cancel in Plan &amp;
-        billing.
-      </p>
 
       {!hasPaidAccess(access) && isDemoHarnessEnabled() ? (
         <div className="mt-4 rounded-lg border border-dashed border-border px-3 py-2">

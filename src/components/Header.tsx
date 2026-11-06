@@ -2,12 +2,14 @@ import { Sparkles, User } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { PRODUCT_NAME } from '../lib/brand'
 import { isDemoHarnessEnabled } from '../lib/demoFlags'
-import { PLANS, hasPaidAccess } from '../lib/plans'
-import { heroCta } from '../lib/pricing'
+import { PLANS, PRIMARY_TRIAL_CTA, hasPaidAccess } from '../lib/plans'
 import { BrandLockup } from './BrandMark'
 import { Badge, Button } from './ui'
 
-function planBadgeLabel(plan: string) {
+function planBadgeLabel(plan: string, access: string, trialEntitlement: string | null | undefined) {
+  if (access === 'trial' && trialEntitlement) {
+    return `Trying ${PLANS[trialEntitlement as 'pro' | 'scale'].name}`
+  }
   if (plan === 'legacy') return 'Pro (lifetime)'
   if (plan === 'starter' || plan === 'growth' || plan === 'pro' || plan === 'scale') {
     return PLANS[plan].name
@@ -25,6 +27,7 @@ export function Header({
   const {
     plan,
     access,
+    trialEntitlement,
     setUpgradeOpen,
     switchToFree,
     setAuthOpen,
@@ -45,7 +48,9 @@ export function Header({
           <button type="button" className="min-w-0" onClick={() => setRoute('app')} aria-label={PRODUCT_NAME}>
             <BrandLockup />
           </button>
-          <Badge tone={subscribed ? 'pro' : 'neutral'}>{planBadgeLabel(plan)}</Badge>
+          <Badge tone={subscribed ? 'pro' : 'neutral'}>
+            {planBadgeLabel(plan, access, trialEntitlement)}
+          </Badge>
         </div>
 
         <div className="flex items-center gap-2">
@@ -77,7 +82,7 @@ export function Header({
           {!subscribed ? (
             <Button size="sm" onClick={() => setUpgradeOpen(true)}>
               <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">{heroCta()}</span>
+              <span className="hidden sm:inline">{PRIMARY_TRIAL_CTA}</span>
               <span className="sm:hidden">Trial</span>
             </Button>
           ) : isDemoHarnessEnabled() ? (

@@ -34,13 +34,15 @@ import { buildDemoStore, type DemoStoreId } from '../lib/demo/stores'
 import { clearAllState, loadState, saveState } from '../lib/storage'
 import { evaluateOrderImport, uniqueOrderIds } from '../lib/orders/uniqueOrders'
 import {
-  FOUNDING_CAP,
   PLANS,
   TRIAL_DAYS,
+  entitlementPlanId,
+  formatGbp,
   hasFeature,
   hasPaidAccess,
   nextPlanAfter,
   orderLimitFor,
+  trialEntitlementFor,
   type AccessKind,
   type BillingInterval,
   type PlanFeature,
@@ -128,10 +130,15 @@ interface AppContextValue {
   billingInterval: BillingInterval | null
   trialEndsAt: string | null
   accessEndsAt: string | null
+  /** K52 reverse-trial entitlement (Pro or Scale) while access === trial. */
+  trialEntitlement: PlanId | null
   foundingSold: number
   foundingLeft: number
   foundingEligible: boolean
   trialUsed: boolean
+  /** Effective plan for features/limits during trial (K52). */
+  entitlementPlan: PlanId | null
+  keepPro: () => { ok: boolean; message: string }
   theme: 'light'
   currency: HomeCurrency
   user: AuthUser | null
@@ -248,10 +255,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     saved?.billingInterval ?? null,
   )
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(saved?.trialEndsAt ?? null)
-  const [accessEndsAt, setAccessEndsAt] = useState<string | null>(saved?.accessEndsAt ?? null)
-  const [foundingSold, setFoundingSold] = useState(
-    saved?.foundingSold ?? saved?.earlyBirdSold ?? 0,
+  const [trialEntitlement, setTrialEntitlement] = useState<PlanId | null>(
+    saved?.trialEntitlement ?? null,
   )
+  const [accessEndsAt, setAccessEndsAt] = useState<string | null>(saved?.accessEndsAt ?? null)
+  const [foundingSold] = useState(saved?.foundingSold ?? saved?.earlyBirdSold ?? 0)
   const [foundingEligible] = useState(saved?.foundingEligible ?? true)
   const [trialUsed, setTrialUsed] = useState(saved?.trialUsed ?? false)
   const [theme] = useState<'light'>('light')
@@ -336,7 +344,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Subscribed → unlimited uploads; no plan → 0 real uploads (sample load still OK).
   const uploadsLeft = hasPaidAccess(access) ? 999 : 0
   const foundingLeft = foundingPlacesLeft(foundingSold)
-  const orderLimit = orderLimitFor(plan)
+  const entitlementPlan = entitlementPlanId(access, plan, trialEntitlement)
+  const orderLimit = orderLimitFor(entitlementPlan ?? plan)
 
   useEffect(() => {
     document.documentElement.classList.remove('dark')
@@ -518,6 +527,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       billingInterval,
       trialEndsAt,
       accessEndsAt,
+      trialEntitlement,
       foundingEligible,
       foundingSold,
       theme: 'light',
@@ -553,6 +563,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     billingInterval,
     trialEndsAt,
     accessEndsAt,
+    trialEntitlement,
     foundingEligible,
     foundingSold,
     currency,
@@ -629,10 +640,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     billingInterval,
     trialEndsAt,
     accessEndsAt,
+    trialEntitlement,
     foundingSold,
     foundingLeft,
     foundingEligible,
     trialUsed,
+    entitlementPlan,
     theme,
     currency,
     user,
@@ -653,7 +666,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     orderLimit,
     route,
     setRoute,
-    hasFeature: (feature) => hasFeature(plan, feature),
+    hasFeature: (feature) => hasFeature(entitlementPlan ?? plan, feature),
+    keepPro: () => {
+      if (access !== 'trial') {
+        return { ok: false, message: 'Keep Pro is only available during a trial.' }
+      }
+      if (plan === 'pro' || plan === 'scale') {
+        return { ok: false, message: 'You are already on Pro or Scale.' }
+      }
+      setPlan('pro')
+      setTrialEntitlement('pro')
+      return {
+        ok: true,
+        message: `Chosen plan upgraded to Pro. You keep the same trial end date; day 15 charges ${formatGbp(PLANS.pro.monthlyGbp)}/mo unless you cancel.`,
+      }
+    },
     result,
     scenarioResults,
     upgradeOpen,
@@ -932,7 +959,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Failed upload leaves sample data in place (v16.3 E9)
         return { ok: false, message: parsed.errors.join(' ') || 'Import failed.' }
       }
-      const limit = orderLimitFor(plan)
+      const limit = orderLimitFor(entitlementPlan ?? plan)
       if (hasPaidAccess(access) && limit != null) {
         const existingForUsage =
           usageUniqueOrderIds.length > 0
@@ -1116,16 +1143,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (res.ok) {
         const lic = res.licence
-        setPlan(lic?.planId ?? planId)
+        const chosen = lic?.planId ?? planId
+        setPlan(chosen)
         setAccess('trial')
+        setTrialEntitlement(trialEntitlementFor(chosen))
         setBillingInterval(lic?.interval ?? interval)
         setTrialEndsAt(
           lic?.trialEndsAt ??
             new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
         )
         setTrialUsed(true)
-        if (res.foundingSold != null) setFoundingSold(res.foundingSold)
-        else if (lic?.founding) setFoundingSold((n) => Math.min(FOUNDING_CAP, n + 1))
+        // K42 — founding offer removed; never increment foundingSold for new checkouts
         setPaymentPending(false)
         setFreeClocks([])
         setFreeDataDeletedNotice(null)

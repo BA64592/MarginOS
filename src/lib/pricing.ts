@@ -56,7 +56,7 @@ export function positioningLine() {
 export function trialPaywallCopy(plan: PlanId = 'growth', interval: BillingInterval = 'month') {
   const def = PLANS[plan]
   const price = interval === 'year' ? def.annualGbp : def.monthlyGbp
-  return `Try ${def.name} free for ${TRIAL_DAYS} days. Card required. Then ${formatGbp(price)}${interval === 'year' ? ' / year' : ' / month'} including VAT unless you cancel.`
+  return `Try ${def.name} free for ${TRIAL_DAYS} days. Cancel before day ${TRIAL_DAYS} and pay nothing. Then ${formatGbp(price)}${interval === 'year' ? ' / year' : ' / month'} including VAT unless you cancel in Plan & billing.`
 }
 
 export function planShortCta(plan: PlanId = 'growth') {
@@ -71,7 +71,7 @@ export function heroCta() {
 }
 
 export function upgradeModalHeadline() {
-  return `${PRODUCT_NAME} plans — ${TRIAL_DAYS}-day free trial on every tier. Card required. Cancel before the trial ends to pay nothing.`
+  return `${PRODUCT_NAME} plans — ${TRIAL_DAYS} days free on every tier. Cancel before day ${TRIAL_DAYS} and pay nothing.`
 }
 
 /** @deprecated v17 names — map to growth trial CTA. */

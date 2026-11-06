@@ -10,6 +10,7 @@ import {
 import { LazyMount } from './components/dashboard/LazyMount'
 import { HealthScorePanel } from './components/HealthScorePanel'
 import { InactivityBanner } from './components/InactivityBanner'
+import { ReverseTrialBanner } from './components/ReverseTrialBanner'
 import { LeaksPanel } from './components/LeaksPanel'
 import { MetricStrip } from './components/MetricStrip'
 import { HomePage } from './components/marketing/HomePage'
@@ -76,6 +77,7 @@ function DashboardMain() {
   return (
     <>
       <InactivityBanner />
+      <ReverseTrialBanner />
       <main className="mx-auto max-w-6xl space-y-12 px-4 py-6 sm:px-6 sm:py-8">
         <SectionFrame
           id="overview"
