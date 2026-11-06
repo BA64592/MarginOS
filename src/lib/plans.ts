@@ -268,7 +268,7 @@ export const TIKTOK_COMING_SOON = 'TikTok Shop UK (Beta): Excel import coming so
 
 /** K54 — homepage differentiation line (word for word). */
 export const MULTI_PLATFORM_LINE =
-  'Built for multi-platform sellers (Shopify, Amazon, Etsy). No 3PL integration required.'
+  'Built for single or multi-platform sellers (Shopify, Amazon, Etsy, Tik-Tok).'
 
 export function nextPlanAfter(plan: PlanId): PlanId | null {
   const i = PLAN_ORDER.indexOf(plan)
