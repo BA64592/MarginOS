@@ -9,7 +9,14 @@ import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2'
 
 const SESSION_DAYS = 30
 const VERIFY_HOURS = 24
+/** K57 / Q34 defaults */
+const RESET_MINUTES = Number(process.env.PASSWORD_RESET_MINUTES || 60)
+const RESET_PER_EMAIL = Number(process.env.PASSWORD_RESET_PER_EMAIL || 3)
+const RESET_PER_IP = Number(process.env.PASSWORD_RESET_PER_IP || 10)
+const RESET_WINDOW_MS = 60 * 60 * 1000
+const MIN_PASSWORD = 15
 const COOKIE = 'marginos_session'
+const GENERIC_RESET_MSG = "If an account exists, we've sent a reset link."
 
 const loginHits = new Map()
 
@@ -168,10 +175,13 @@ export async function handleAuthContinue(body, req) {
   if (!rateLimit(`auth:${ip}`, 30, 15 * 60 * 1000)) {
     return { status: 429, body: { ok: false, message: 'Too many attempts. Try again later.' } }
   }
-  if (!email || !email.includes('@') || password.length < 8) {
+  if (!email || !email.includes('@') || password.length < MIN_PASSWORD) {
     return {
       status: 400,
-      body: { ok: false, message: 'Valid email and password (8+ characters) required.' },
+      body: {
+        ok: false,
+        message: `Valid email and password (${MIN_PASSWORD}+ characters) required.`,
+      },
     }
   }
 
@@ -296,6 +306,172 @@ export async function handleVerifyToken(token) {
   return {
     status: 200,
     body: { ok: true, message: 'Email verified.', user: publicUser(userRes.rows[0]) },
+  }
+}
+
+async function sendSesSimple(to, subject, text, html) {
+  const cfg = sesMailer()
+  if (cfg.error) return { ok: false, message: cfg.error }
+  const client = new SESv2Client({
+    region: cfg.region,
+    credentials: { accessKeyId: cfg.accessKeyId, secretAccessKey: cfg.secretAccessKey },
+  })
+  await client.send(
+    new SendEmailCommand({
+      FromEmailAddress: cfg.from,
+      Destination: { ToAddresses: [to] },
+      Content: {
+        Simple: {
+          Subject: { Data: subject, Charset: 'UTF-8' },
+          Body: {
+            Text: { Data: text, Charset: 'UTF-8' },
+            Html: { Data: html, Charset: 'UTF-8' },
+          },
+        },
+      },
+    }),
+  )
+  return { ok: true }
+}
+
+async function sendPasswordResetEmail(to, resetUrl) {
+  const subject = 'Reset your MarginOS password'
+  const text = `Reset your MarginOS password.\n\nSet a new password within ${RESET_MINUTES} minutes:\n${resetUrl}\n\nIf you did not ask for this, you can ignore this email.\n`
+  const html = `<p>Reset your MarginOS password.</p><p><a href="${resetUrl}">Set a new password</a></p><p style="color:#555;font-size:14px">This link expires in ${RESET_MINUTES} minutes.</p><p style="color:#555;font-size:14px">${resetUrl}</p><p style="color:#555;font-size:14px">If you did not ask for this, you can ignore this email.</p>`
+  return sendSesSimple(to, subject, text, html)
+}
+
+async function sendGoogleOnlyResetEmail(to) {
+  const subject = 'Sign in to MarginOS with Google'
+  const text = `This MarginOS account uses Google sign-in.\n\nThere is no password to reset. Open MarginOS and choose Continue with Google.\n\nIf you did not ask for this, you can ignore this email.\n`
+  const html = `<p>This MarginOS account uses <strong>Google sign-in</strong>.</p><p>There is no password to reset. Open MarginOS and choose <strong>Continue with Google</strong>.</p><p style="color:#555;font-size:14px">If you did not ask for this, you can ignore this email.</p>`
+  return sendSesSimple(to, subject, text, html)
+}
+
+async function sendPasswordChangedEmail(to) {
+  const subject = 'Your password was changed'
+  const text = `Your MarginOS password was changed.\n\nAll other signed-in sessions were signed out. If you did not make this change, reply to this email or contact support from the privacy policy contact address.\n`
+  const html = `<p>Your MarginOS password was changed.</p><p>All other signed-in sessions were signed out.</p><p style="color:#555;font-size:14px">If you did not make this change, reply to this email or use the privacy policy contact address.</p>`
+  return sendSesSimple(to, subject, text, html)
+}
+
+/** K57 — request password reset (no account enumeration). */
+export async function handleRequestPasswordReset(body, req) {
+  if (!dbConfigured()) {
+    return { status: 503, body: { ok: false, message: 'Auth database is not configured.' } }
+  }
+  const email = String(body.email || '')
+    .trim()
+    .toLowerCase()
+  const ip = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || 'local'
+  if (!rateLimit(`reset-ip:${ip}`, RESET_PER_IP, RESET_WINDOW_MS)) {
+    return { status: 429, body: { ok: false, message: 'Too many reset requests. Try again later.' } }
+  }
+  // Always the same message when input looks valid
+  if (!email || !email.includes('@')) {
+    return { status: 400, body: { ok: false, message: 'Enter a valid email address.' } }
+  }
+  if (!rateLimit(`reset-email:${email}`, RESET_PER_EMAIL, RESET_WINDOW_MS)) {
+    // Still no enumeration — same success copy
+    return { status: 200, body: { ok: true, message: GENERIC_RESET_MSG } }
+  }
+
+  const existing = await query(`SELECT * FROM users WHERE email = $1`, [email])
+  const user = existing.rows[0]
+  if (!user) {
+    return { status: 200, body: { ok: true, message: GENERIC_RESET_MSG } }
+  }
+
+  const provider = String(user.auth_provider || 'email')
+  if (provider === 'google') {
+    await sendGoogleOnlyResetEmail(user.email)
+    return { status: 200, body: { ok: true, message: GENERIC_RESET_MSG } }
+  }
+
+  // Invalidate older unused reset links for this user
+  await query(
+    `UPDATE password_reset_tokens SET used_at = NOW()
+     WHERE user_id = $1 AND used_at IS NULL`,
+    [user.id],
+  )
+  const token = `rst_${crypto.randomBytes(16).toString('hex')}`
+  const expires = new Date(Date.now() + RESET_MINUTES * 60 * 1000)
+  await query(
+    `INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)`,
+    [token, user.id, expires.toISOString()],
+  )
+  const origin = body.origin || req.headers.origin || process.env.APP_ORIGIN || 'https://marginos.online'
+  const resetUrl = `${String(origin).replace(/\/$/, '')}/?reset=${encodeURIComponent(token)}`
+  const sent = await sendPasswordResetEmail(user.email, resetUrl)
+  if (!sent.ok) {
+    return { status: 502, body: { ok: false, message: sent.message || 'Could not send reset email.' } }
+  }
+  return { status: 200, body: { ok: true, message: GENERIC_RESET_MSG } }
+}
+
+/** K57 — consume reset token and set new password; wipe other sessions. */
+export async function handleResetPassword(body) {
+  if (!dbConfigured()) {
+    return { status: 503, body: { ok: false, message: 'Auth database is not configured.' } }
+  }
+  const token = String(body.token || '')
+  const newPassword = String(body.password || body.newPassword || '')
+  if (!token) {
+    return {
+      status: 400,
+      body: { ok: false, message: 'This reset link is invalid or expired.', canResend: true },
+    }
+  }
+  if (newPassword.length < MIN_PASSWORD) {
+    return {
+      status: 400,
+      body: {
+        ok: false,
+        message: `Password must be at least ${MIN_PASSWORD} characters.`,
+      },
+    }
+  }
+  const { rows } = await query(
+    `SELECT * FROM password_reset_tokens
+     WHERE token = $1 AND used_at IS NULL AND expires_at > NOW()`,
+    [token],
+  )
+  const row = rows[0]
+  if (!row) {
+    return {
+      status: 400,
+      body: {
+        ok: false,
+        message: 'This reset link is invalid or expired.',
+        canResend: true,
+      },
+    }
+  }
+  const hash = await bcrypt.hash(newPassword, 12)
+  await query(
+    `UPDATE users SET password_hash = $2, auth_provider = 'email', updated_at = NOW() WHERE id = $1`,
+    [row.user_id, hash],
+  )
+  await query(`UPDATE password_reset_tokens SET used_at = NOW() WHERE token = $1`, [token])
+  // Invalidate every other unused reset token for this user
+  await query(
+    `UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL`,
+    [row.user_id],
+  )
+  // Sign out all sessions
+  await query(`DELETE FROM sessions WHERE user_id = $1`, [row.user_id])
+  const userRes = await query(`SELECT * FROM users WHERE id = $1`, [row.user_id])
+  const user = userRes.rows[0]
+  if (user?.email) {
+    await sendPasswordChangedEmail(user.email)
+  }
+  return {
+    status: 200,
+    headers: { 'Set-Cookie': clearSessionCookie() },
+    body: {
+      ok: true,
+      message: 'Password updated. Sign in with your new password. Other sessions were signed out.',
+    },
   }
 }
 

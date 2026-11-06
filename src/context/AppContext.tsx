@@ -203,6 +203,11 @@ interface AppContextValue {
   verifyEmail: () => void
   requestVerificationEmail: () => Promise<{ ok: boolean; message: string; debugToken?: string }>
   applyVerifyToken: (token: string) => Promise<{ ok: boolean; message: string }>
+  requestPasswordReset: (email: string) => Promise<{ ok: boolean; message: string }>
+  resetPassword: (token: string, newPassword: string) => Promise<{ ok: boolean; message: string }>
+  /** K57 — pending password-reset token from ?reset= deep link */
+  passwordResetToken: string | null
+  clearPasswordResetToken: () => void
   signOut: () => void
   loadSample: () => void
   /** Marketing soft-launch demo shops (synthetic only). */
@@ -325,6 +330,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [nowTick, setNowTick] = useState(() => Date.now())
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
+  const [passwordResetToken, setPasswordResetToken] = useState<string | null>(null)
   const [selectedSku, setSelectedSku] = useState<string | null>(
     (saved?.costs ?? sample.costs)[0]?.sku ?? null,
   )
@@ -456,9 +462,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  // Email verification + Stripe return deep links
+  // Email verification + password reset + Stripe return deep links
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    const resetToken = params.get('reset')
+    if (resetToken) {
+      setPasswordResetToken(resetToken)
+      setAuthOpen(true)
+      params.delete('reset')
+      const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
+      window.history.replaceState({}, '', next)
+    }
     const token = params.get('verify')
     if (token) {
       void marginosAuthProvider.verifyEmail(token).then((res) => {
@@ -885,6 +899,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return res
     },
+    requestPasswordReset: (email) => marginosAuthProvider.requestPasswordReset(email),
+    resetPassword: async (token, newPassword) => {
+      const res = await marginosAuthProvider.resetPassword(token, newPassword)
+      if (res.ok) {
+        // K57 — successful reset signs out other sessions; clear local session too
+        void marginosAuthProvider.signOut()
+        setUser(null)
+        setPasswordResetToken(null)
+      }
+      return res
+    },
+    passwordResetToken,
+    clearPasswordResetToken: () => setPasswordResetToken(null),
     signOut: () => {
       void marginosAuthProvider.signOut()
       // Clear in-memory shop so Account B cannot see Account A data (BUG-022/024).
