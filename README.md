@@ -42,7 +42,7 @@ npm run preview
 | Stripe Managed Payments (§12.10) | Live path via `/api/checkout` when `VITE_PAYMENTS_MODE=stripe` |
 | Shopify / Amazon / Etsy CSV parsers | Sample + cost/ads templates; TikTok coming soon (K53) |
 | Auth (email + Google) | Strict verify tokens + SES; Google GIS; password reset |
-| Brand rename | PRODUCT_NAME → Margins 365 (K58); live domain still marginos.online |
+| Brand rename | PRODUCT_NAME → Margins 365 (K58); live host margins365.com |
 
 See `.env.example` for Stripe / SES secrets. Demo harnesses only in `import.meta.env.DEV` unless `VITE_DEMO_HARNESS=true`.
 
