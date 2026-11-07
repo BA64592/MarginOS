@@ -42,7 +42,6 @@ import {
   formatGbp,
   hasFeature,
   hasPaidAccess,
-  maxPlatformsFor,
   platformSlotLimitFor,
   localStateFromLicence,
   nextPlanAfter,
