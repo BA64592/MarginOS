@@ -72,11 +72,12 @@ function clearSessionCookie() {
 }
 
 export function publicUser(row) {
+  const plan = String(row.plan || 'free').toLowerCase()
   return {
     id: row.id,
     email: row.email,
     emailVerified: row.email_verified,
-    plan: row.plan === 'pro' ? 'pro' : 'free',
+    plan: ['starter', 'growth', 'pro', 'scale', 'free'].includes(plan) ? plan : 'free',
     licenceState: row.licence_state,
     timeZone: row.time_zone || 'Europe/London',
     createdAt: row.created_at?.toISOString?.() || row.created_at,
