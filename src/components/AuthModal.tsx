@@ -59,6 +59,16 @@ export function AuthModal() {
   }, [passwordResetToken, authOpen])
 
   useEffect(() => {
+    if (!authOpen || typeof window === 'undefined') return
+    const err = new URLSearchParams(window.location.search).get('error')
+    if (err === 'unverified_google_account') {
+      setError(
+        'Your Google account email is not verified. Use a verified Google account or continue with email.',
+      )
+    }
+  }, [authOpen])
+
+  useEffect(() => {
     if (!user) return
     setFullName(user.fullName || '')
     setBusinessName(user.businessName || '')
@@ -187,6 +197,10 @@ export function AuthModal() {
     try {
       const res = await signInEmail(trimmed, password)
       if (!res.ok) {
+        if (res.code === 'google_only') {
+          setError('This account uses Google Sign-In. Please use Continue with Google above.')
+          return
+        }
         const msg = (res.message || '').trim()
         if (mode === 'create' && (!msg || /sign-?in failed/i.test(msg))) {
           setError('Could not create account. Try again, or sign in if you already have one.')
@@ -492,8 +506,20 @@ export function AuthModal() {
                   void requestGoogleSignIn()
                     .then((claims) => signInGoogle(claims))
                     .then((res) => {
-                      if (!res.ok) setError(res.message)
-                      else setStatus(res.message)
+                      if (!res.ok) {
+                        if (res.code === 'unverified_google_account') {
+                          setAuthOpen(false)
+                          const url = new URL(window.location.href)
+                          url.searchParams.set('error', 'unverified_google_account')
+                          window.history.replaceState({}, '', url.toString())
+                          setError(
+                            'Your Google account email is not verified. Use a verified Google account or continue with email.',
+                          )
+                          setAuthOpen(true)
+                          return
+                        }
+                        setError(res.message)
+                      } else setStatus(res.message)
                     })
                     .catch((err: unknown) => {
                       setError(err instanceof Error ? err.message : 'Google sign-in failed.')

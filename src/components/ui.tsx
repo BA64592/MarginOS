@@ -111,7 +111,7 @@ export function Badge({
         tone === 'ok' && 'rounded-full border border-ok/30 bg-ok-soft text-ok',
         tone === 'warn' && 'rounded-full border border-warn/30 bg-warn-soft text-warn',
         tone === 'danger' && 'rounded-full border border-danger/30 bg-danger-soft text-danger',
-        tone === 'pro' && 'rounded-md bg-navy text-white dark:bg-white dark:text-[#061F45]',
+        tone === 'pro' && 'rounded-md bg-navy text-white',
       )}
     >
       {children}
@@ -174,6 +174,7 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
+  cancelLabel = 'Cancel',
   onCancel,
   onConfirm,
   danger = false,
@@ -182,6 +183,8 @@ export function ConfirmDialog({
   title: string
   children: ReactNode
   confirmLabel: string
+  /** Safe primary dismiss — Easy Cancel uses "Go Back". */
+  cancelLabel?: string
   onCancel: () => void
   onConfirm: () => void
   danger?: boolean
@@ -199,7 +202,7 @@ export function ConfirmDialog({
     >
       <button
         type="button"
-        aria-label="Cancel"
+        aria-label={cancelLabel}
         className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px]"
         onClick={onCancel}
       />
@@ -215,7 +218,7 @@ export function ConfirmDialog({
         <div className="mt-3 space-y-2 text-sm text-subtle">{children}</div>
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <Button autoFocus variant="secondary" onClick={onCancel}>
-            Cancel
+            {cancelLabel}
           </Button>
           <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>
             {confirmLabel}

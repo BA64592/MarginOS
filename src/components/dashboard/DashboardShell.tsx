@@ -116,7 +116,7 @@ function FilterBar() {
                 className={cn(
                   'min-h-9 rounded-[10px] border px-2.5 text-xs font-semibold transition',
                   on
-                    ? 'border-navy/30 bg-navy text-white dark:bg-white dark:text-[#061F45]'
+                    ? 'border-navy/30 bg-navy text-white'
                     : 'border-border bg-elevated text-subtle hover:text-ink',
                 )}
               >

@@ -222,6 +222,17 @@ export async function handleGoogleContinue(body, req) {
   if (!sub || !email || !email.includes('@')) {
     return { status: 400, body: { ok: false, message: 'Google did not return a usable email.' } }
   }
+  // Spec Part 3 — reject unverified Google accounts (no provisional session)
+  if (!emailVerified) {
+    return {
+      status: 403,
+      body: {
+        ok: false,
+        code: 'unverified_google_account',
+        message: 'Your Google account email is not verified. Use a verified Google account or continue with email.',
+      },
+    }
+  }
 
   const bySub = await query(`SELECT * FROM users WHERE google_sub = $1`, [sub])
   let user = bySub.rows[0]
@@ -333,6 +344,17 @@ export async function handleAuthContinue(body, req) {
     )
     user = inserted.rows[0]
   } else {
+    if (String(user.auth_provider || 'email') === 'google') {
+      return {
+        status: 400,
+        body: {
+          ok: false,
+          code: 'google_only',
+          message:
+            'This account uses Google Sign-In. Please use Continue with Google above.',
+        },
+      }
+    }
     const ok = await bcrypt.compare(password, user.password_hash)
     if (!ok) {
       return { status: 401, body: { ok: false, message: 'Email or password is incorrect.' } }
@@ -468,6 +490,47 @@ export async function handleAuthLogoutDestroy(req) {
   return handleAuthLogout()
 }
 
+/** Sign out of all devices — delete every session for the signed-in user. */
+export async function handleAuthLogoutAll(req) {
+  if (!dbConfigured()) {
+    return { status: 503, body: { ok: false, message: 'Auth database is not configured.' } }
+  }
+  const user = await userFromRequest(req)
+  if (!user) return { status: 401, body: { ok: false, message: 'Sign in first.' } }
+  await query(`DELETE FROM sessions WHERE user_id = $1`, [user.id])
+  return {
+    status: 200,
+    headers: { 'Set-Cookie': clearSessionCookie() },
+    body: { ok: true, message: 'Signed out of all devices.' },
+  }
+}
+
+/** Authenticated feature suggestion (max 1000 chars). */
+export async function handleFeatureSuggestion(req, body) {
+  if (!dbConfigured()) {
+    return { status: 503, body: { ok: false, message: 'Auth database is not configured.' } }
+  }
+  const user = await userFromRequest(req)
+  if (!user) return { status: 401, body: { ok: false, message: 'Sign in first.' } }
+  const text = String(body?.text || '').trim()
+  if (!text) return { status: 400, body: { ok: false, message: 'Write a short note.' } }
+  if (text.length > 1000) {
+    return { status: 400, body: { ok: false, message: 'Keep suggestions to 1,000 characters.' } }
+  }
+  await query(
+    `INSERT INTO feature_suggestions (id, user_id, plan_id, email, request_text)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      newId('sug'),
+      user.id,
+      String(user.plan || 'free'),
+      user.email,
+      text.slice(0, 1000),
+    ],
+  )
+  return { status: 200, body: { ok: true, message: 'Thanks — we saved your suggestion for review.' } }
+}
+
 export async function handleSendVerification(req, body) {
   if (!dbConfigured()) {
     return { status: 503, body: { ok: false, message: 'Auth database is not configured.' } }
@@ -550,9 +613,9 @@ async function sendPasswordResetEmail(to, resetUrl) {
 }
 
 async function sendGoogleOnlyResetEmail(to) {
-  const subject = 'Sign in to Margins 365 with Google'
-  const text = `This Margins 365 account uses Google sign-in.\n\nThere is no password to reset. Open Margins 365 and choose Continue with Google.\n\nIf you did not ask for this, you can ignore this email.\n`
-  const html = `<p>This Margins 365 account uses <strong>Google sign-in</strong>.</p><p>There is no password to reset. Open Margins 365 and choose <strong>Continue with Google</strong>.</p><p style="color:#555;font-size:14px">If you did not ask for this, you can ignore this email.</p>`
+  const subject = 'Your Margins 365 sign-in'
+  const text = `You asked about a password for this Margins 365 account. This account uses Google to sign in. Use Continue with Google on the sign-in screen — there is no password to reset. If you didn’t ask for this, you can ignore this email.\n`
+  const html = `<p>You asked about a password for this <strong>Margins 365</strong> account.</p><p>This account uses Google to sign in. Use <strong>Continue with Google</strong> on the sign-in screen — there is no password to reset.</p><p style="color:#555;font-size:14px">If you didn’t ask for this, you can ignore this email.</p>`
   return sendSesSimple(to, subject, text, html)
 }
 
@@ -573,7 +636,7 @@ export async function handleRequestPasswordReset(body, req) {
     .toLowerCase()
   const ip = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || 'local'
   if (!rateLimit(`reset-ip:${ip}`, RESET_PER_IP, RESET_WINDOW_MS)) {
-    return { status: 429, body: { ok: false, message: 'Too many reset requests. Try again later.' } }
+    return { status: 429, body: { ok: false, message: 'Please wait before requesting another link' } }
   }
   // Always the same message when input looks valid
   if (!email || !email.includes('@')) {

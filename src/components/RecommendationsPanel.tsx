@@ -20,7 +20,7 @@ export function RecommendationsPanel() {
       />
       <Card className="mb-3 border-accent/30 bg-accent-soft/40">
         <div className="flex gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white dark:text-slate-950">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white">
             <Lightbulb className="h-5 w-5" />
           </div>
           <div>

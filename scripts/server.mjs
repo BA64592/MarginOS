@@ -8,8 +8,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   handleAuthContinue,
+  handleAuthLogoutAll,
   handleAuthLogoutDestroy,
   handleAuthMe,
+  handleFeatureSuggestion,
   handleGoogleContinue,
   handleRequestPasswordReset,
   handleResetPassword,
@@ -190,6 +192,25 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    if (req.method === 'POST' && url === '/api/auth/logout-all') {
+      const result = await handleAuthLogoutAll(req)
+      json(res, result.status, result.body, result.headers || {})
+      return
+    }
+
+    if (req.method === 'POST' && url === '/api/feature-suggestions') {
+      let body = {}
+      try {
+        body = await parseJson(req)
+      } catch {
+        json(res, 400, { ok: false, message: 'Invalid JSON' })
+        return
+      }
+      const result = await handleFeatureSuggestion(req, body)
+      json(res, result.status, result.body)
+      return
+    }
+
     if (req.method === 'POST' && url === '/api/auth/sync-licence') {
       const result = await handleSyncLicence(req)
       json(res, result.status, result.body)
@@ -254,7 +275,11 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
-    if (req.method === 'POST' && url === '/api/auth/reset-password') {
+    // Primary reset + Part 7 QA-A alias
+    if (
+      req.method === 'POST' &&
+      (url === '/api/auth/reset-password' || url === '/api/v1/auth/reset')
+    ) {
       let body = {}
       try {
         body = await parseJson(req)
@@ -280,7 +305,11 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
-    if (req.method === 'POST' && url === '/api/webhooks/stripe') {
+    // Primary Stripe webhook + Part 5 alias (same handler; no Dashboard change required)
+    if (
+      req.method === 'POST' &&
+      (url === '/api/webhooks/stripe' || url === '/api/v1/billing/webhook')
+    ) {
       const rawBuf = await readBodyBuffer(req)
       const sig = req.headers['stripe-signature']
       const result = await handleStripeWebhook(rawBuf, Array.isArray(sig) ? sig[0] : sig)

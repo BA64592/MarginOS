@@ -30,13 +30,14 @@ export interface AuthProvider {
     ok: boolean
     session?: AuthSession
     message: string
+    code?: string
   }>
   signInGoogle(idTokenClaims: {
     sub: string
     email: string
     email_verified: boolean
     accessToken?: string
-  }): Promise<{ ok: boolean; session?: AuthSession; message: string }>
+  }): Promise<{ ok: boolean; session?: AuthSession; message: string; code?: string }>
   requestEmailVerification(accountId: string, email: string): Promise<{
     ok: boolean
     message: string
@@ -299,6 +300,7 @@ const serverAuthProvider: AuthProvider = {
       const { okHttp, data } = await apiJson<{
         ok?: boolean
         message?: string
+        code?: string
         user?: ApiUser
       }>('/api/auth/continue', {
         method: 'POST',
@@ -310,7 +312,14 @@ const serverAuthProvider: AuthProvider = {
         }),
       })
       if (!okHttp || !data.ok || !data.user) {
-        return { ok: false, message: data.message || 'Sign-in failed.' }
+        return {
+          ok: false,
+          message:
+            data.code === 'google_only'
+              ? 'This account uses Google Sign-In. Please use Continue with Google above.'
+              : data.message || 'Sign-in failed.',
+          code: data.code,
+        }
       }
       return {
         ok: true,
@@ -329,6 +338,7 @@ const serverAuthProvider: AuthProvider = {
       const { okHttp, data } = await apiJson<{
         ok?: boolean
         message?: string
+        code?: string
         user?: ApiUser
       }>('/api/auth/google', {
         method: 'POST',
@@ -338,7 +348,11 @@ const serverAuthProvider: AuthProvider = {
         }),
       })
       if (!okHttp || !data.ok || !data.user) {
-        return { ok: false, message: data.message || 'Google sign-in failed.' }
+        return {
+          ok: false,
+          message: data.message || 'Google sign-in failed.',
+          code: data.code,
+        }
       }
       return {
         ok: true,

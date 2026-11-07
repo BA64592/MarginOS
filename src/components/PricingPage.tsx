@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { PRODUCT_NAME } from '../lib/brand'
+import { en } from '../i18n/en'
 import {
   PLANS,
   PLAN_ORDER,
@@ -40,7 +41,19 @@ const COMPARISON: CompRow[] = [
     values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
   },
   {
-    label: 'Show the maths on every figure',
+    label: 'Ranked fixes (what to do first)',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: 'Product verdicts',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: 'SKU charts',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: `${en.showTheMaths} on every figure`,
     values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
   },
   // Calculators
@@ -107,6 +120,15 @@ const COMPARISON: CompRow[] = [
     },
   },
   {
+    label: 'TikTok Shop UK import',
+    values: {
+      starter: TIKTOK_COMING_SOON,
+      growth: TIKTOK_COMING_SOON,
+      pro: TIKTOK_COMING_SOON,
+      scale: TIKTOK_COMING_SOON,
+    },
+  },
+  {
     label: 'Shops',
     sub: SHOP_HELP,
     values: { starter: '1', growth: '1', pro: '1', scale: 'Up to 3' },
@@ -125,20 +147,28 @@ const COMPARISON: CompRow[] = [
     sub: SEAT_HELP,
     values: { starter: '1', growth: '1', pro: '2', scale: '5' },
   },
+  {
+    label: 'Download my data',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Yes' },
+  },
+  {
+    label: '14-day free trial (Pro features on Starter/Growth/Pro)',
+    values: { starter: 'Yes', growth: 'Yes', pro: 'Yes', scale: 'Scale trial' },
+  },
 ]
 
 const FAQ = [
   {
     q: 'How do I use this platform?',
-    a: 'Start a 14-day free trial, add your shop, upload Shopify, Amazon or Etsy reports, add product costs, then review true profit, Health Score and the ranked leaks. Prefer to look around first? Open the sample report.',
+    a: 'Start a 14-day free trial and choose a plan. Add your shop and pick the platform it uses (Shopify, Amazon or Etsy). Download the reports you already get from that platform and upload them — we never connect to your store. Add your product costs (and ads, shipping or overheads if you have them). Review the import, then see your true profit, a Health Score and the ranked fixes to make first. You can look at the sample report first if you prefer. TikTok Shop UK Excel import is coming soon.',
   },
   {
     q: 'What exactly is needed to get started?',
-    a: 'A verified email, a plan choice, and the CSV exports you already download from Shopify, Amazon or Etsy. Product costs can be typed in or uploaded with the cost template. We never connect live to your store. TikTok Shop UK (Beta): Excel import coming soon — no TikTok upload yet.',
+    a: 'A verified account and a payment card to start the 14-day free trial — you pay nothing today. You upload reports you already download from your sales platforms. For Shopify, export the Orders CSV (the Shopify Payments transactions CSV is optional). For Amazon, download a Custom Unified Transaction CSV. For Etsy, download both the Orders CSV and the Order Items CSV (the Monthly Statement is optional). TikTok Shop UK (Beta): Excel import coming soon. You can also enter costs with the product CSV template or type them in. Buyer names, emails, addresses and similar personal details are removed at import. Your plan decides how many platforms you can use at once (Starter 1 of 3, Growth up to 2 of 3, Pro and Scale all 3, while TikTok is coming soon).',
   },
   {
     q: 'How can I recommend a new feature I want to see?',
-    a: 'When signed in, use Suggest a feature in the app (one short text field). We store the timestamp, your account ID, plan and the text for review. There is no public feature-request email, and we do not promise a reply. This is not a cancel or support route.',
+    a: 'Signed in, open Suggest a feature, write a short note and send it. We save it for review. We don’t publish an email address for this, and we can’t promise a reply.',
   },
   {
     q: 'Can I cancel anytime?',

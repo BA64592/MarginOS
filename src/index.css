@@ -9,9 +9,7 @@
 @import '@fontsource/poppins/700.css';
 @import '@fontsource/poppins/800.css';
 
-@custom-variant dark (&:where(.dark, .dark *));
-
-/* Spec v17.1 §22 / Brand Guidelines v2 (K12) */
+/* Spec v17.1 §22 / Brand Guidelines v2 (K12) — light mode only */
 :root {
   --bg: #f5f7fb;
   --bg-elevated: #ffffff;
@@ -46,39 +44,6 @@
     linear-gradient(180deg, #ffffff 0%, #f5f7fb 100%);
 }
 
-.dark {
-  --bg: #061f45;
-  --bg-elevated: #0c2950;
-  --bg-muted: #133361;
-  --border: #1e3f6e;
-  --text: #ffffff;
-  --text-muted: #93a0b4;
-  --navy: #ffffff;
-  --accent: #34726b;
-  --accent-hover: #2b605a;
-  --accent-pressed: #224c47;
-  --accent-soft: #134e4a;
-  --accent-strong: #6ccfc1;
-  --danger: #ff3b5c;
-  --danger-soft: #451a24;
-  --warn: #ffb020;
-  --warn-soft: #45320a;
-  --ok: #6ccb5f;
-  --ok-soft: #14351a;
-  --score-strong: #6ccb5f;
-  --score-attention: #ffb020;
-  --score-risk: #ff3b5c;
-  --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 16px 40px rgb(0 0 0 / 35%);
-  --ring: rgb(108 207 193 / 45%);
-  --chart-1: #6ccfc1;
-  --chart-2: #ffffff;
-  --chart-3: #ffb020;
-  --chart-4: #6ccb5f;
-  --chart-5: #ff3b5c;
-  --hero-glow: radial-gradient(120% 80% at 10% -10%, rgb(52 114 107 / 28%) 0%, transparent 55%),
-    radial-gradient(90% 70% at 100% 0%, rgb(108 207 193 / 12%) 0%, transparent 50%),
-    linear-gradient(180deg, #0c2950 0%, #061f45 100%);
-}
 
 @theme inline {
   --font-sans: 'Manrope', ui-sans-serif, system-ui, sans-serif;

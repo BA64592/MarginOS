@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { PRODUCT_NAME } from '../lib/brand'
-import { hasPaidAccess } from '../lib/plans'
+import { en } from '../i18n/en'
+import { PLANS, formatGbp, hasPaidAccess } from '../lib/plans'
 import type { HomeCurrency } from '../lib/types'
 import { StartFreshButton } from './ConfirmActions'
 import { Button, Card, ConfirmDialog, Input, SectionHeading } from './ui'
@@ -18,20 +19,32 @@ export function SettingsBar() {
     monthlyOverheads,
     setMonthlyOverheads,
     access,
+    plan,
+    entitlementPlan,
+    trialEndsAt,
+    accessEndsAt,
+    billingInterval,
+    usageUniqueOrderCount,
+    orderLimit,
     hasFeature,
     exportDataCsv,
     user,
     keptProData,
     setUpgradeOpen,
-    deleteAccount,
     setAuthOpen,
+    signOut,
+    keepPro,
+    cancelAccess,
   } = useApp()
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [confirmEmail, setConfirmEmail] = useState('')
-  const [deleteMsg, setDeleteMsg] = useState<string | null>(null)
   const [overheadsText, setOverheadsText] = useState(() =>
     monthlyOverheads === 0 ? '' : String(monthlyOverheads),
   )
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [suggestText, setSuggestText] = useState('')
+  const [suggestMsg, setSuggestMsg] = useState<string | null>(null)
+  const [suggestBusy, setSuggestBusy] = useState(false)
+  const [logoutAllBusy, setLogoutAllBusy] = useState(false)
+  const [statusMsg, setStatusMsg] = useState<string | null>(null)
 
   useEffect(() => {
     setOverheadsText((prev) => {
@@ -42,24 +55,213 @@ export function SettingsBar() {
   }, [monthlyOverheads])
 
   const downloadCsv = () => {
-    const blob = new Blob([exportDataCsv()], { type: 'text/csv' })
+    const csv = exportDataCsv()
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'margins365-data-export.csv'
+    a.download = `${PRODUCT_NAME.replace(/\s+/g, '-').toLowerCase()}-data.csv`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const endLabel = trialEndsAt
+    ? new Date(trialEndsAt).toLocaleString('en-GB', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      })
+    : 'the end of your access period'
+
+  const authBadge =
+    user?.authProvider === 'google' ? 'Connected via Google OAuth' : 'Password Auth Active'
+
+  const limit = orderLimit ?? (access === 'trial' ? PLANS.pro.orderLimit : null)
+  const usageLine =
+    limit != null
+      ? en.orderUsage(usageUniqueOrderCount, limit)
+      : `${usageUniqueOrderCount.toLocaleString('en-GB')} unique orders tracked`
+
+  const submitSuggestion = async () => {
+    setSuggestMsg(null)
+    const text = suggestText.trim()
+    if (!user) {
+      setAuthOpen(true)
+      setSuggestMsg('Sign in to suggest a feature.')
+      return
+    }
+    if (!text) {
+      setSuggestMsg('Write a short note.')
+      return
+    }
+    if (text.length > 1000) {
+      setSuggestMsg('Keep suggestions to 1,000 characters.')
+      return
+    }
+    setSuggestBusy(true)
+    try {
+      const res = await fetch('/api/feature-suggestions', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string }
+      if (!res.ok || !data.ok) {
+        setSuggestMsg(data.message || 'Could not save suggestion.')
+        return
+      }
+      setSuggestText('')
+      setSuggestMsg(data.message || 'Thanks — saved for review.')
+    } catch {
+      setSuggestMsg('Could not reach the server.')
+    } finally {
+      setSuggestBusy(false)
+    }
+  }
+
+  const signOutAll = async () => {
+    setLogoutAllBusy(true)
+    setStatusMsg(null)
+    try {
+      await fetch('/api/auth/logout-all', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+    } catch {
+      // still clear local session
+    }
+    signOut()
+    setLogoutAllBusy(false)
+    setStatusMsg('Signed out of all devices.')
   }
 
   return (
     <section>
       <SectionHeading
-        eyebrow="Settings"
-        title="Profile, plan and data"
-        description="Three areas: profile & sign-in, plan & billing (via plans modal), and data & privacy. FX uses ECB reference rates."
+        eyebrow="Account"
+        title="Account workspace"
+        description="Profile & sign-in, plan & billing, and data & privacy."
       />
+
+      {/* Section 1 — Profile & Sign-In */}
       <Card>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <p className="mb-1 text-sm font-semibold text-ink">1. Profile &amp; sign-in</p>
+        {user ? (
+          <div className="space-y-3 text-sm">
+            <p className="text-ink">
+              Signed in as <span className="font-semibold">{user.email}</span>
+            </p>
+            <p className="inline-flex rounded-md bg-muted px-2 py-1 text-xs font-semibold text-ink">
+              {authBadge}
+            </p>
+            {user.fullName || user.businessName ? (
+              <p className="text-subtle">
+                {[user.fullName, user.businessName].filter(Boolean).join(' · ')}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setAuthOpen(true)}>
+                Edit profile
+              </Button>
+              <Button size="sm" variant="secondary" disabled={logoutAllBusy} onClick={() => void signOutAll()}>
+                {logoutAllBusy ? 'Signing out…' : 'Sign out of all devices'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={signOut}>
+                Sign out
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm text-subtle">Sign in to manage your account.</p>
+            <Button size="sm" onClick={() => setAuthOpen(true)}>
+              Sign in
+            </Button>
+          </div>
+        )}
+        {statusMsg ? <p className="mt-2 text-xs text-subtle">{statusMsg}</p> : null}
+      </Card>
+
+      {/* Section 2 — Plan & Billing */}
+      <Card className="mt-4">
+        <p className="mb-1 text-sm font-semibold text-ink">2. Plan &amp; billing</p>
+        <p className="mb-2 text-sm text-subtle">
+          {hasPaidAccess(access)
+            ? `Access: ${access}${plan && plan !== 'none' ? ` · Plan: ${plan}` : ''}${
+                entitlementPlan ? ` · Features: ${entitlementPlan}` : ''
+              }`
+            : 'Start a 14-day free trial on any plan. Cancel before day 14 and pay nothing.'}
+        </p>
+        <p className="mb-3 text-xs font-medium text-ink">{usageLine}</p>
+        <div className="mb-3 flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => setUpgradeOpen(true)}>
+            {hasPaidAccess(access) ? 'Change plan' : 'View plans & start trial'}
+          </Button>
+          {access === 'trial' && plan !== 'pro' && plan !== 'scale' && plan !== 'legacy' ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                const res = keepPro()
+                setStatusMsg(res.message)
+              }}
+            >
+              {billingInterval === 'year'
+                ? `Keep Pro for ${formatGbp(PLANS.pro.annualGbp)} a year`
+                : `Keep Pro for ${formatGbp(PLANS.pro.monthlyGbp)}/mo`}
+            </Button>
+          ) : null}
+          {hasPaidAccess(access) && access !== 'canceled_access' ? (
+            <Button size="sm" variant="danger" onClick={() => setCancelOpen(true)}>
+              {access === 'trial' ? 'Cancel trial' : 'Cancel subscription'}
+            </Button>
+          ) : null}
+          {access === 'canceled_access' ? (
+            <p className="text-xs font-medium text-warn">
+              Cancellation scheduled
+              {accessEndsAt
+                ? ` — access ends ${new Date(accessEndsAt).toLocaleString('en-GB', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}`
+                : ''}
+              . Download your data before then.
+            </p>
+          ) : null}
+        </div>
+        <p className="text-xs text-subtle">
+          Cancellation closes access at the end date and permanently deletes product data then.
+          Download your data first.
+        </p>
+      </Card>
+
+      {/* Section 3 — Data & Privacy */}
+      <Card className="mt-4">
+        <p className="mb-1 text-sm font-semibold text-ink">3. Data &amp; privacy</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <button
+              type="button"
+              className="text-sm font-semibold text-accent underline-offset-2 hover:underline"
+              onClick={downloadCsv}
+            >
+              Download My Data (CSV)
+            </button>
+            <p className="mt-1 text-xs text-subtle">
+              Cleaned order rows and costs only — never the original upload file.
+            </p>
+          </div>
+          <div>
+            <p className="mb-2 text-sm text-subtle">
+              Start Fresh clears imported shop data while keeping your account and billing.
+              {keptProData ? ' Includes any kept legacy data.' : ''}
+            </p>
+            <StartFreshButton />
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="text-sm">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-subtle">
               Home currency
@@ -84,18 +286,6 @@ export function SettingsBar() {
             />
             <span>Prices include VAT / sales tax / GST</span>
           </label>
-          <div className="sm:col-span-2">
-            <button
-              type="button"
-              className="text-sm font-semibold text-accent underline-offset-2 hover:underline"
-              onClick={downloadCsv}
-            >
-              Download my data (CSV)
-            </button>
-            <p className="mt-1 text-xs text-subtle">
-              Cleaned order rows and costs only — never the original upload file.
-            </p>
-          </div>
         </div>
       </Card>
 
@@ -176,72 +366,44 @@ export function SettingsBar() {
       )}
 
       <Card className="mt-4">
-        <p className="mb-1 text-sm font-semibold text-ink">Plan &amp; billing</p>
-        <p className="mb-3 text-sm text-subtle">
-          {hasPaidAccess(access)
-            ? 'Manage trial, subscription, invoices and cancellation in Stripe customer portal (wired at live Stripe).'
-            : 'Start a 14-day free trial on any plan. Cancel before day 14 and pay nothing in Plan & billing — one click. Cancelling also closes the account when access ends.'}
+        <p className="mb-1 text-sm font-semibold text-ink">Suggest a feature</p>
+        <p className="mb-2 text-xs text-subtle">
+          Signed-in only. We save your note for review — we don’t promise a reply.
         </p>
-        <Button size="sm" onClick={() => setUpgradeOpen(true)}>
-          {hasPaidAccess(access) ? 'Change plan' : 'View plans & start trial'}
-        </Button>
-      </Card>
-
-      <Card className="mt-4">
-        <p className="mb-1 text-sm font-semibold text-ink">Start fresh</p>
-        <p className="mb-3 text-sm text-subtle">
-          Delete all orders, costs, ads, overheads, scenarios and saved datasets from this shop
-          {keptProData ? ', including any kept legacy data' : ''}. Your account and sign-in stay.
-          Subscription cancellation is separate and schedules product-data deletion at access end.
-        </p>
-        <StartFreshButton />
-      </Card>
-
-      <Card className="mt-4 border-dashed">
-        <p className="mb-1 text-sm font-semibold text-ink">Close account</p>
-        <p className="mb-3 text-sm text-subtle">
-          Account closure is a verified email request completed within 7 days and removes login too
-          (separate from cancelling a subscription). For this browser demo you can still wipe the local
-          {PRODUCT_NAME} session below.
-          {user ? ` Signed in as ${user.email}.` : ' Sign in first.'}
-        </p>
-        {user ? (
-          <Button variant="danger" size="sm" onClick={() => setConfirmOpen(true)}>
-            Wipe local account session
+        <textarea
+          className="min-h-24 w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm"
+          maxLength={1000}
+          value={suggestText}
+          onChange={(e) => setSuggestText(e.target.value)}
+          placeholder="What would help your margins?"
+        />
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="text-xs text-subtle">{suggestText.length}/1000</span>
+          <Button size="sm" disabled={suggestBusy} onClick={() => void submitSuggestion()}>
+            {suggestBusy ? 'Sending…' : 'Send suggestion'}
           </Button>
-        ) : (
-          <Button variant="secondary" size="sm" onClick={() => setAuthOpen(true)}>
-            {user ? 'Account' : 'Sign in'}
-          </Button>
-        )}
-        {deleteMsg ? <p className="mt-2 text-xs text-subtle">{deleteMsg}</p> : null}
+        </div>
+        {suggestMsg ? <p className="mt-2 text-xs text-subtle">{suggestMsg}</p> : null}
       </Card>
 
       <ConfirmDialog
-        open={confirmOpen}
-        title="Delete your account?"
-        confirmLabel="Delete account"
+        open={cancelOpen}
+        title={access === 'trial' ? 'Cancel trial?' : 'Cancel subscription?'}
+        cancelLabel="Go Back"
+        confirmLabel="Confirm Cancel"
         danger
-        onCancel={() => {
-          setConfirmOpen(false)
-          setConfirmEmail('')
-        }}
+        onCancel={() => setCancelOpen(false)}
         onConfirm={() => {
-          const res = deleteAccount(confirmEmail)
-          setDeleteMsg(res.message)
-          if (res.ok) {
-            setConfirmOpen(false)
-            setConfirmEmail('')
-          }
+          const res = cancelAccess()
+          setStatusMsg(res.message)
+          setCancelOpen(false)
         }}
       >
-        <p>This cannot be undone in this browser. Type your email to confirm.</p>
-        <Input
-          type="email"
-          placeholder={user?.email}
-          value={confirmEmail}
-          onChange={(e) => setConfirmEmail(e.target.value)}
-        />
+        <p className="text-sm text-ink">
+          {access === 'trial'
+            ? `You will not be charged. You keep access until ${endLabel}. Your account will be closed and your data will be permanently deleted on ${endLabel}. Download your data before then. This cannot be undone.`
+            : `Your subscription will not renew. You keep access until ${endLabel}. Your account will be closed and your data will be permanently deleted on ${endLabel}. Download your data before then. This cannot be undone.`}
+        </p>
       </ConfirmDialog>
     </section>
   )

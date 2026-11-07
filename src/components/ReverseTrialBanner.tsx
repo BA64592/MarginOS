@@ -48,7 +48,7 @@ export function ReverseTrialBanner() {
           }}
         >
           Keep Pro for {formatGbp(annual ? PLANS.pro.annualGbp : PLANS.pro.monthlyGbp)}
-          {annual ? '/year' : '/mo'}
+          {annual ? ' a year' : '/mo'}
         </Button>
       </div>
     </div>

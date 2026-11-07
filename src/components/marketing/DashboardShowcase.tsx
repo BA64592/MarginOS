@@ -1,4 +1,5 @@
 /** High-fidelity product UI mockups for the marketing home — decorative, aria-hidden. */
+import { en } from '../../i18n/en'
 
 function Shell({
   active,
@@ -73,7 +74,7 @@ export function OverviewDashboardMock() {
           <p className="mt-1 text-sm font-semibold text-navy">
             Trail Runner Pack: raise price to £73.51, or discontinue.
           </p>
-          <p className="mt-1 text-xs text-subtle">Highest-£ fix first — Show the maths on every figure.</p>
+          <p className="mt-1 text-xs text-subtle">Highest-£ fix first — {en.showTheMaths} on every figure.</p>
         </div>
       </Shell>
     </div>

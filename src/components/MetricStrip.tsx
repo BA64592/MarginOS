@@ -29,7 +29,7 @@ export function MetricStrip() {
       hint: 'Contribution margin − ads − conversion fees − overheads',
       icon: Wallet,
       // Brand §14 / §22: true-profit figure uses navy text (not semantic green)
-      accent: result.totals.trueProfit >= 0 ? 'text-navy dark:text-white' : 'text-danger',
+      accent: result.totals.trueProfit >= 0 ? 'text-navy' : 'text-danger',
       maths: [
         `Revenue ${formatMoney(result.totals.revenue, currency)} (product + shipping charged − discounts; tax excluded).`,
         `Contribution margin ${formatMoney(result.totals.contributionMargin, currency)} (${formatPct(result.totals.contributionMarginPct)}).`,

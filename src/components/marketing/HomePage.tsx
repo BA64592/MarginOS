@@ -64,7 +64,7 @@ const PRODUCT_CARDS = [
   {
     title: 'True profit',
     body: 'See what you actually keep after product, packaging, shipping, ads, fees and returns.',
-    tip: 'Every figure has Show the maths. Net margin is true profit divided by revenue. Overheads are included on Growth, Pro and Scale.',
+    tip: `Every figure has ${en.showTheMaths}. Net margin is true profit divided by revenue. Overheads are included on Growth, Pro and Scale.`,
   },
   {
     title: 'Health Score',
@@ -112,15 +112,6 @@ export function HomePage() {
             <p className="mt-4 max-w-xl text-base text-subtle sm:text-lg">
               Connect your channels and fix margin leaks in under 60 seconds. {en.positioning}
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Button onClick={() => setUpgradeOpen(true)}>{PRIMARY_TRIAL_CTA}</Button>
-              <Button variant="ghost" onClick={() => setRoute('sample')}>
-                Sample report
-              </Button>
-              <Button variant="ghost" onClick={() => setRoute('pricing')}>
-                Compare plans
-              </Button>
-            </div>
           </div>
           {/* K55 — revert K54 equal-inset green panel; restore K48 paired visual */}
           <div className="mkt-hero-visual min-h-[280px] overflow-hidden rounded-[14px] sm:min-h-[340px]">
@@ -180,7 +171,7 @@ export function HomePage() {
               <SectionIntro
                 eyebrow="Leaks"
                 title="Six margin leaks with monthly £ impact"
-                body="Every leak is ordered by what it costs you this month — with Show the maths on every figure."
+                body={`Every leak is ordered by what it costs you this month — with ${en.showTheMaths} on every figure.`}
               />
             </div>
           </div>

@@ -170,6 +170,8 @@ interface AppContextValue {
   /** Effective plan for features/limits during trial (K52). */
   entitlementPlan: PlanId | null
   keepPro: () => { ok: boolean; message: string }
+  /** Easy Cancel — schedule end-of-period account close + data wipe (no charge after cancel). */
+  cancelAccess: () => { ok: boolean; message: string }
   theme: 'light'
   currency: HomeCurrency
   user: AuthUser | null
@@ -223,12 +225,15 @@ interface AppContextValue {
   setTax: (patch: Partial<TaxSettings>) => void
   setTargetMarginPct: (n: number) => void
   setMonthlyOverheads: (n: number) => void
-  signInEmail: (email: string, password: string) => Promise<{ ok: boolean; message: string }>
+  signInEmail: (
+    email: string,
+    password: string,
+  ) => Promise<{ ok: boolean; message: string; code?: string }>
   signInGoogle: (claims: {
     sub: string
     email: string
     email_verified: boolean
-  }) => Promise<{ ok: boolean; message: string }>
+  }) => Promise<{ ok: boolean; message: string; code?: string }>
   verifyEmail: () => void
   requestVerificationEmail: () => Promise<{ ok: boolean; message: string; debugToken?: string }>
   applyVerifyToken: (token: string) => Promise<{ ok: boolean; message: string }>
@@ -780,9 +785,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       setPlan('pro')
       setTrialEntitlement('pro')
+      const annual = billingInterval === 'year'
+      const price = annual
+        ? `${formatGbp(PLANS.pro.annualGbp)} a year`
+        : `${formatGbp(PLANS.pro.monthlyGbp)}/mo`
       return {
         ok: true,
-        message: `Chosen plan upgraded to Pro. You keep the same trial end date; day 15 charges ${formatGbp(PLANS.pro.monthlyGbp)}/mo unless you cancel.`,
+        message: `You’re on your Pro free trial until ${
+          trialEndsAt
+            ? new Date(trialEndsAt).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })
+            : 'the trial end date'
+        }. Day 15 charges ${price} unless you cancel.`,
+      }
+    },
+    cancelAccess: () => {
+      if (!hasPaidAccess(access)) {
+        return { ok: false, message: 'No active trial or subscription to cancel.' }
+      }
+      if (access === 'canceled_access') {
+        return { ok: false, message: 'Cancellation is already scheduled.' }
+      }
+      const endIso =
+        access === 'trial'
+          ? trialEndsAt
+          : accessEndsAt ||
+            trialEndsAt ||
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      if (!endIso) {
+        return { ok: false, message: 'Could not determine when access ends.' }
+      }
+      setAccess('canceled_access')
+      setAccessEndsAt(endIso)
+      setTrialEntitlement(null)
+      const endLabel = new Date(endIso).toLocaleString('en-GB', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      })
+      return {
+        ok: true,
+        message: `Cancellation confirmed. You keep access until ${endLabel}. Your account will be closed and your data permanently deleted then. Download your data before then.`,
       }
     },
     result,
@@ -819,7 +864,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     signInEmail: async (email, password) => {
       const res = await marginosAuthProvider.signInEmail(email, password)
       if (!res.ok || !res.session) {
-        return { ok: false, message: res.message || 'Sign-in failed.' }
+        return {
+          ok: false,
+          message: res.message || 'Sign-in failed.',
+          code: res.code,
+        }
       }
       let session = res.session
       const sync = await marginosAuthProvider.syncLicence()
@@ -840,7 +889,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     signInGoogle: async (claims) => {
       const res = await marginosAuthProvider.signInGoogle(claims)
       if (!res.ok || !res.session) {
-        return { ok: false, message: res.message || 'Google sign-in failed.' }
+        return {
+          ok: false,
+          message: res.message || 'Google sign-in failed.',
+          code: res.code,
+        }
       }
       let session = {
         ...res.session,
@@ -1189,6 +1242,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             message: en.orderLimitBlocked(
               check.newUnique,
               check.projected,
+              limit ?? check.projected,
               check.overage,
               next ? PLANS[next].name : 'a higher plan',
             ),

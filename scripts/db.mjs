@@ -96,6 +96,17 @@ export async function migrate() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
   `)
   await p.query(`
+    CREATE TABLE IF NOT EXISTS feature_suggestions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      plan_id TEXT,
+      email TEXT,
+      request_text TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS feature_suggestions_user_id_idx ON feature_suggestions(user_id);
+  `)
+  await p.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_uidx
       ON users (google_sub)
       WHERE google_sub IS NOT NULL;

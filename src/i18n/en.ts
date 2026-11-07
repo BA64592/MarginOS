@@ -26,8 +26,14 @@ export const en = {
     `${used.toLocaleString('en-GB')} of ${limit.toLocaleString('en-GB')} unique orders this billing month`,
   orderLimitWarn: (nextPlan: string) =>
     `You're at 80% of this month's order allowance. Upgrade to ${nextPlan} to analyse more.`,
-  orderLimitBlocked: (newUnique: number, projected: number, overage: number, nextPlan: string) =>
-    `This file adds ${newUnique.toLocaleString('en-GB')} new orders (${projected.toLocaleString('en-GB')} projected, ${overage.toLocaleString('en-GB')} over your limit). Nothing was imported. Upgrade to ${nextPlan} and re-upload.`,
+  orderLimitBlocked: (
+    newUnique: number,
+    projected: number,
+    limit: number,
+    overage: number,
+    nextPlan: string,
+  ) =>
+    `This file would add ${newUnique.toLocaleString('en-GB')} new orders, taking you to ${projected.toLocaleString('en-GB')} of ${limit.toLocaleString('en-GB')} orders this billing month, ${overage.toLocaleString('en-GB')} over your limit. Upgrade to ${nextPlan} to import it. Your existing results are unchanged.`,
   verifyEmail: 'Verify your email before your first upload.',
   googleSignInPendingK6:
     'Google sign-in is not configured in this build. Use email for now.',

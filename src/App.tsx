@@ -104,7 +104,7 @@ function DashboardMain() {
           id="leaks"
           eyebrow="Leaks"
           title="Six margin leaks, ranked by £"
-          description="Monthly impact in your currency — with Show the maths on every figure."
+          description={`Monthly impact in your currency — with ${en.showTheMaths} on every figure.`}
         >
           <LazyMount label="Preparing leaks…" minHeight={320}>
             <LeaksPanel />
