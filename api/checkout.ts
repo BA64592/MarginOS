@@ -100,7 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     process.env.APP_ORIGIN ||
     (process.env.VITE_PRODUCT_DOMAIN
       ? `https://${process.env.VITE_PRODUCT_DOMAIN}`
-      : 'https://marginos.online')
+      : 'https://margins365.com')
 
   const meta = {
     margins365_account_id: accountId,

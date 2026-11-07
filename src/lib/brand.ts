@@ -1,15 +1,15 @@
 /**
  * K58 / OD3 / K37 — single product name + domain config.
- * User-facing name is Margins 365. Live host stays marginos.online until 20.5 cutover.
+ * Canonical public host: margins365.com (marginos.online kept as alias/redirect).
  */
 export const PRODUCT_NAME =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PRODUCT_NAME) || 'Margins 365'
 
-/** Live public host until verified cutover (K58 / 20.5). */
+/** Live public host. */
 export const PRODUCT_DOMAIN =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PRODUCT_DOMAIN) || 'marginos.online'
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PRODUCT_DOMAIN) || 'margins365.com'
 
-/** Secured target public domain — not live until 20.5 cutover. */
+/** Same as PRODUCT_DOMAIN after cutover; kept for env compatibility. */
 export const TARGET_PRODUCT_DOMAIN =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TARGET_PRODUCT_DOMAIN) ||
   'margins365.com'
