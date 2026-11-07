@@ -28,6 +28,38 @@ const root = path.resolve(__dirname, '..')
 const dist = path.join(root, 'dist')
 const port = Number(process.env.PORT || 8080)
 
+/** Canonical public origin (K58 cutover). */
+const CANONICAL_ORIGIN = String(
+  process.env.APP_ORIGIN || 'https://margins365.com',
+).replace(/\/$/, '')
+
+/** Legacy hosts that permanently redirect to the canonical domain. */
+const LEGACY_HOSTS = new Set(
+  String(process.env.LEGACY_REDIRECT_HOSTS || 'marginos.online,www.marginos.online')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean),
+)
+
+function requestHost(req) {
+  const raw = String(req.headers['x-forwarded-host'] || req.headers.host || '')
+  return raw.split(',')[0].trim().split(':')[0].toLowerCase()
+}
+
+/** 301/308 legacy domain → margins365.com (preserve path + query). */
+function redirectLegacyHost(req, res) {
+  const host = requestHost(req)
+  if (!LEGACY_HOSTS.has(host)) return false
+  const target = `${CANONICAL_ORIGIN}${req.url || '/'}`
+  const code = req.method === 'GET' || req.method === 'HEAD' ? 301 : 308
+  res.writeHead(code, {
+    Location: target,
+    'Cache-Control': 'public, max-age=86400',
+  })
+  res.end()
+  return true
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -100,6 +132,8 @@ async function parseJson(req) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    if (redirectLegacyHost(req, res)) return
+
     const url = req.url?.split('?')[0] || '/'
     const qs = new URL(req.url || '/', 'http://localhost').searchParams
 

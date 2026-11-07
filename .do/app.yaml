@@ -41,5 +41,9 @@ services:
         type: GENERAL
         value: strict
 domains:
-  - domain: marginos.online
+  - domain: margins365.com
     type: PRIMARY
+  - domain: www.margins365.com
+    type: ALIAS
+  - domain: marginos.online
+    type: ALIAS
