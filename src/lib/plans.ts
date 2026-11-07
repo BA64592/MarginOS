@@ -217,6 +217,15 @@ export function maxPlatformsFor(plan: PlanId | 'none' | 'legacy' | null | undefi
   return PLANS[id].maxPlatforms
 }
 
+/**
+ * Platform picker slots for Account / uploads.
+ * Free accounts (no plan yet) get Starter’s 1-of-3 until they start a trial or subscribe.
+ */
+export function platformSlotLimitFor(plan: PlanId | 'none' | 'legacy' | null | undefined): number {
+  const n = maxPlatformsFor(plan)
+  return n > 0 ? n : PLANS.starter.maxPlatforms
+}
+
 export function scenarioSaveLimit(plan: PlanId | 'none' | 'legacy' | null | undefined): number | null {
   const id = effectivePlanId(plan)
   if (!id) return 0

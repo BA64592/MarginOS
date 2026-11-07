@@ -10,10 +10,12 @@ import {
   handleAuthContinue,
   handleAuthLogoutDestroy,
   handleAuthMe,
+  handleGoogleContinue,
   handleRequestPasswordReset,
   handleResetPassword,
   handleSendVerification,
   handleSyncLicence,
+  handleUpdateProfile,
   handleVerifyToken,
 } from './auth-handlers.mjs'
 import { dbConfigured, migrate } from './db.mjs'
@@ -150,8 +152,34 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    if (req.method === 'POST' && url === '/api/auth/google') {
+      let body = {}
+      try {
+        body = await parseJson(req)
+      } catch {
+        json(res, 400, { ok: false, message: 'Invalid JSON' })
+        return
+      }
+      const result = await handleGoogleContinue(body, req)
+      json(res, result.status, result.body, result.headers || {})
+      return
+    }
+
     if (req.method === 'GET' && url === '/api/auth/me') {
       const result = await handleAuthMe(req)
+      json(res, result.status, result.body)
+      return
+    }
+
+    if (req.method === 'POST' && url === '/api/auth/profile') {
+      let body = {}
+      try {
+        body = await parseJson(req)
+      } catch {
+        json(res, 400, { ok: false, message: 'Invalid JSON' })
+        return
+      }
+      const result = await handleUpdateProfile(req, body)
       json(res, result.status, result.body)
       return
     }
@@ -194,18 +222,22 @@ const server = http.createServer(async (req, res) => {
         return
       }
       const result = await handleVerifyToken(body.token)
-      json(res, result.status, result.body)
+      json(res, result.status, result.body, result.headers || {})
       return
     }
 
     if (req.method === 'GET' && url === '/api/auth/verify') {
       const result = await handleVerifyToken(qs.get('token'))
       if (result.status === 200) {
-        res.writeHead(302, { Location: '/?verified=1' })
+        const headers = {
+          Location: '/?verified=1',
+          ...(result.headers || {}),
+        }
+        res.writeHead(302, headers)
         res.end()
         return
       }
-      json(res, result.status, result.body)
+      json(res, result.status, result.body, result.headers || {})
       return
     }
 

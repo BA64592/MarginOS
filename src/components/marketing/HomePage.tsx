@@ -94,7 +94,7 @@ const PRODUCT_CARDS = [
 ]
 
 export function HomePage() {
-  const { setRoute, setUpgradeOpen, setAuthOpen } = useApp()
+  const { setRoute, setUpgradeOpen, setAuthOpen, user } = useApp()
 
   return (
     <div>
@@ -338,9 +338,9 @@ export function HomePage() {
             </div>
           </div>
           <p className="mt-10 text-sm text-white/55">
-            Already have an account?{' '}
+            {user ? 'Manage your account · ' : 'Already have an account? '}
             <button type="button" className="underline underline-offset-2" onClick={() => setAuthOpen(true)}>
-              Sign in
+              {user ? 'Account' : 'Sign in'}
             </button>
           </p>
         </div>

@@ -64,6 +64,8 @@ export type GoogleIdClaims = {
   sub: string
   email: string
   email_verified: boolean
+  /** Access token so the server can re-verify with Google userinfo. */
+  accessToken: string
 }
 
 /**
@@ -111,5 +113,6 @@ export async function requestGoogleSignIn(): Promise<GoogleIdClaims> {
     sub: profile.sub,
     email: profile.email,
     email_verified: profile.email_verified === true || profile.email_verified === 'true',
+    accessToken,
   }
 }

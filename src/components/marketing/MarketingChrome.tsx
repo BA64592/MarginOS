@@ -13,7 +13,7 @@ const NAV: { id: 'home' | 'sample' | 'pricing' | 'app'; label: string }[] = [
 ]
 
 export function MarketingChrome({ children }: { children: React.ReactNode }) {
-  const { route, setRoute, setAuthOpen, setUpgradeOpen } = useApp()
+  const { route, setRoute, setAuthOpen, setUpgradeOpen, user } = useApp()
 
   const primaryCta = () => {
     if (route === 'pricing') {
@@ -53,7 +53,7 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
             </nav>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={() => setAuthOpen(true)}>
-                Sign in
+                {user ? 'Account' : 'Sign in'}
               </Button>
               <Button size="sm" onClick={primaryCta}>
                 {PRIMARY_TRIAL_CTA}
@@ -99,7 +99,7 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
                 Pricing
               </button>
               <button type="button" className="block text-subtle hover:text-ink" onClick={() => setAuthOpen(true)}>
-                Sign in
+                {user ? 'Account' : 'Sign in'}
               </button>
             </div>
             <div className="space-y-2">
@@ -114,7 +114,7 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
               <span className="block text-subtle">Help centre</span>
               <span className="block text-subtle">Contact</span>
               <button type="button" className="block text-subtle hover:text-ink" onClick={() => setAuthOpen(true)}>
-                Sign in
+                {user ? 'Account' : 'Sign in'}
               </button>
             </div>
           </div>
