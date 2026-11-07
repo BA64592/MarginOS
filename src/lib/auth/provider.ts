@@ -11,6 +11,11 @@ export interface AuthSession {
   emailVerified: boolean
   provider: 'email' | 'google' | 'demo'
   plan?: 'free' | 'pro' | 'starter' | 'growth' | 'scale'
+  /** Server licence_state: trialing | active | past_due | canceled | legacy | none | … */
+  licenceState?: string | null
+  billingInterval?: 'month' | 'year' | null
+  trialEndsAt?: string | null
+  stripeCustomerId?: string | null
   googleSub?: string
   pendingVerifyToken?: string
   fullName?: string | null
@@ -51,6 +56,10 @@ type ApiUser = {
   email: string
   emailVerified: boolean
   plan?: string
+  licenceState?: string | null
+  billingInterval?: string | null
+  trialEndsAt?: string | null
+  stripeCustomerId?: string | null
   timeZone?: string
   createdAt?: string
   lastSignInAt?: string
@@ -70,14 +79,24 @@ export type ProfilePatch = {
 }
 
 function sessionFromApi(user: ApiUser): AuthSession {
+  const plan =
+    user.plan === 'pro' ||
+    user.plan === 'starter' ||
+    user.plan === 'growth' ||
+    user.plan === 'scale'
+      ? user.plan
+      : 'free'
+  const iv = String(user.billingInterval || '').toLowerCase()
   return {
     accountId: user.id,
     email: user.email,
     emailVerified: Boolean(user.emailVerified),
     provider: user.authProvider === 'google' ? 'google' : 'email',
-    plan: user.plan === 'pro' || user.plan === 'starter' || user.plan === 'growth' || user.plan === 'scale'
-      ? (user.plan as 'pro')
-      : 'free',
+    plan,
+    licenceState: user.licenceState ?? null,
+    billingInterval: iv === 'year' || iv === 'month' ? iv : null,
+    trialEndsAt: user.trialEndsAt ?? null,
+    stripeCustomerId: user.stripeCustomerId ?? null,
     fullName: user.fullName ?? null,
     businessName: user.businessName ?? null,
     phone: user.phone ?? null,

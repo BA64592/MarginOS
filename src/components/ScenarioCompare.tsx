@@ -1,6 +1,5 @@
 import { CopyPlus, Trash2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { hasFeature } from '../lib/plans'
 import { formatMoney, formatPct } from '../lib/format'
 import { SliderField } from './SliderField'
 import { Button, Card, Input, SectionHeading } from './ui'
@@ -100,7 +99,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 export function ScenarioCompare() {
-  const { plan } = useApp()
+  const { hasFeature } = useApp()
   return (
     <section>
       <SectionHeading
@@ -108,10 +107,10 @@ export function ScenarioCompare() {
         title="Scenario comparison"
         description="At least two side-by-side scenarios — price, cost, ads, returns, shipping charge, discount."
       />
-      {hasFeature(plan, 'scenarios') ? (
+      {hasFeature('scenarios') ? (
         <ScenarioInner />
       ) : (
-        <ProGate label="Scenario comparison — Pro">
+        <ProGate label="Scenario comparison — Growth+" feature="scenarios">
           <ScenarioInner />
         </ProGate>
       )}

@@ -196,6 +196,57 @@ export function hasPaidAccess(access: AccessKind): boolean {
   return access === 'trial' || access === 'active' || access === 'legacy' || access === 'canceled_access'
 }
 
+/** Server licence_state → local Plan + AccessKind (Slice A / F2–F4). */
+export function localStateFromLicence(input: {
+  plan?: string | null
+  licenceState?: string | null
+  billingInterval?: string | null
+}): {
+  plan: PlanId | 'none' | 'legacy'
+  access: AccessKind
+  trialEntitlement: PlanId | null
+  billingInterval: BillingInterval | null
+} {
+  const licence = String(input.licenceState || 'none').toLowerCase()
+  const rawPlan = String(input.plan || 'free').toLowerCase()
+  const ivRaw = String(input.billingInterval || '').toLowerCase()
+  const billingInterval: BillingInterval | null =
+    ivRaw === 'year' || ivRaw === 'month' ? ivRaw : null
+
+  if (licence === 'legacy') {
+    return { plan: 'legacy', access: 'legacy', trialEntitlement: null, billingInterval }
+  }
+
+  const chosen =
+    rawPlan === 'starter' || rawPlan === 'growth' || rawPlan === 'pro' || rawPlan === 'scale'
+      ? (rawPlan as PlanId)
+      : null
+
+  if (!chosen) {
+    return { plan: 'none', access: 'none', trialEntitlement: null, billingInterval }
+  }
+
+  if (licence === 'trialing') {
+    return {
+      plan: chosen,
+      access: 'trial',
+      trialEntitlement: trialEntitlementFor(chosen),
+      billingInterval,
+    }
+  }
+
+  if (licence === 'active' || licence === 'past_due') {
+    return { plan: chosen, access: 'active', trialEntitlement: null, billingInterval }
+  }
+
+  if (licence === 'canceled_access') {
+    return { plan: chosen, access: 'canceled_access', trialEntitlement: null, billingInterval }
+  }
+
+  // canceled / removed_* / none / unknown with a plan still in DB but no paid access
+  return { plan: 'none', access: 'none', trialEntitlement: null, billingInterval }
+}
+
 export function hasFeature(
   plan: PlanId | 'none' | 'legacy' | null | undefined,
   feature: PlanFeature,

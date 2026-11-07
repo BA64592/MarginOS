@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "tsx src/lib/calc/targetPrice.test.ts && tsx src/lib/retention.test.ts && tsx src/lib/csv/shopify.pii.test.ts && tsx src/lib/fx/ecb.test.ts && tsx src/lib/demo/stores.test.ts && tsx src/lib/browserEnv.test.ts && tsx src/lib/leaks/freeView.test.ts && tsx src/lib/money.test.ts && tsx src/lib/csv/amazon.refund.test.ts && tsx src/lib/calc/analyze.tax.test.ts",
+    "test": "tsx src/lib/calc/targetPrice.test.ts && tsx src/lib/retention.test.ts && tsx src/lib/csv/shopify.pii.test.ts && tsx src/lib/fx/ecb.test.ts && tsx src/lib/demo/stores.test.ts && tsx src/lib/browserEnv.test.ts && tsx src/lib/leaks/freeView.test.ts && tsx src/lib/money.test.ts && tsx src/lib/csv/amazon.refund.test.ts && tsx src/lib/calc/analyze.tax.test.ts && tsx src/lib/plans.licence.test.ts",
     "preview": "vite preview",
     "start": "node scripts/start.mjs",
     "stripe:bootstrap": "node scripts/stripe-bootstrap-products.mjs"

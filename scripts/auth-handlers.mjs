@@ -84,12 +84,17 @@ function parseEnabledPlatforms(raw) {
 
 export function publicUser(row) {
   const plan = String(row.plan || 'free').toLowerCase()
+  const licenceState = String(row.licence_state || 'none').toLowerCase()
+  const interval = String(row.billing_interval || '').toLowerCase()
   return {
     id: row.id,
     email: row.email,
     emailVerified: row.email_verified,
     plan: ['starter', 'growth', 'pro', 'scale', 'free'].includes(plan) ? plan : 'free',
-    licenceState: row.licence_state,
+    licenceState,
+    billingInterval: interval === 'year' || interval === 'month' ? interval : null,
+    trialEndsAt: row.trial_ends_at?.toISOString?.() || row.trial_ends_at || null,
+    stripeCustomerId: row.stripe_customer_id || null,
     timeZone: row.time_zone || 'Europe/London',
     createdAt: row.created_at?.toISOString?.() || row.created_at,
     lastSignInAt: row.last_sign_in_at?.toISOString?.() || row.last_sign_in_at,
@@ -678,23 +683,58 @@ export async function handleResetPassword(body) {
   }
 }
 
-export async function setUserPlan(userId, plan, licenceState = 'active') {
+export async function setUserPlan(userId, plan, licenceState = 'active', billingInterval = null) {
   if (!dbConfigured() || !userId) return
-  await query(
-    `UPDATE users SET plan = $2, licence_state = $3, updated_at = NOW() WHERE id = $1`,
-    [userId, plan, licenceState],
-  )
+  const iv =
+    billingInterval === 'year' || billingInterval === 'month' ? billingInterval : null
+  if (iv) {
+    await query(
+      `UPDATE users SET plan = $2, licence_state = $3, billing_interval = $4, updated_at = NOW() WHERE id = $1`,
+      [userId, plan, licenceState, iv],
+    )
+  } else {
+    await query(
+      `UPDATE users SET plan = $2, licence_state = $3, updated_at = NOW() WHERE id = $1`,
+      [userId, plan, licenceState],
+    )
+  }
 }
 
-export async function setUserPlanByEmail(email, plan, licenceState = 'active') {
+export async function setUserPlanByEmail(email, plan, licenceState = 'active', billingInterval = null) {
   if (!dbConfigured() || !email) return
-  await query(
-    `UPDATE users SET plan = $2, licence_state = $3, updated_at = NOW() WHERE email = $1`,
-    [email.trim().toLowerCase(), plan, licenceState],
-  )
+  const iv =
+    billingInterval === 'year' || billingInterval === 'month' ? billingInterval : null
+  if (iv) {
+    await query(
+      `UPDATE users SET plan = $2, licence_state = $3, billing_interval = $4, updated_at = NOW() WHERE email = $1`,
+      [email.trim().toLowerCase(), plan, licenceState, iv],
+    )
+  } else {
+    await query(
+      `UPDATE users SET plan = $2, licence_state = $3, updated_at = NOW() WHERE email = $1`,
+      [email.trim().toLowerCase(), plan, licenceState],
+    )
+  }
 }
 
-/** Reconcile Pro from completed Stripe Checkout sessions for this account email. */
+function normalizeTierPlan(planId) {
+  const p = String(planId || '').toLowerCase()
+  return ['starter', 'growth', 'pro', 'scale'].includes(p) ? p : null
+}
+
+function licenceStateFromSubscriptionStatus(status) {
+  const s = String(status || '').toLowerCase()
+  if (s === 'trialing') return 'trialing'
+  if (s === 'active') return 'active'
+  if (s === 'past_due') return 'past_due'
+  if (s === 'canceled' || s === 'unpaid' || s === 'incomplete_expired') return 'canceled'
+  return null
+}
+
+/**
+ * Reconcile subscription tier from Stripe Checkout / Subscriptions.
+ * Never force plan=pro — apply metadata plan + real Stripe status (F1).
+ */
 export async function handleSyncLicence(req) {
   if (!dbConfigured()) {
     return { status: 503, body: { ok: false, message: 'Auth database is not configured.' } }
@@ -709,25 +749,109 @@ export async function handleSyncLicence(req) {
   const stripe = new Stripe(secret, {
     apiVersion: process.env.STRIPE_API_VERSION || '2025-03-31.basil',
   })
-  const sessions = await stripe.checkout.sessions.list({ limit: 40, status: 'complete' })
   const email = user.email.toLowerCase()
-  const hit = sessions.data.find((s) => {
+  const sessions = await stripe.checkout.sessions.list({ limit: 40, status: 'complete' })
+  const matches = sessions.data.filter((s) => {
     const e = (s.customer_details?.email || s.customer_email || '').toLowerCase()
-    const ref = s.client_reference_id || s.metadata?.marginos_account_id || ''
+    const ref =
+      s.client_reference_id ||
+      s.metadata?.margins365_account_id ||
+      s.metadata?.marginos_account_id ||
+      ''
     return e === email || ref === user.id
   })
-  if (!hit) {
+
+  // Prefer subscription checkouts (v18+ tiers) over legacy one-time payments
+  const subHit =
+    matches.find((s) => s.mode === 'subscription' && s.subscription) ||
+    matches.find((s) => s.mode === 'subscription') ||
+    null
+  const oneTimeHit = matches.find((s) => s.mode === 'payment') || null
+
+  if (subHit) {
+    let planId =
+      normalizeTierPlan(subHit.metadata?.margins365_plan || subHit.metadata?.marginos_plan) ||
+      normalizeTierPlan(user.plan) ||
+      'pro'
+    let licenceState =
+      subHit.payment_status === 'paid' ? 'active' : 'trialing'
+    let billingInterval =
+      String(subHit.metadata?.margins365_interval || subHit.metadata?.marginos_interval || '')
+        .toLowerCase() === 'year'
+        ? 'year'
+        : 'month'
+
+    if (subHit.subscription) {
+      try {
+        const subId =
+          typeof subHit.subscription === 'string'
+            ? subHit.subscription
+            : subHit.subscription.id
+        const sub = await stripe.subscriptions.retrieve(subId)
+        planId =
+          normalizeTierPlan(sub.metadata?.margins365_plan || sub.metadata?.marginos_plan) ||
+          planId
+        const mapped = licenceStateFromSubscriptionStatus(sub.status)
+        if (mapped) licenceState = mapped
+        const iv = sub.items?.data?.[0]?.price?.recurring?.interval
+        if (iv === 'year' || iv === 'month') billingInterval = iv
+        if (sub.customer) {
+          await query(
+            `UPDATE users SET stripe_customer_id = COALESCE(stripe_customer_id, $2), updated_at = NOW() WHERE id = $1`,
+            [user.id, String(sub.customer)],
+          )
+        }
+      } catch {
+        // Keep session-derived plan/state if subscription retrieve fails
+      }
+    }
+
+    await query(
+      `UPDATE users SET
+         plan = $2,
+         licence_state = $3,
+         billing_interval = $4,
+         updated_at = NOW()
+       WHERE id = $1`,
+      [user.id, planId, licenceState, billingInterval],
+    )
     const refreshed = await query(`SELECT * FROM users WHERE id = $1`, [user.id])
     return {
       status: 200,
-      body: { ok: true, user: publicUser(refreshed.rows[0]), message: 'No completed Checkout found.' },
+      body: {
+        ok: true,
+        user: publicUser(refreshed.rows[0]),
+        message: `Licence synced (${planId} / ${licenceState}).`,
+      },
     }
   }
-  await setUserPlan(user.id, 'pro', 'active')
+
+  if (oneTimeHit) {
+    // Pre-v18 lifetime Pro purchase
+    await query(
+      `UPDATE users SET plan = 'pro', licence_state = 'legacy', updated_at = NOW() WHERE id = $1`,
+      [user.id],
+    )
+    const refreshed = await query(`SELECT * FROM users WHERE id = $1`, [user.id])
+    return {
+      status: 200,
+      body: {
+        ok: true,
+        user: publicUser(refreshed.rows[0]),
+        message: 'Legacy lifetime Pro licence restored.',
+      },
+    }
+  }
+
+  // No Stripe hit — if DB already has a tier, return it unchanged (do not invent Pro)
   const refreshed = await query(`SELECT * FROM users WHERE id = $1`, [user.id])
   return {
     status: 200,
-    body: { ok: true, user: publicUser(refreshed.rows[0]), message: 'Pro licence restored from Stripe.' },
+    body: {
+      ok: true,
+      user: publicUser(refreshed.rows[0]),
+      message: 'No completed Checkout found.',
+    },
   }
 }
 

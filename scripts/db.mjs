@@ -92,6 +92,8 @@ export async function migrate() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS enabled_platforms TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_interval TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
   `)
   await p.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_uidx

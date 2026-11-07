@@ -44,8 +44,10 @@ import {
   hasPaidAccess,
   maxPlatformsFor,
   platformSlotLimitFor,
+  localStateFromLicence,
   nextPlanAfter,
   orderLimitFor,
+  scenarioSaveLimit,
   trialEntitlementFor,
   type AccessKind,
   type BillingInterval,
@@ -469,11 +471,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [user, nowTick])
 
-  const applyLegacyFromSession = () => {
-    // Server still sends plan=pro for lifetime licences → map to legacy access (v18).
-    setPlan('legacy')
-    setAccess('legacy')
-    setFreeClocks([])
+  /** Apply server plan + licence_state to local entitlement state (never invent legacy from plan=pro). */
+  const applyServerLicence = (session: AuthSession) => {
+    const next = localStateFromLicence({
+      plan: session.plan,
+      licenceState: session.licenceState,
+      billingInterval: session.billingInterval,
+    })
+    setPlan(next.plan)
+    setAccess(next.access)
+    setTrialEntitlement(next.trialEntitlement)
+    if (next.billingInterval) setBillingInterval(next.billingInterval)
+    if (session.trialEndsAt) setTrialEndsAt(session.trialEndsAt)
+    if (next.access === 'trial' || next.access === 'active' || next.access === 'legacy') {
+      setTrialUsed(true)
+      setFreeClocks([])
+    }
   }
 
   // Restore server session (verified email + licence) across devices / sign-ins
@@ -481,12 +494,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void marginosAuthProvider.fetchSession().then(async (session) => {
       if (!session) return
       let current = session
-      if (current.plan !== 'pro') {
-        const sync = await marginosAuthProvider.syncLicence()
-        if (sync.ok && sync.session) current = sync.session
-      }
+      // Always reconcile with Stripe when possible — sync no longer forces Pro
+      const sync = await marginosAuthProvider.syncLicence()
+      if (sync.ok && sync.session) current = sync.session
       setUser((prev) => authUserFromSession(current, prev))
-      if (current.plan === 'pro') applyLegacyFromSession()
+      applyServerLicence(current)
       // Keep account dialog open until email verified + profile complete
       if (!current.emailVerified || !isProfileComplete(authUserFromSession(current))) {
         setAuthOpen(true)
@@ -513,7 +525,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setUser((prev) =>
               authUserFromSession({ ...res.session!, emailVerified: true }, prev),
             )
-            if (res.session.plan === 'pro') applyLegacyFromSession()
+            applyServerLicence({ ...res.session, emailVerified: true })
           } else {
             setUser((u) => (u ? { ...u, emailVerified: true } : u))
           }
@@ -528,7 +540,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       void marginosAuthProvider.fetchSession().then((session) => {
         if (!session) return
         setUser((prev) => authUserFromSession(session, prev))
-        if (session.plan === 'pro') applyLegacyFromSession()
+        applyServerLicence(session)
         setAuthOpen(true)
       })
       params.delete('verified')
@@ -539,29 +551,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Do not grant trial from the query string alone (BUG-023). Wait for session/licence sync.
       setPaymentPending(false)
       setFreeClocks([])
-      void marginosAuthProvider.fetchSession().then((session) => {
+      void (async () => {
+        let session = await marginosAuthProvider.fetchSession()
+        const sync = await marginosAuthProvider.syncLicence()
+        if (sync.ok && sync.session) session = sync.session
         if (!session) return
-        if (session.plan === 'pro') applyLegacyFromSession()
-        else {
-          // Server confirmed a session after Checkout — unlock trial locally once.
-          setAccess((prev) => (prev === 'none' ? 'trial' : prev))
-          setTrialUsed(true)
-        }
-        setUser((u) =>
-          u
-            ? { ...u, emailVerified: session.emailVerified, id: session.accountId, email: session.email }
-            : {
-                id: session.accountId,
-                email: session.email,
-                emailVerified: session.emailVerified,
-                authProvider: 'email',
-                createdAt: new Date().toISOString(),
-                lastSignInAt: new Date().toISOString(),
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London',
-                timeZoneChangedAt: null,
-              },
-        )
-      })
+        setUser((prev) => authUserFromSession(session!, prev))
+        applyServerLicence(session)
+        setTrialUsed(true)
+      })()
       params.delete('checkout')
       const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
       window.history.replaceState({}, '', next)
@@ -824,18 +822,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!res.ok || !res.session) {
         return { ok: false, message: res.message || 'Sign-in failed.' }
       }
-      const nextUser = authUserFromSession(res.session)
+      let session = res.session
+      const sync = await marginosAuthProvider.syncLicence()
+      if (sync.ok && sync.session) session = sync.session
+      const nextUser = authUserFromSession(session)
       setUser(nextUser)
-      if (res.session.plan === 'pro') {
-        applyLegacyFromSession()
-      } else {
-        void marginosAuthProvider.syncLicence().then((sync) => {
-          if (sync.ok && sync.session?.plan === 'pro') {
-            applyLegacyFromSession()
-            setUser((u) => (sync.session ? authUserFromSession(sync.session, u) : u))
-          }
-        })
-      }
+      applyServerLicence(session)
       // Stay open until verified + profile complete (do not dismiss on create/sign-in)
       if (isProfileComplete(nextUser)) setAuthOpen(false)
       else setAuthOpen(true)
@@ -851,12 +843,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!res.ok || !res.session) {
         return { ok: false, message: res.message || 'Google sign-in failed.' }
       }
-      const nextUser = authUserFromSession({
+      let session = {
         ...res.session,
         emailVerified: res.session.emailVerified || claims.email_verified === true,
-      })
+      }
+      const sync = await marginosAuthProvider.syncLicence()
+      if (sync.ok && sync.session) {
+        session = {
+          ...sync.session,
+          emailVerified: sync.session.emailVerified || session.emailVerified,
+        }
+      }
+      const nextUser = authUserFromSession(session)
       nextUser.googleEmailVerified = claims.email_verified
       setUser(nextUser)
+      applyServerLicence(session)
       if (isProfileComplete(nextUser)) setAuthOpen(false)
       else setAuthOpen(true)
       return {
@@ -902,7 +903,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               : null
           return base
         })
-        if (res.session?.plan === 'pro') applyLegacyFromSession()
+        if (res.session) applyServerLicence(res.session)
       }
       return res
     },
@@ -1328,7 +1329,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAds([
         {
           id: createId('ad'),
-          channel: hasFeature(plan, 'perChannelRoas') ? 'Meta' : 'Blended',
+          channel: hasFeature(entitlementPlan ?? plan, 'perChannelRoas') ? 'Meta' : 'Blended',
           amount,
           startDate: '2026-09-01',
           endDate: '2026-09-30',
@@ -1473,7 +1474,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { ok: true, message: 'Account deleted from this browser. This cannot be undone.' }
     },
     createScenario: () => {
-      if (!hasFeature(plan, 'scenarios')) {
+      if (!hasFeature(entitlementPlan ?? plan, 'scenarios')) {
+        setUpgradeOpen(true)
+        return
+      }
+      const limit = scenarioSaveLimit(entitlementPlan ?? plan)
+      if (limit !== null && scenarios.length >= limit) {
         setUpgradeOpen(true)
         return
       }

@@ -2,7 +2,7 @@ import { Lock } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useApp } from '../context/AppContext'
 import { cn } from '../lib/cn'
-import { hasFeature, type PlanFeature } from '../lib/plans'
+import type { PlanFeature } from '../lib/plans'
 import { trialPaywallCopy } from '../lib/pricing'
 import { Button } from './ui'
 
@@ -20,9 +20,10 @@ export function ProGate({
   compact?: boolean
   feature?: PlanFeature
 }) {
-  const { plan, setUpgradeOpen } = useApp()
+  // Use context hasFeature so K52 reverse-trial entitlementPlan is honoured (F5)
+  const { hasFeature, setUpgradeOpen } = useApp()
 
-  if (hasFeature(plan, feature)) return <>{children}</>
+  if (hasFeature(feature)) return <>{children}</>
 
   return (
     <div className={cn('relative overflow-hidden rounded-2xl', className)}>
