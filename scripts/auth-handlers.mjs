@@ -158,7 +158,7 @@ async function mintVerification(userId, origin) {
     `INSERT INTO verification_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)`,
     [token, userId, expires.toISOString()],
   )
-  const base = origin || process.env.APP_ORIGIN || 'https://marginos.online'
+  const base = origin || process.env.APP_ORIGIN || 'https://margins365.com'
   const verifyUrl = `${base.replace(/\/$/, '')}/?verify=${encodeURIComponent(token)}`
   return { token, verifyUrl }
 }
@@ -216,7 +216,7 @@ export async function handleAuthContinue(body, req) {
 
   let verifyQueued = false
   if (!user.email_verified) {
-    const origin = body.origin || req.headers.origin || 'https://marginos.online'
+    const origin = body.origin || req.headers.origin || 'https://margins365.com'
     if (rateLimit(`verify:${user.id}`, 5, 60 * 60 * 1000)) {
       const { verifyUrl } = await mintVerification(user.id, origin)
       const sent = await sendVerifyEmail(user.email, verifyUrl)
@@ -277,7 +277,7 @@ export async function handleSendVerification(req, body) {
   if (!rateLimit(`verify:${user.id}`, 5, 60 * 60 * 1000)) {
     return { status: 429, body: { ok: false, message: 'Too many verification emails. Try later.' } }
   }
-  const origin = body?.origin || req.headers.origin || 'https://marginos.online'
+  const origin = body?.origin || req.headers.origin || 'https://margins365.com'
   const { verifyUrl } = await mintVerification(user.id, origin)
   const sent = await sendVerifyEmail(user.email, verifyUrl)
   if (!sent.ok) return { status: 502, body: { ok: false, message: sent.message } }
@@ -401,7 +401,7 @@ export async function handleRequestPasswordReset(body, req) {
     `INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)`,
     [token, user.id, expires.toISOString()],
   )
-  const origin = body.origin || req.headers.origin || process.env.APP_ORIGIN || 'https://marginos.online'
+  const origin = body.origin || req.headers.origin || process.env.APP_ORIGIN || 'https://margins365.com'
   const resetUrl = `${String(origin).replace(/\/$/, '')}/?reset=${encodeURIComponent(token)}`
   const sent = await sendPasswordResetEmail(user.email, resetUrl)
   if (!sent.ok) {

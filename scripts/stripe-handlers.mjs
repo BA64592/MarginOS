@@ -39,7 +39,7 @@ const TRIAL_DAYS = Number(process.env.STRIPE_TRIAL_DAYS || 14)
 const DEFAULT_ORIGIN =
   process.env.APP_ORIGIN ||
   process.env.VITE_PRODUCT_DOMAIN ||
-  'https://marginos.online'
+  'https://margins365.com'
 
 function defaultOriginUrl() {
   const raw = String(DEFAULT_ORIGIN)

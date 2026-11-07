@@ -3,8 +3,8 @@
 Premium diagnosis app for e-commerce sellers: true profit after product cost, shipping, ads, platform fees and returns — with a Margin Health Score (0–100), ranked leaks, recommendations, calculators, scenarios and PDF export.
 
 **Product name (K58):** Margins 365  
-**Target domain:** margins365.com (not cut over yet)  
-**Live host until 20.5 cutover:** https://marginos.online  
+**Live host:** https://margins365.com  
+**Legacy alias:** marginos.online  
 
 Built to **Margins 365 Product Spec v19** (K41–K58). Cutover checklist: `docs/CUTOVER-20.5-K58.md`.
 
@@ -42,7 +42,7 @@ npm run preview
 | Stripe Managed Payments (§12.10) | Live path via `/api/checkout` when `VITE_PAYMENTS_MODE=stripe` |
 | Shopify / Amazon / Etsy CSV parsers | Sample + cost/ads templates; TikTok coming soon (K53) |
 | Auth (email + Google) | Strict verify tokens + SES; Google GIS; password reset |
-| Brand rename | PRODUCT_NAME → Margins 365 (K58); live domain still marginos.online |
+| Brand rename | PRODUCT_NAME → Margins 365 (K58); live host margins365.com |
 
 See `.env.example` for Stripe / SES secrets. Demo harnesses only in `import.meta.env.DEV` unless `VITE_DEMO_HARNESS=true`.
 
