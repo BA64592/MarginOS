@@ -3,6 +3,9 @@ import { useApp } from '../context/AppContext'
 import { en } from '../i18n/en'
 import { isGoogleSignInConfigured, requestGoogleSignIn } from '../lib/auth/google'
 import { isInAppBrowser } from '../lib/browserEnv'
+import { LAUNCH_PLATFORMS } from '../lib/plans'
+import { platformLabel } from '../lib/platforms'
+import { isProfileComplete, type Platform } from '../lib/types'
 import { Button, Input, Modal } from './ui'
 
 /** K6 / K57 — enabled when VITE_GOOGLE_CLIENT_ID (or built-in client id) is present. */
@@ -16,13 +19,14 @@ export function AuthModal() {
     setAuthOpen,
     signInEmail,
     signInGoogle,
-    verifyEmail,
     requestVerificationEmail,
-    applyVerifyToken,
     requestPasswordReset,
     resetPassword,
     passwordResetToken,
     clearPasswordResetToken,
+    refreshSession,
+    updateProfile,
+    platformSlotLimit,
     user,
     signOut,
   } = useApp()
@@ -30,11 +34,14 @@ export function AuthModal() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [businessName, setBusinessName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [platforms, setPlatforms] = useState<Platform[]>([])
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
-  const [manualToken, setManualToken] = useState('')
   const [canResendReset, setCanResendReset] = useState(false)
   const [inApp] = useState(() =>
     typeof navigator !== 'undefined' ? isInAppBrowser() : false,
@@ -51,9 +58,72 @@ export function AuthModal() {
     }
   }, [passwordResetToken, authOpen])
 
+  useEffect(() => {
+    if (!user) return
+    setFullName(user.fullName || '')
+    setBusinessName(user.businessName || '')
+    setPhone(user.phone || '')
+    setPlatforms(user.enabledPlatforms?.length ? [...user.enabledPlatforms] : [])
+  }, [user])
+
+  // Poll server while waiting for email verification (works across iPad / phone)
+  useEffect(() => {
+    if (!authOpen || !user || user.emailVerified) return
+    const tick = () => {
+      void refreshSession().then((next) => {
+        if (next?.emailVerified) {
+          setStatus('Email verified. Complete your profile to continue.')
+        }
+      })
+    }
+    tick()
+    const id = window.setInterval(tick, 4000)
+    return () => window.clearInterval(id)
+  }, [authOpen, user, refreshSession])
+
   const resetFeedback = () => {
     setError(null)
     setStatus(null)
+  }
+
+  const togglePlatform = (p: Platform) => {
+    setPlatforms((prev) => {
+      if (prev.includes(p)) return prev.filter((x) => x !== p)
+      if (prev.length >= platformSlotLimit) return prev
+      return [...prev, p]
+    })
+  }
+
+  const submitProfile = async () => {
+    resetFeedback()
+    if (!fullName.trim() || !businessName.trim() || !phone.trim()) {
+      setError('Name, business name and phone number are required.')
+      return
+    }
+    if (platforms.length < 1) {
+      setError(`Choose ${platformSlotLimit === 1 ? 'your platform' : `up to ${platformSlotLimit} platforms`}.`)
+      return
+    }
+    if (platforms.length > platformSlotLimit) {
+      setError(`Your plan allows ${platformSlotLimit} of 3 platforms.`)
+      return
+    }
+    setBusy(true)
+    try {
+      const res = await updateProfile({
+        fullName,
+        businessName,
+        phone,
+        enabledPlatforms: platforms,
+      })
+      if (!res.ok) setError(res.message)
+      else {
+        setStatus(res.message)
+        setAuthOpen(false)
+      }
+    } finally {
+      setBusy(false)
+    }
   }
 
   const submit = async () => {
@@ -132,8 +202,14 @@ export function AuthModal() {
     }
   }
 
+  const needsVerify = Boolean(user && !user.emailVerified)
+  const needsProfile = Boolean(user && user.emailVerified && !isProfileComplete(user))
   const title = user
-    ? 'Account'
+    ? needsVerify
+      ? 'Verify your email'
+      : needsProfile
+        ? 'Complete your profile'
+        : 'Account'
     : mode === 'create'
       ? 'Create account'
       : mode === 'forgot'
@@ -146,10 +222,19 @@ export function AuthModal() {
     <Modal
       open={authOpen}
       onClose={() => {
+        // Keep open through verify + mandatory profile (same class of bug as premature dismiss)
+        if (user && (!user.emailVerified || !isProfileComplete(user))) {
+          setStatus(
+            !user.emailVerified
+              ? 'This window stays open until you confirm your email.'
+              : 'Finish your profile (name, business, phone) and choose your platform(s).',
+          )
+          return
+        }
         setAuthOpen(false)
         resetFeedback()
         clearPasswordResetToken()
-        setMode('signIn')
+        if (!user) setMode('signIn')
       }}
       title={title}
     >
@@ -158,52 +243,122 @@ export function AuthModal() {
           <p className="text-ink">
             Signed in as <span className="font-semibold">{user.email}</span>
           </p>
-          <p className="text-subtle">
-            Email verified: {user.emailVerified ? 'Yes' : 'No'} · Time zone: {user.timeZone}
-          </p>
-          {!user.emailVerified ? (
-            <>
+
+          {needsVerify ? (
+            <div className="space-y-3 rounded-[10px] border border-warn/40 bg-warn-soft px-3 py-3">
+              <p className="font-medium text-warn">Check your inbox</p>
+              <p className="text-xs text-ink">
+                We sent a verification link to <strong>{user.email}</strong>. Open it on any device
+                and tap <strong>Confirm email</strong>. There is no code to type — this window
+                updates automatically when the link is used.
+              </p>
               <Button
+                className="w-full"
+                disabled={busy}
                 onClick={() => {
                   resetFeedback()
-                  void requestVerificationEmail().then((res) => {
-                    if (!res.ok) setError(res.message)
-                    else setStatus(res.message)
-                    if (res.debugToken) {
-                      void applyVerifyToken(res.debugToken).then((v) => {
-                        if (!v.ok) setError(v.message)
-                        else setStatus(v.message)
-                      })
-                    }
-                  })
+                  setBusy(true)
+                  void requestVerificationEmail()
+                    .then((res) => {
+                      if (!res.ok) setError(res.message)
+                      else setStatus('Verification email resent. Check inbox and spam.')
+                    })
+                    .finally(() => setBusy(false))
                 }}
               >
                 Resend verification email
               </Button>
-              <p className="text-xs text-subtle">
-                Open the 24-hour link from your email on any device — verification is saved to your
-                account. You can also paste the token below.
-              </p>
-              <label className="block text-xs">
-                <span className="mb-1 block font-semibold uppercase tracking-wide text-subtle">
-                  Paste verify token
-                </span>
-                <Input value={manualToken} onChange={(e) => setManualToken(e.target.value)} />
-              </label>
               <Button
+                className="w-full"
                 variant="secondary"
                 onClick={() => {
                   resetFeedback()
-                  void applyVerifyToken(manualToken).then((v) => {
-                    if (!v.ok) setError(v.message)
-                    else setStatus(v.message)
+                  void refreshSession().then((next) => {
+                    if (next?.emailVerified) setStatus('Email verified.')
+                    else setStatus('Not verified yet — open the link from your email.')
                   })
                 }}
               >
-                Verify with token
+                I’ve confirmed — refresh status
               </Button>
-            </>
+            </div>
           ) : null}
+
+          {user.emailVerified ? (
+            <div className="space-y-3">
+              {!isProfileComplete(user) ? (
+                <p className="rounded-[10px] bg-accent-soft px-3 py-2 text-xs text-accent">
+                  Tell us who you are, then choose which platform(s) your plan includes (
+                  {platformSlotLimit} of 3).
+                </p>
+              ) : null}
+              <label className="block text-sm">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-subtle">
+                  Full name
+                </span>
+                <Input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  autoComplete="name"
+                  placeholder="Your name"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-subtle">
+                  Business name
+                </span>
+                <Input
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  autoComplete="organization"
+                  placeholder="Trading or company name"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-subtle">
+                  Phone number
+                </span>
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  placeholder="+44…"
+                />
+              </label>
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-subtle">
+                  Platforms ({platforms.length}/{platformSlotLimit} of 3)
+                </p>
+                <p className="mb-2 text-xs text-subtle">
+                  Pick which marketplace(s) you will upload. TikTok Shop UK import is coming soon.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {LAUNCH_PLATFORMS.map((p) => {
+                    const on = platforms.includes(p)
+                    const blocked = !on && platforms.length >= platformSlotLimit
+                    return (
+                      <Button
+                        key={p}
+                        type="button"
+                        size="sm"
+                        variant={on ? 'primary' : 'secondary'}
+                        disabled={blocked}
+                        onClick={() => togglePlatform(p)}
+                      >
+                        {platformLabel(p)}
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
+              <Button className="w-full" disabled={busy} onClick={() => void submitProfile()}>
+                {busy ? 'Saving…' : isProfileComplete(user) ? 'Save profile' : 'Save and continue'}
+              </Button>
+            </div>
+          ) : null}
+
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           {status ? <p className="text-xs text-subtle">{status}</p> : null}
           <Button variant="secondary" onClick={signOut}>
@@ -221,8 +376,7 @@ export function AuthModal() {
           {mode === 'forgot' ? (
             <>
               <p className="text-sm text-subtle">
-                Enter your email and we’ll send a reset link if an account exists. This is not a
-                cancellation route.
+                Enter your email and we’ll send a reset link if an account exists.
               </p>
               <label className="block text-sm">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-subtle">
@@ -438,9 +592,6 @@ export function AuthModal() {
               <Button className="w-full" type="submit" disabled={busy}>
                 {busy ? 'Please wait…' : mode === 'create' ? 'Create account' : 'Continue with email'}
               </Button>
-              <button type="button" className="hidden" onClick={() => verifyEmail()} aria-hidden>
-                verify
-              </button>
             </>
           )}
         </form>

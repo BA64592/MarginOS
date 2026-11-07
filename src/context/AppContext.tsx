@@ -15,7 +15,7 @@ import { importPlatformFiles, type PlatformImportInput } from '../lib/csv/import
 import { compareFees } from '../lib/fees/presets'
 import { createId } from '../lib/format'
 import { roundMoney } from '../lib/money'
-import { marginosAuthProvider } from '../lib/auth/provider'
+import { marginosAuthProvider, type AuthSession } from '../lib/auth/provider'
 import {
   EARLY_BIRD_CAP,
   foundingPlacesLeft,
@@ -35,12 +35,15 @@ import { buildDemoStore, type DemoStoreId } from '../lib/demo/stores'
 import { clearAllState, loadState, saveState } from '../lib/storage'
 import { evaluateOrderImport, uniqueOrderIds } from '../lib/orders/uniqueOrders'
 import {
+  LAUNCH_PLATFORMS,
   PLANS,
   TRIAL_DAYS,
   entitlementPlanId,
   formatGbp,
   hasFeature,
   hasPaidAccess,
+  maxPlatformsFor,
+  platformSlotLimitFor,
   nextPlanAfter,
   orderLimitFor,
   trialEntitlementFor,
@@ -49,23 +52,48 @@ import {
   type PlanFeature,
   type PlanId,
 } from '../lib/plans'
-import type {
-  AdSpendEntry,
-  AnalysisResult,
-  AppPersistedState,
-  AuthUser,
-  FreeRetentionClock,
-  HomeCurrency,
-  KeptProData,
-  OrderLine,
-  Plan,
-  Platform,
-  ProductCostRow,
-  SavedDataset,
-  Scenario,
-  ScenarioAdjustments,
-  TaxSettings,
+import {
+  isProfileComplete,
+  type AdSpendEntry,
+  type AnalysisResult,
+  type AppPersistedState,
+  type AuthUser,
+  type FreeRetentionClock,
+  type HomeCurrency,
+  type KeptProData,
+  type OrderLine,
+  type Plan,
+  type Platform,
+  type ProductCostRow,
+  type SavedDataset,
+  type Scenario,
+  type ScenarioAdjustments,
+  type TaxSettings,
 } from '../lib/types'
+
+function authUserFromSession(session: AuthSession, fallback?: AuthUser | null): AuthUser {
+  const tzGuess =
+    fallback?.timeZone ||
+    Intl.DateTimeFormat().resolvedOptions().timeZone ||
+    'Europe/London'
+  return {
+    id: session.accountId,
+    email: session.email || fallback?.email || '',
+    emailVerified: session.emailVerified,
+    authProvider: session.provider === 'google' ? 'google' : 'email',
+    fullName: session.fullName ?? fallback?.fullName ?? null,
+    businessName: session.businessName ?? fallback?.businessName ?? null,
+    phone: session.phone ?? fallback?.phone ?? null,
+    enabledPlatforms: (session.enabledPlatforms as Platform[] | null | undefined) ??
+      fallback?.enabledPlatforms ??
+      null,
+    createdAt: fallback?.createdAt || new Date().toISOString(),
+    lastSignInAt: new Date().toISOString(),
+    timeZone: tzGuess,
+    timeZoneChangedAt: fallback?.timeZoneChangedAt ?? null,
+    googleEmailVerified: fallback?.googleEmailVerified,
+  }
+}
 
 type AppRoute = 'home' | 'pricing' | 'sample' | 'app' | 'legal'
 
@@ -205,6 +233,16 @@ interface AppContextValue {
   applyVerifyToken: (token: string) => Promise<{ ok: boolean; message: string }>
   requestPasswordReset: (email: string) => Promise<{ ok: boolean; message: string }>
   resetPassword: (token: string, newPassword: string) => Promise<{ ok: boolean; message: string }>
+  /** Refresh session from server (verification / profile sync across devices). */
+  refreshSession: () => Promise<AuthUser | null>
+  updateProfile: (patch: {
+    fullName: string
+    businessName: string
+    phone: string
+    enabledPlatforms?: Platform[]
+  }) => Promise<{ ok: boolean; message: string }>
+  /** Plan slot cap for usable platforms (1 / 2 / 3 of 3). */
+  platformSlotLimit: number
   /** K57 — pending password-reset token from ?reset= deep link */
   passwordResetToken: string | null
   clearPasswordResetToken: () => void
@@ -447,18 +485,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const sync = await marginosAuthProvider.syncLicence()
         if (sync.ok && sync.session) current = sync.session
       }
-      const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
-      setUser({
-        id: current.accountId,
-        email: current.email,
-        emailVerified: current.emailVerified,
-        authProvider: 'email',
-        createdAt: new Date().toISOString(),
-        lastSignInAt: new Date().toISOString(),
-        timeZone: tzGuess,
-        timeZoneChangedAt: null,
-      })
+      setUser((prev) => authUserFromSession(current, prev))
       if (current.plan === 'pro') applyLegacyFromSession()
+      // Keep account dialog open until email verified + profile complete
+      if (!current.emailVerified || !isProfileComplete(authUserFromSession(current))) {
+        setAuthOpen(true)
+      }
     })
   }, [])
 
@@ -477,25 +509,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (token) {
       void marginosAuthProvider.verifyEmail(token).then((res) => {
         if (res.ok) {
-          setUser((u) => {
-            if (u) {
-              return { ...u, emailVerified: true, lastSignInAt: new Date().toISOString() }
-            }
-            if (res.session) {
-              return {
-                id: res.session.accountId,
-                email: res.session.email,
-                emailVerified: true,
-                authProvider: 'email',
-                createdAt: new Date().toISOString(),
-                lastSignInAt: new Date().toISOString(),
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London',
-                timeZoneChangedAt: null,
-              }
-            }
-            return u
-          })
-          if (res.session?.plan === 'pro') applyLegacyFromSession()
+          if (res.session) {
+            setUser((prev) =>
+              authUserFromSession({ ...res.session!, emailVerified: true }, prev),
+            )
+            if (res.session.plan === 'pro') applyLegacyFromSession()
+          } else {
+            setUser((u) => (u ? { ...u, emailVerified: true } : u))
+          }
+          setAuthOpen(true)
         }
         params.delete('verify')
         const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
@@ -505,17 +527,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (params.get('verified') === '1') {
       void marginosAuthProvider.fetchSession().then((session) => {
         if (!session) return
-        setUser({
-          id: session.accountId,
-          email: session.email,
-          emailVerified: session.emailVerified,
-          authProvider: 'email',
-          createdAt: new Date().toISOString(),
-          lastSignInAt: new Date().toISOString(),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London',
-          timeZoneChangedAt: null,
-        })
+        setUser((prev) => authUserFromSession(session, prev))
         if (session.plan === 'pro') applyLegacyFromSession()
+        setAuthOpen(true)
       })
       params.delete('verified')
       const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`
@@ -810,54 +824,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!res.ok || !res.session) {
         return { ok: false, message: res.message || 'Sign-in failed.' }
       }
-      const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
-      setUser({
-        id: res.session.accountId,
-        email: res.session.email,
-        emailVerified: res.session.emailVerified,
-        authProvider: 'email',
-        createdAt: new Date().toISOString(),
-        lastSignInAt: new Date().toISOString(),
-        timeZone: tzGuess,
-        timeZoneChangedAt: null,
-      })
+      const nextUser = authUserFromSession(res.session)
+      setUser(nextUser)
       if (res.session.plan === 'pro') {
         applyLegacyFromSession()
       } else {
-        // Restore lifetime licence from a prior Stripe purchase tied to this email
         void marginosAuthProvider.syncLicence().then((sync) => {
           if (sync.ok && sync.session?.plan === 'pro') {
             applyLegacyFromSession()
-            setUser((u) =>
-              u
-                ? { ...u, emailVerified: sync.session!.emailVerified, id: sync.session!.accountId }
-                : u,
-            )
+            setUser((u) => (sync.session ? authUserFromSession(sync.session, u) : u))
           }
         })
       }
-      setAuthOpen(false)
-      return { ok: true, message: res.message || 'Signed in.' }
+      // Stay open until verified + profile complete (do not dismiss on create/sign-in)
+      if (isProfileComplete(nextUser)) setAuthOpen(false)
+      else setAuthOpen(true)
+      return {
+        ok: true,
+        message: nextUser.emailVerified
+          ? res.message || 'Signed in.'
+          : 'Account ready. Check your email and tap Confirm email — this window stays open until you are verified.',
+      }
     },
     signInGoogle: async (claims) => {
       const res = await marginosAuthProvider.signInGoogle(claims)
       if (!res.ok || !res.session) {
         return { ok: false, message: res.message || 'Google sign-in failed.' }
       }
-      const tzGuess = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London'
-      setUser({
-        id: res.session.accountId,
-        email: res.session.email,
-        emailVerified: res.session.emailVerified,
-        authProvider: 'google',
-        googleEmailVerified: claims.email_verified,
-        createdAt: new Date().toISOString(),
-        lastSignInAt: new Date().toISOString(),
-        timeZone: tzGuess,
-        timeZoneChangedAt: null,
+      const nextUser = authUserFromSession({
+        ...res.session,
+        emailVerified: res.session.emailVerified || claims.email_verified === true,
       })
-      setAuthOpen(false)
-      return { ok: true, message: res.message || 'Signed in with Google.' }
+      nextUser.googleEmailVerified = claims.email_verified
+      setUser(nextUser)
+      if (isProfileComplete(nextUser)) setAuthOpen(false)
+      else setAuthOpen(true)
+      return {
+        ok: true,
+        message: isProfileComplete(nextUser)
+          ? res.message || 'Signed in with Google.'
+          : 'Signed in with Google. Finish your profile to continue.',
+      }
     },
     verifyEmail: () => {
       if (!user) return
@@ -910,6 +917,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return res
     },
+    refreshSession: async () => {
+      const session = await marginosAuthProvider.fetchSession()
+      if (!session) return null
+      const next = authUserFromSession(session)
+      setUser((prev) => authUserFromSession(session, prev))
+      return next
+    },
+    updateProfile: async (patch) => {
+      const max = platformSlotLimitFor(entitlementPlan ?? plan)
+      const res = await marginosAuthProvider.updateProfile({
+        fullName: patch.fullName,
+        businessName: patch.businessName,
+        phone: patch.phone,
+        enabledPlatforms: patch.enabledPlatforms,
+        maxPlatforms: max,
+      })
+      if (!res.ok) return { ok: false, message: res.message }
+      if (res.session) {
+        setUser((prev) => authUserFromSession(res.session!, prev))
+      } else {
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                fullName: patch.fullName.trim(),
+                businessName: patch.businessName.trim(),
+                phone: patch.phone.trim(),
+                enabledPlatforms: patch.enabledPlatforms ?? prev.enabledPlatforms ?? null,
+              }
+            : prev,
+        )
+      }
+      return { ok: true, message: res.message || 'Profile saved.' }
+    },
+    platformSlotLimit: platformSlotLimitFor(entitlementPlan ?? plan),
     passwordResetToken,
     clearPasswordResetToken: () => setPasswordResetToken(null),
     signOut: () => {
@@ -1073,9 +1115,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAuthOpen(true)
         return { ok: false, message: 'Verify your email before your first upload.' }
       }
+      if (!isProfileComplete(user)) {
+        setAuthOpen(true)
+        return {
+          ok: false,
+          message: 'Complete your profile (name, business name, phone) and choose your platforms.',
+        }
+      }
       if (!hasPaidAccess(access)) {
         setUpgradeOpen(true)
         return { ok: false, message: en.verifyEmail || 'Start a trial to upload your own orders.' }
+      }
+      const slotLimit = platformSlotLimitFor(entitlementPlan ?? plan)
+      const enabled =
+        user.enabledPlatforms && user.enabledPlatforms.length > 0
+          ? user.enabledPlatforms
+          : slotLimit >= LAUNCH_PLATFORMS.length
+            ? [...LAUNCH_PLATFORMS]
+            : null
+      if (!enabled || enabled.length < 1) {
+        setAuthOpen(true)
+        return {
+          ok: false,
+          message: `Your plan includes ${slotLimit} of 3 platforms. Open Account and choose which platform(s) to use.`,
+        }
+      }
+      if (enabled.length > slotLimit) {
+        setAuthOpen(true)
+        return {
+          ok: false,
+          message: `Your plan allows ${slotLimit} of 3 platforms. Open Account and remove extras.`,
+        }
+      }
+      if (!enabled.includes(input.platform as Platform) && input.platform !== 'manual') {
+        return {
+          ok: false,
+          message: `${input.platform} is not one of your chosen platforms. Open Account to change your ${slotLimit} of 3 selection, or upgrade.`,
+        }
       }
       const parsed = importPlatformFiles(input)
       if (!parsed.ok) {

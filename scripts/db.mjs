@@ -87,6 +87,16 @@ export async function migrate() {
   // Soft-launch columns (idempotent)
   await p.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider TEXT NOT NULL DEFAULT 'email';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS enabled_platforms TEXT;
+  `)
+  await p.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_uidx
+      ON users (google_sub)
+      WHERE google_sub IS NOT NULL;
   `)
   return true
 }

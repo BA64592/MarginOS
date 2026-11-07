@@ -10,9 +10,13 @@ export interface AuthSession {
   email: string
   emailVerified: boolean
   provider: 'email' | 'google' | 'demo'
-  plan?: 'free' | 'pro'
+  plan?: 'free' | 'pro' | 'starter' | 'growth' | 'scale'
   googleSub?: string
   pendingVerifyToken?: string
+  fullName?: string | null
+  businessName?: string | null
+  phone?: string | null
+  enabledPlatforms?: string[] | null
 }
 
 export interface AuthProvider {
@@ -26,6 +30,7 @@ export interface AuthProvider {
     sub: string
     email: string
     email_verified: boolean
+    accessToken?: string
   }): Promise<{ ok: boolean; session?: AuthSession; message: string }>
   requestEmailVerification(accountId: string, email: string): Promise<{
     ok: boolean
@@ -35,6 +40,7 @@ export interface AuthProvider {
   verifyEmail(token: string): Promise<{ ok: boolean; message: string; email?: string; session?: AuthSession }>
   requestPasswordReset(email: string): Promise<{ ok: boolean; message: string }>
   resetPassword(token: string, newPassword: string): Promise<{ ok: boolean; message: string }>
+  updateProfile(patch: ProfilePatch): Promise<{ ok: boolean; message: string; session?: AuthSession }>
   fetchSession(): Promise<AuthSession | null>
   syncLicence(): Promise<{ ok: boolean; session?: AuthSession; message: string }>
   signOut(): Promise<void>
@@ -44,10 +50,23 @@ type ApiUser = {
   id: string
   email: string
   emailVerified: boolean
-  plan?: 'free' | 'pro'
+  plan?: string
   timeZone?: string
   createdAt?: string
   lastSignInAt?: string
+  authProvider?: 'email' | 'google'
+  fullName?: string | null
+  businessName?: string | null
+  phone?: string | null
+  enabledPlatforms?: string[] | null
+}
+
+export type ProfilePatch = {
+  fullName: string
+  businessName: string
+  phone: string
+  enabledPlatforms?: string[]
+  maxPlatforms?: number
 }
 
 function sessionFromApi(user: ApiUser): AuthSession {
@@ -55,8 +74,14 @@ function sessionFromApi(user: ApiUser): AuthSession {
     accountId: user.id,
     email: user.email,
     emailVerified: Boolean(user.emailVerified),
-    provider: 'email',
-    plan: user.plan === 'pro' ? 'pro' : 'free',
+    provider: user.authProvider === 'google' ? 'google' : 'email',
+    plan: user.plan === 'pro' || user.plan === 'starter' || user.plan === 'growth' || user.plan === 'scale'
+      ? (user.plan as 'pro')
+      : 'free',
+    fullName: user.fullName ?? null,
+    businessName: user.businessName ?? null,
+    phone: user.phone ?? null,
+    enabledPlatforms: user.enabledPlatforms ?? null,
   }
 }
 
@@ -228,6 +253,13 @@ const localAuthProvider: AuthProvider = {
       message: 'Password updated. Sign in with your new password. Other sessions were signed out.',
     }
   },
+  async updateProfile(patch) {
+    if (!patch.fullName.trim() || !patch.businessName.trim() || !patch.phone.trim()) {
+      return { ok: false, message: 'Name, business name and phone number are required.' }
+    }
+    // Local/demo: caller merges into existing user state (no session overwrite).
+    return { ok: true, message: 'Profile saved.' }
+  },
   async fetchSession() {
     return null
   },
@@ -271,7 +303,32 @@ const serverAuthProvider: AuthProvider = {
     }
   },
   async signInGoogle(claims) {
-    return localAuthProvider.signInGoogle(claims)
+    try {
+      if (!claims.accessToken) {
+        return { ok: false, message: 'Google sign-in token missing.' }
+      }
+      const { okHttp, data } = await apiJson<{
+        ok?: boolean
+        message?: string
+        user?: ApiUser
+      }>('/api/auth/google', {
+        method: 'POST',
+        body: JSON.stringify({
+          accessToken: claims.accessToken,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London',
+        }),
+      })
+      if (!okHttp || !data.ok || !data.user) {
+        return { ok: false, message: data.message || 'Google sign-in failed.' }
+      }
+      return {
+        ok: true,
+        session: sessionFromApi(data.user),
+        message: data.message || 'Signed in with Google.',
+      }
+    } catch {
+      return localAuthProvider.signInGoogle(claims)
+    }
   },
   async requestEmailVerification() {
     try {
@@ -354,6 +411,28 @@ const serverAuthProvider: AuthProvider = {
       return { ok: false, message: data.message || 'Could not reset password.' }
     } catch {
       return localAuthProvider.resetPassword(token, newPassword)
+    }
+  },
+  async updateProfile(patch) {
+    try {
+      const { okHttp, data } = await apiJson<{
+        ok?: boolean
+        message?: string
+        user?: ApiUser
+      }>('/api/auth/profile', {
+        method: 'POST',
+        body: JSON.stringify(patch),
+      })
+      if (okHttp && data.ok && data.user) {
+        return {
+          ok: true,
+          message: data.message || 'Profile saved.',
+          session: sessionFromApi(data.user),
+        }
+      }
+      return { ok: false, message: data.message || 'Could not save profile.' }
+    } catch {
+      return localAuthProvider.updateProfile(patch)
     }
   },
   async fetchSession() {

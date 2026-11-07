@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext'
 import { PRODUCT_NAME } from '../lib/brand'
 import { isDemoHarnessEnabled } from '../lib/demoFlags'
 import { PLANS, PRIMARY_TRIAL_CTA, hasPaidAccess } from '../lib/plans'
+import { isProfileComplete } from '../lib/types'
 import { BrandLockup } from './BrandMark'
 import { Badge, Button } from './ui'
 
@@ -73,11 +74,14 @@ export function Header({
           <Button
             variant="ghost"
             size="sm"
-            className="px-2"
+            className="gap-1.5 px-2"
             onClick={() => setAuthOpen(true)}
-            aria-label="Account"
+            aria-label={user ? 'Account' : 'Sign in'}
           >
             <User className="h-4 w-4" />
+            <span className="hidden max-w-[9rem] truncate sm:inline">
+              {user ? user.fullName || user.email.split('@')[0] || 'Account' : 'Sign in'}
+            </span>
           </Button>
           {!subscribed ? (
             <Button size="sm" onClick={() => setUpgradeOpen(true)}>
@@ -97,6 +101,14 @@ export function Header({
           Verify your email before your first upload.{' '}
           <button type="button" className="font-semibold underline" onClick={() => setAuthOpen(true)}>
             Verify now
+          </button>
+        </div>
+      ) : null}
+      {user && user.emailVerified && !isProfileComplete(user) ? (
+        <div className="border-t border-accent/30 bg-accent-soft px-4 py-2 text-center text-xs text-accent sm:px-6">
+          Finish your profile (name, business, phone) and choose your platform(s).{' '}
+          <button type="button" className="font-semibold underline" onClick={() => setAuthOpen(true)}>
+            Open Account
           </button>
         </div>
       ) : null}

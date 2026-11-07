@@ -24,10 +24,33 @@ export interface AuthUser {
   emailVerified: boolean
   authProvider: 'email' | 'google'
   googleEmailVerified?: boolean
+  /** Legal / display name — mandatory once signed in. */
+  fullName?: string | null
+  /** Trading / business name — mandatory once signed in. */
+  businessName?: string | null
+  /** Contact phone — mandatory once signed in. */
+  phone?: string | null
+  /**
+   * Platforms this account may upload (Shopify / Amazon / Etsy).
+   * Length capped by plan maxPlatforms (1 / 2 / 3 of 3). Customer picks which.
+   */
+  enabledPlatforms?: Platform[] | null
   createdAt: string
   lastSignInAt: string
   timeZone: string
   timeZoneChangedAt: string | null
+}
+
+export function isProfileComplete(user: AuthUser | null | undefined): boolean {
+  if (!user) return false
+  return Boolean(
+    user.fullName?.trim() &&
+      user.businessName?.trim() &&
+      user.phone?.trim() &&
+      user.emailVerified &&
+      user.enabledPlatforms &&
+      user.enabledPlatforms.length > 0,
+  )
 }
 
 export interface TaxSettings {

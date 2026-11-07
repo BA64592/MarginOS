@@ -187,7 +187,7 @@ const FAQ = [
 ]
 
 export function PricingPage() {
-  const { setUpgradeOpen, setRoute, setAuthOpen } = useApp()
+  const { setUpgradeOpen, setRoute, setAuthOpen, user } = useApp()
   const [interval, setInterval] = useState<BillingInterval>('month')
 
   const chargeHint = useMemo(() => trialChargeDateLabel(), [])
@@ -414,7 +414,7 @@ export function PricingPage() {
             View sample report
           </Button>
           <Button variant="ghost" onClick={() => setAuthOpen(true)}>
-            Sign in
+            {user ? 'Account' : 'Sign in'}
           </Button>
         </div>
       </section>

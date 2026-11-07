@@ -71,6 +71,17 @@ function clearSessionCookie() {
   return `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
 }
 
+function parseEnabledPlatforms(raw) {
+  if (!raw) return null
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!Array.isArray(parsed)) return null
+    return parsed.filter((p) => ['shopify', 'amazon', 'etsy'].includes(p))
+  } catch {
+    return null
+  }
+}
+
 export function publicUser(row) {
   const plan = String(row.plan || 'free').toLowerCase()
   return {
@@ -82,7 +93,11 @@ export function publicUser(row) {
     timeZone: row.time_zone || 'Europe/London',
     createdAt: row.created_at?.toISOString?.() || row.created_at,
     lastSignInAt: row.last_sign_in_at?.toISOString?.() || row.last_sign_in_at,
-    authProvider: 'email',
+    authProvider: row.auth_provider === 'google' ? 'google' : 'email',
+    fullName: row.full_name || null,
+    businessName: row.business_name || null,
+    phone: row.phone || null,
+    enabledPlatforms: parseEnabledPlatforms(row.enabled_platforms),
   }
 }
 
@@ -136,11 +151,11 @@ async function sendVerifyEmail(to, verifyUrl) {
           Subject: { Data: 'Verify your Margins 365 email', Charset: 'UTF-8' },
           Body: {
             Text: {
-              Data: `Verify your Margins 365 email.\n\nOpen within 24 hours:\n${verifyUrl}\n`,
+              Data: `Verify your Margins 365 email.\n\nOpen this link within 24 hours (any device — your other signed-in devices will update automatically):\n${verifyUrl}\n\nNo code is required. Do not reply to this email.\n`,
               Charset: 'UTF-8',
             },
             Html: {
-              Data: `<p>Verify your Margins 365 email address.</p><p><a href="${verifyUrl}">Confirm email</a></p><p style="color:#555;font-size:14px">${verifyUrl}</p>`,
+              Data: `<p>Verify your <strong>Margins 365</strong> email address.</p><p><a href="${verifyUrl}">Confirm email</a></p><p style="color:#555;font-size:14px">Open the link on any device. Your other signed-in sessions update automatically — there is no code to type.</p><p style="color:#555;font-size:14px">${verifyUrl}</p>`,
               Charset: 'UTF-8',
             },
           },
@@ -159,8 +174,122 @@ async function mintVerification(userId, origin) {
     [token, userId, expires.toISOString()],
   )
   const base = origin || process.env.APP_ORIGIN || 'https://margins365.com'
-  const verifyUrl = `${base.replace(/\/$/, '')}/?verify=${encodeURIComponent(token)}`
+  // Hit the API so verify works without SPA JS; cookie is set then redirect to app.
+  const verifyUrl = `${base.replace(/\/$/, '')}/api/auth/verify?token=${encodeURIComponent(token)}`
   return { token, verifyUrl }
+}
+
+/** Google Identity Services — server verifies access token via Google userinfo. */
+export async function handleGoogleContinue(body, req) {
+  if (!dbConfigured()) {
+    return { status: 503, body: { ok: false, message: 'Auth database is not configured.' } }
+  }
+  const accessToken = String(body.accessToken || '').trim()
+  const timeZone = String(body.timeZone || 'Europe/London')
+  const ip = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || 'local'
+  if (!rateLimit(`auth:${ip}`, 30, 15 * 60 * 1000)) {
+    return { status: 429, body: { ok: false, message: 'Too many attempts. Try again later.' } }
+  }
+  if (!accessToken) {
+    return { status: 400, body: { ok: false, message: 'Google sign-in token missing.' } }
+  }
+
+  let profile
+  try {
+    const gRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!gRes.ok) {
+      return { status: 401, body: { ok: false, message: 'Google sign-in could not be verified.' } }
+    }
+    profile = await gRes.json()
+  } catch {
+    return { status: 502, body: { ok: false, message: 'Could not reach Google to verify sign-in.' } }
+  }
+
+  const sub = String(profile.sub || '').trim()
+  const email = String(profile.email || '')
+    .trim()
+    .toLowerCase()
+  const emailVerified =
+    profile.email_verified === true || profile.email_verified === 'true'
+  const displayName = String(profile.name || '').trim() || null
+  if (!sub || !email || !email.includes('@')) {
+    return { status: 400, body: { ok: false, message: 'Google did not return a usable email.' } }
+  }
+
+  const bySub = await query(`SELECT * FROM users WHERE google_sub = $1`, [sub])
+  let user = bySub.rows[0]
+  if (!user) {
+    const byEmail = await query(`SELECT * FROM users WHERE email = $1`, [email])
+    const existing = byEmail.rows[0]
+    if (existing) {
+      const provider = String(existing.auth_provider || 'email')
+      if (provider === 'email' && existing.password_hash) {
+        return {
+          status: 409,
+          body: {
+            ok: false,
+            message:
+              'This email already has a password account. Sign in with email, or reset your password.',
+          },
+        }
+      }
+      await query(
+        `UPDATE users SET
+           google_sub = $2,
+           auth_provider = 'google',
+           email_verified = CASE WHEN $3 THEN TRUE ELSE email_verified END,
+           full_name = COALESCE(full_name, $4),
+           last_sign_in_at = NOW(),
+           time_zone = COALESCE($5, time_zone),
+           updated_at = NOW()
+         WHERE id = $1`,
+        [existing.id, sub, emailVerified, displayName, timeZone],
+      )
+      const refreshed = await query(`SELECT * FROM users WHERE id = $1`, [existing.id])
+      user = refreshed.rows[0]
+    } else {
+      const id = `acct_${crypto.randomBytes(10).toString('hex')}`
+      // Unusable password hash — Google accounts cannot sign in with a password.
+      const hash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12)
+      const inserted = await query(
+        `INSERT INTO users (
+           id, email, password_hash, email_verified, plan, time_zone,
+           last_sign_in_at, auth_provider, google_sub, full_name
+         ) VALUES ($1, $2, $3, $4, 'free', $5, NOW(), 'google', $6, $7)
+         RETURNING *`,
+        [id, email, hash, emailVerified, timeZone, sub, displayName],
+      )
+      user = inserted.rows[0]
+    }
+  } else {
+    await query(
+      `UPDATE users SET
+         last_sign_in_at = NOW(),
+         time_zone = COALESCE($2, time_zone),
+         email_verified = CASE WHEN $3 THEN TRUE ELSE email_verified END,
+         full_name = COALESCE(full_name, $4),
+         updated_at = NOW()
+       WHERE id = $1`,
+      [user.id, timeZone, emailVerified, displayName],
+    )
+    const refreshed = await query(`SELECT * FROM users WHERE id = $1`, [user.id])
+    user = refreshed.rows[0]
+  }
+
+  const session = await createSession(user.id)
+  return {
+    status: 200,
+    headers: { 'Set-Cookie': sessionCookie(session.id, SESSION_DAYS * 24 * 60 * 60) },
+    body: {
+      ok: true,
+      user: publicUser(user),
+      message: user.email_verified
+        ? 'Signed in with Google.'
+        : 'Signed in with Google. Verify your email before upload.',
+    },
+  }
 }
 
 export async function handleAuthContinue(body, req) {
@@ -248,6 +377,75 @@ export async function handleAuthMe(req) {
   return { status: 200, body: { ok: true, user: publicUser(user) } }
 }
 
+/** Update mandatory profile + platform picks (K58 UX / plan slots). */
+export async function handleUpdateProfile(req, body) {
+  if (!dbConfigured()) {
+    return { status: 503, body: { ok: false, message: 'Auth database is not configured.' } }
+  }
+  const user = await userFromRequest(req)
+  if (!user) return { status: 401, body: { ok: false, message: 'Sign in first.' } }
+
+  const fullName = String(body.fullName || '').trim()
+  const businessName = String(body.businessName || '').trim()
+  const phone = String(body.phone || '').trim()
+  if (!fullName || !businessName || !phone) {
+    return {
+      status: 400,
+      body: { ok: false, message: 'Name, business name and phone number are required.' },
+    }
+  }
+  if (phone.replace(/\D/g, '').length < 7) {
+    return { status: 400, body: { ok: false, message: 'Enter a valid phone number.' } }
+  }
+
+  let enabledPlatforms = null
+  if (body.enabledPlatforms != null) {
+    const allowed = new Set(['shopify', 'amazon', 'etsy'])
+    const list = Array.isArray(body.enabledPlatforms)
+      ? body.enabledPlatforms.map(String).filter((p) => allowed.has(p))
+      : []
+    const max = Math.max(1, Math.min(3, Number(body.maxPlatforms) || 3))
+    if (list.length < 1) {
+      return {
+        status: 400,
+        body: { ok: false, message: 'Choose at least one platform for your plan.' },
+      }
+    }
+    if (list.length > max) {
+      return {
+        status: 400,
+        body: {
+          ok: false,
+          message: `Your plan allows ${max} of 3 platforms. Remove one before saving.`,
+        },
+      }
+    }
+    enabledPlatforms = list
+  }
+
+  await query(
+    `UPDATE users SET
+       full_name = $2,
+       business_name = $3,
+       phone = $4,
+       enabled_platforms = COALESCE($5, enabled_platforms),
+       updated_at = NOW()
+     WHERE id = $1`,
+    [
+      user.id,
+      fullName,
+      businessName,
+      phone,
+      enabledPlatforms ? JSON.stringify(enabledPlatforms) : null,
+    ],
+  )
+  const refreshed = await query(`SELECT * FROM users WHERE id = $1`, [user.id])
+  return {
+    status: 200,
+    body: { ok: true, message: 'Profile saved.', user: publicUser(refreshed.rows[0]) },
+  }
+}
+
 export async function handleAuthLogout() {
   return {
     status: 200,
@@ -304,8 +502,12 @@ export async function handleVerifyToken(token) {
     [row.user_id],
   )
   const userRes = await query(`SELECT * FROM users WHERE id = $1`, [row.user_id])
+  // Sign this browser in so profile completion works on the device that opened the email
+  // (iPad still updates via /api/auth/me poll on the original session).
+  const session = await createSession(row.user_id)
   return {
     status: 200,
+    headers: { 'Set-Cookie': sessionCookie(session.id, SESSION_DAYS * 24 * 60 * 60) },
     body: { ok: true, message: 'Email verified.', user: publicUser(userRes.rows[0]) },
   }
 }

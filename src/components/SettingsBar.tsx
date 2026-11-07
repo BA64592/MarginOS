@@ -211,7 +211,7 @@ export function SettingsBar() {
           </Button>
         ) : (
           <Button variant="secondary" size="sm" onClick={() => setAuthOpen(true)}>
-            Sign in
+            {user ? 'Account' : 'Sign in'}
           </Button>
         )}
         {deleteMsg ? <p className="mt-2 text-xs text-subtle">{deleteMsg}</p> : null}
