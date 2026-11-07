@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { PRODUCT_NAME } from '../lib/brand'
-import { hasFeature, hasPaidAccess } from '../lib/plans'
+import { hasPaidAccess } from '../lib/plans'
 import type { HomeCurrency } from '../lib/types'
 import { StartFreshButton } from './ConfirmActions'
 import { Button, Card, ConfirmDialog, Input, SectionHeading } from './ui'
@@ -17,8 +17,8 @@ export function SettingsBar() {
     setTax,
     monthlyOverheads,
     setMonthlyOverheads,
-    plan,
     access,
+    hasFeature,
     exportDataCsv,
     user,
     keptProData,
@@ -99,7 +99,7 @@ export function SettingsBar() {
         </div>
       </Card>
 
-      {hasFeature(plan, 'fullTax') || hasFeature(plan, 'overheads') ? (
+      {hasFeature('fullTax') || hasFeature('overheads') ? (
         <Card className="mt-4">
           <p className="mb-3 text-sm font-semibold text-ink">Tax settings (estimates, not tax advice)</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -217,9 +217,13 @@ async function applyCheckoutCompleted(session) {
   const email = session.customer_details?.email || session.customer_email || ''
   const planId =
     normalizePlanId(session.metadata?.margins365_plan || session.metadata?.marginos_plan) || 'pro'
+  // Trial checkouts usually report unpaid until day 15 → trialing; paid → active.
   const licenceState = session.payment_status === 'paid' ? 'active' : 'trialing'
-  if (accountId) await setUserPlan(accountId, planId, licenceState)
-  else if (email) await setUserPlanByEmail(email, planId, licenceState)
+  const billingInterval = normalizeInterval(
+    session.metadata?.margins365_interval || session.metadata?.marginos_interval,
+  )
+  if (accountId) await setUserPlan(accountId, planId, licenceState, billingInterval)
+  else if (email) await setUserPlanByEmail(email, planId, licenceState, billingInterval)
 }
 
 async function applyRefundOrDispute(object) {
@@ -275,7 +279,8 @@ export async function handleStripeWebhook(rawBody, signature) {
             : status === 'past_due'
               ? 'past_due'
               : 'canceled'
-      if (accountId) await setUserPlan(accountId, planId, licenceState)
+      const billingInterval = normalizeInterval(sub.items?.data?.[0]?.price?.recurring?.interval)
+      if (accountId) await setUserPlan(accountId, planId, licenceState, billingInterval)
     } else if (event.type === 'customer.subscription.deleted') {
       const sub = event.data.object
       const accountId =
