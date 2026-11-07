@@ -1,10 +1,16 @@
 /**
- * Stripe Checkout + webhook helpers for DigitalOcean runtime (and local smoke).
- * Spec: v16 §12.10 / docs/checklists/stripe-smp.md
+ * Stripe Checkout + webhook helpers for DigitalOcean runtime.
+ * v19 subscriptions: Starter / Growth / Pro / Scale × monthly / annual + 14-day trial.
  */
 import Stripe from 'stripe'
 import { setUserPlan, setUserPlanByEmail, userFromRequest } from './auth-handlers.mjs'
 import { dbConfigured, query } from './db.mjs'
+import {
+  normalizeInterval,
+  normalizePlanId,
+  priceIdForPlan,
+  stripeTierConfigured,
+} from './stripe-price-map.mjs'
 
 const ALLOWED = new Set([
   'GB',
@@ -29,6 +35,17 @@ const ALLOWED = new Set([
   'NO',
 ])
 
+const TRIAL_DAYS = Number(process.env.STRIPE_TRIAL_DAYS || 14)
+const DEFAULT_ORIGIN =
+  process.env.APP_ORIGIN ||
+  process.env.VITE_PRODUCT_DOMAIN ||
+  'https://marginos.online'
+
+function defaultOriginUrl() {
+  const raw = String(DEFAULT_ORIGIN)
+  return raw.startsWith('http') ? raw.replace(/\/$/, '') : `https://${raw.replace(/\/$/, '')}`
+}
+
 export function stripeClient() {
   const secret = process.env.STRIPE_SECRET_KEY
   if (!secret) return null
@@ -40,8 +57,8 @@ export function stripeClient() {
 export function stripeConfigured() {
   return Boolean(
     process.env.STRIPE_SECRET_KEY &&
-      process.env.STRIPE_PRICE_FULL &&
-      process.env.STRIPE_PRICE_EARLY_BIRD,
+      (stripeTierConfigured() ||
+        (process.env.STRIPE_PRICE_FULL && process.env.STRIPE_PRICE_EARLY_BIRD)),
   )
 }
 
@@ -71,13 +88,11 @@ export async function createCheckoutSession(body, req) {
     accountId = String(user.id)
     email = String(user.email || '')
   } else if (process.env.NODE_ENV === 'production' || dbConfigured()) {
-    // Fail closed in hosted envs when we cannot bind a session.
     return {
       status: 401,
       body: { ok: false, message: 'Sign in to start checkout.' },
     }
   } else {
-    // Local/dev without DB: allow body identity for smoke tests only.
     accountId = String(body.accountId || '')
     email = String(body.email || '')
   }
@@ -90,32 +105,48 @@ export async function createCheckoutSession(body, req) {
     }
   }
 
-  const priceId = body.earlyBird
-    ? process.env.STRIPE_PRICE_EARLY_BIRD
-    : process.env.STRIPE_PRICE_FULL
+  const planId = normalizePlanId(body.planId) || 'pro'
+  const interval = normalizeInterval(body.interval)
+  const priceId = priceIdForPlan(planId, interval)
   if (!priceId) {
-    return { status: 503, body: { ok: false, message: 'Stripe price IDs not configured.' } }
+    return {
+      status: 503,
+      body: {
+        ok: false,
+        message: `Stripe price not configured for ${planId}/${interval}. Run scripts/stripe-bootstrap-products.mjs and set STRIPE_PRICE_* env vars.`,
+      },
+    }
+  }
+
+  const origin = defaultOriginUrl()
+  const trialDays = Number(body.trialDays || TRIAL_DAYS)
+  const meta = {
+    margins365_account_id: accountId,
+    marginos_account_id: accountId,
+    margins365_plan: planId,
+    marginos_plan: planId,
+    margins365_interval: interval,
+    billing_country: country,
   }
 
   const base = {
-    mode: 'payment',
+    mode: 'subscription',
     client_reference_id: accountId,
     customer_email: email || undefined,
-    success_url: String(body.successUrl || 'https://marginos.online/?checkout=success'),
-    cancel_url: String(body.cancelUrl || 'https://marginos.online/?checkout=cancel'),
+    success_url: String(body.successUrl || `${origin}/?checkout=success`),
+    cancel_url: String(body.cancelUrl || `${origin}/?checkout=cancel`),
     line_items: [{ price: priceId, quantity: 1 }],
-    expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-    metadata: {
-      marginos_account_id: accountId,
-      early_bird: body.earlyBird ? '1' : '0',
-      billing_country: country,
+    subscription_data: {
+      trial_period_days: trialDays > 0 ? trialDays : undefined,
+      metadata: meta,
     },
+    metadata: meta,
+    expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
   }
 
   try {
     const session = await stripe.checkout.sessions.create({
       ...base,
-      // Managed Payments / Link — ignore if account not yet eligible
       managed_payments: { enabled: true },
     })
     if (!session.url) {
@@ -123,11 +154,10 @@ export async function createCheckoutSession(body, req) {
     }
     return {
       status: 200,
-      body: { ok: true, url: session.url, sessionId: session.id },
+      body: { ok: true, url: session.url, sessionId: session.id, planId, interval },
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Checkout failed'
-    // Retry without managed_payments if the account isn't SMP-enabled yet
     if (String(message).toLowerCase().includes('managed_payments')) {
       try {
         const stripe2 = stripeClient()
@@ -138,8 +168,11 @@ export async function createCheckoutSession(body, req) {
             ok: true,
             url: session.url,
             sessionId: session.id,
+            planId,
+            interval,
             managedPayments: false,
-            message: 'Checkout created without managed_payments (enable SMP in Stripe Dashboard when eligible).',
+            message:
+              'Checkout created without managed_payments (enable SMP in Stripe Dashboard when eligible).',
           },
         }
       } catch (err2) {
@@ -178,17 +211,21 @@ async function markProcessed(eventId, type) {
 async function applyCheckoutCompleted(session) {
   const accountId =
     session.client_reference_id ||
+    session.metadata?.margins365_account_id ||
     session.metadata?.marginos_account_id ||
     ''
   const email = session.customer_details?.email || session.customer_email || ''
-  if (accountId) await setUserPlan(accountId, 'pro', 'active')
-  else if (email) await setUserPlanByEmail(email, 'pro', 'active')
+  const planId =
+    normalizePlanId(session.metadata?.margins365_plan || session.metadata?.marginos_plan) || 'pro'
+  const licenceState = session.payment_status === 'paid' ? 'active' : 'trialing'
+  if (accountId) await setUserPlan(accountId, planId, licenceState)
+  else if (email) await setUserPlanByEmail(email, planId, licenceState)
 }
 
 async function applyRefundOrDispute(object) {
-  // K8: keep data export-only — mark licence removed but do not delete shop rows (client-held).
   const email = object.billing_details?.email || object.receipt_email || ''
-  const metaAccount = object.metadata?.marginos_account_id
+  const metaAccount =
+    object.metadata?.margins365_account_id || object.metadata?.marginos_account_id
   if (metaAccount) await setUserPlan(metaAccount, 'free', 'removed_full_refund')
   else if (email) await setUserPlanByEmail(email, 'free', 'removed_full_refund')
 }
@@ -223,6 +260,27 @@ export async function handleStripeWebhook(rawBody, signature) {
   try {
     if (event.type === 'checkout.session.completed') {
       await applyCheckoutCompleted(event.data.object)
+    } else if (event.type === 'customer.subscription.updated') {
+      const sub = event.data.object
+      const accountId =
+        sub.metadata?.margins365_account_id || sub.metadata?.marginos_account_id || ''
+      const planId =
+        normalizePlanId(sub.metadata?.margins365_plan || sub.metadata?.marginos_plan) || 'pro'
+      const status = sub.status
+      const licenceState =
+        status === 'trialing'
+          ? 'trialing'
+          : status === 'active'
+            ? 'active'
+            : status === 'past_due'
+              ? 'past_due'
+              : 'canceled'
+      if (accountId) await setUserPlan(accountId, planId, licenceState)
+    } else if (event.type === 'customer.subscription.deleted') {
+      const sub = event.data.object
+      const accountId =
+        sub.metadata?.margins365_account_id || sub.metadata?.marginos_account_id || ''
+      if (accountId) await setUserPlan(accountId, 'free', 'canceled')
     } else if (event.type === 'charge.refunded') {
       await applyRefundOrDispute(event.data.object)
     } else if (event.type === 'charge.dispute.closed') {
